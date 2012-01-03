@@ -30,7 +30,6 @@
  */
 #define KPROBE_BREAKPOINT_INSTRUCTION	0xe7f001f8
 
-#define regs_return_value(regs)		((regs)->ARM_r0)
 #define flush_insn_slot(p)		do { } while (0)
 #define kretprobe_blacklist_size	0
 
