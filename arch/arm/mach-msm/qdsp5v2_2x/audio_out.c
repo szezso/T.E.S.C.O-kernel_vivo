@@ -42,7 +42,7 @@
 #include <mach/debug_mm.h>
 #include <linux/rtc.h>
 
-#define BUFSZ (960 * 5)
+#define BUFSZ (5248)
 #define DMASZ (BUFSZ * 2)
 
 #define HOSTPCM_STREAM_ID 5
@@ -632,7 +632,7 @@ static int audio_open(struct inode *inode, struct file *file)
 	audio->dec_id = HOSTPCM_STREAM_ID;
 
 	audio->out_buffer_size = BUFSZ;
-	audio->out_sample_rate = 44100;
+	audio->out_sample_rate = 48000;
 	audio->out_channel_mode = AUDPP_CMD_PCM_INTF_STEREO_V;
 	audio->out_weight = 100;
 
