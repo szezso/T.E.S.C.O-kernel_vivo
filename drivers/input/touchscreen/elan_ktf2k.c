@@ -1136,7 +1136,7 @@ static void elan_ktf2k_ts_report_data(struct i2c_client *client, uint8_t *buf)
 			ts->first_pressed = 1;
 		}
 #ifdef CONFIG_TOUCHSCREEN_COMPATIBLE_REPORT
-		input_report_abs(idev, ABS_MT_PRESSURE, 0);
+		input_report_abs(idev, ABS_MT_TOUCH_MAJOR, 0);
 #else
 		input_report_abs(idev, ABS_MT_AMPLITUDE, 0);
 		input_report_abs(idev, ABS_MT_POSITION, BIT(31));
@@ -1172,7 +1172,7 @@ static void elan_ktf2k_ts_report_data(struct i2c_client *client, uint8_t *buf)
 					z = w = (buf[IDX_WIDTH + (i >> 1)] >> 4) & 0xf;
 			}
 #ifdef CONFIG_TOUCHSCREEN_COMPATIBLE_REPORT
-			input_report_abs(idev, ABS_MT_PRESSURE, z);
+			input_report_abs(idev, ABS_MT_TOUCH_MAJOR, z);
 			input_report_abs(idev, ABS_MT_WIDTH_MAJOR, w);
 			input_report_abs(idev, ABS_MT_POSITION_X, x);
 			input_report_abs(idev, ABS_MT_POSITION_Y, y);
@@ -1405,7 +1405,7 @@ static int elan_ktf2k_ts_probe(struct i2c_client *client,
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y,
 		pdata->abs_y_min,  pdata->abs_y_max,
 		ELAN_TS_FUZZ, ELAN_TS_FLAT);
-	input_set_abs_params(ts->input_dev, ABS_MT_PRESSURE,
+	input_set_abs_params(ts->input_dev, ABS_MT_TOUCH_MAJOR,
 		0, 15,
 		ELAN_TS_FUZZ, ELAN_TS_FLAT);
 	input_set_abs_params(ts->input_dev, ABS_MT_WIDTH_MAJOR,
@@ -1528,7 +1528,7 @@ static int elan_ktf2k_ts_resume(struct i2c_client *client)
 		printk(KERN_ERR "TOUCH_ERR: wakeup tp failed!\n");
 
 #ifdef CONFIG_TOUCHSCREEN_COMPATIBLE_REPORT
-        input_report_abs(ts->input_dev, ABS_MT_PRESSURE, 0);
+	input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0);
 	input_sync(ts->input_dev);
 #else
 	input_report_abs(ts->input_dev, ABS_MT_AMPLITUDE, 0);

@@ -279,7 +279,7 @@ static void synaptics_ts_work_func(struct work_struct *work)
 		}
 		if (finger_pressed == 0) {
 #ifdef CONFIG_TOUCHSCREEN_COMPATIBLE_REPORT
-                  //			input_report_abs(ts->input_dev, ABS_MT_PRESSURE, 0);
+			input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0);
 			input_report_key(ts->input_dev, BTN_TOUCH, 0);
 #else
 			input_report_abs(ts->input_dev, ABS_MT_AMPLITUDE, 0);
@@ -314,7 +314,7 @@ static void synaptics_ts_work_func(struct work_struct *work)
 				if (((finger_pressed >> loop_i) & 1) == 1) {
 					finger_pressed &= ~(1 << loop_i);
 #ifdef CONFIG_TOUCHSCREEN_COMPATIBLE_REPORT
-					input_report_abs(ts->input_dev, ABS_MT_PRESSURE,
+					input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR,
 						finger_data[loop_i][3]);
 					input_report_abs(ts->input_dev, ABS_MT_WIDTH_MAJOR,
 						finger_data[loop_i][2]);
@@ -517,7 +517,7 @@ static int synaptics_ts_probe(
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X, pdata->abs_x_min, pdata->abs_x_max, 0, 0);
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y, pdata->abs_y_min, pdata->abs_y_max, 0, 0);
 
-	input_set_abs_params(ts->input_dev, ABS_MT_PRESSURE, 0, 255, 0, 0);
+	input_set_abs_params(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
 	input_set_abs_params(ts->input_dev, ABS_MT_WIDTH_MAJOR, 0, 30, 0, 0);
 #ifndef CONFIG_TOUCHSCREEN_COMPATIBLE_REPORT
 	input_set_abs_params(ts->input_dev, ABS_MT_AMPLITUDE,
@@ -634,7 +634,7 @@ static int synaptics_ts_resume(struct i2c_client *client)
 	ts->timestamp = jiffies;
 
 #ifdef CONFIG_TOUCHSCREEN_COMPATIBLE_REPORT
-	input_report_abs(ts->input_dev, ABS_MT_PRESSURE, 0);
+	input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0);
 	input_report_key(ts->input_dev, BTN_TOUCH, 0);
 	input_sync(ts->input_dev);
 #else
