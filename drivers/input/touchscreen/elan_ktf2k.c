@@ -1113,12 +1113,12 @@ static void elan_ktf2k_ts_report_data(struct i2c_client *client, uint8_t *buf)
 	unsigned report_time2;
 	struct input_dev *idev = ts->input_dev;
 	uint16_t x, y, z, w;
-	uint8_t i = 0;
-	uinr8_t idx = 0;
-	uint8_t finger_count = 0;
-	uint8_t finger_pressed = 0;
-	uint8_t finger_press_changed = 0;
-	uint8_t finger_release_changed = 0;
+	int i = 0;
+	int idx = 0;
+	int finger_count = 0;
+	int finger_pressed = 0;
+	int finger_press_changed = 0;
+	int finger_release_changed = 0;
 
 	finger_count = buf[IDX_NUM] & 0x7;
 	finger_pressed = buf[IDX_NUM] >> 3;
