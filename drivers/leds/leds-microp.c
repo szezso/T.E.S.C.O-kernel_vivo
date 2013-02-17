@@ -111,7 +111,7 @@ static void microp_led_jogball_brightness_set(struct led_classdev *led_cdev,
 	ldata->brightness = brightness;
 	spin_unlock_irqrestore(&ldata->brightness_lock, flags);
 
-	switch (brightness) {
+	switch ((int)brightness) {
 	case 0:
 		data[0] = 0;
 		break;
@@ -157,7 +157,7 @@ static void microp_led_wimax_brightness_set(struct led_classdev *led_cdev,
 	ldata->brightness = brightness;
 	spin_unlock_irqrestore(&ldata->brightness_lock, flags);
 
-	switch (brightness) {
+	switch ((int)brightness) {
 	case 0:
 		data[0] = 0;
 		break;
@@ -776,4 +776,3 @@ module_exit(microp_led_exit);
 MODULE_DESCRIPTION("Atmega MicroP led driver");
 MODULE_LICENSE("GPL");
 #endif /* end of #ifdef CONFIG_MICROP_COMMON*/
-
