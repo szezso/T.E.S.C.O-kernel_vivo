@@ -45,8 +45,6 @@ extern void md_autodetect_dev(dev_t dev);
 
 int warn_no_part = 1; /*This is ugly: should make genhd removable media aware*/
 
-static struct parsed_partitions *check_state = NULL;
-
 static int (*check_part[])(struct parsed_partitions *) = {
 	/*
 	 * Probe partition formats with tables at disk address 0
@@ -160,36 +158,30 @@ EXPORT_SYMBOL(__bdevname);
 static struct parsed_partitions *
 check_partition(struct gendisk *hd, struct block_device *bdev)
 {
+	struct parsed_partitions *state;
 	int i, res, err;
-	if (!check_state) {
-		check_state = kzalloc(sizeof(struct parsed_partitions), GFP_KERNEL);
-		if (!check_state) {
-			printk(KERN_ERR "%s: page allocation failure. size=%d, order=%d\n",
-				__func__, sizeof(struct parsed_partitions), get_order(sizeof(struct parsed_partitions)));
-			return NULL;
-		}
-		printk("%s: Allocate memory for SD/eMMC card partition description (Once)", __func__);
-	} else
-		memset(check_state, 0, sizeof(struct parsed_partitions));
 
-	check_state->pp_buf = (char *)__get_free_page(GFP_KERNEL);
-	if (!check_state->pp_buf) {
-		kfree(check_state);
+	state = kzalloc(sizeof(struct parsed_partitions), GFP_KERNEL);
+	if (!state)
+		return NULL;
+	state->pp_buf = (char *)__get_free_page(GFP_KERNEL);
+	if (!state->pp_buf) {
+		kfree(state);
 		return NULL;
 	}
-	check_state->pp_buf[0] = '\0';
+	state->pp_buf[0] = '\0';
 
-	check_state->bdev = bdev;
-	disk_name(hd, 0,check_state->name);
-	snprintf(check_state->pp_buf, PAGE_SIZE, " %s:", check_state->name);
-	if (isdigit(check_state->name[strlen(check_state->name)-1]))
-		sprintf(check_state->name, "p");
+	state->bdev = bdev;
+	disk_name(hd, 0, state->name);
+	snprintf(state->pp_buf, PAGE_SIZE, " %s:", state->name);
+	if (isdigit(state->name[strlen(state->name)-1]))
+		sprintf(state->name, "p");
 
-	check_state->limit = disk_max_parts(hd);
+	state->limit = disk_max_parts(hd);
 	i = res = err = 0;
 	while (!res && check_part[i]) {
-		memset(&check_state->parts, 0, sizeof(check_state->parts));
-		res = check_part[i++](check_state);
+		memset(&state->parts, 0, sizeof(state->parts));
+		res = check_part[i++](state);
 		if (res < 0) {
 			/* We have hit an I/O error which we don't report now.
 		 	* But record it, and let the others do their job.
@@ -200,25 +192,25 @@ check_partition(struct gendisk *hd, struct block_device *bdev)
 
 	}
 	if (res > 0) {
-		printk(KERN_INFO "%s", check_state->pp_buf);
+		printk(KERN_INFO "%s", state->pp_buf);
 
-		free_page((unsigned long)check_state->pp_buf);
-		return check_state;
+		free_page((unsigned long)state->pp_buf);
+		return state;
 	}
-	if (check_state->access_beyond_eod)
+	if (state->access_beyond_eod)
 		err = -ENOSPC;
 	if (err)
 	/* The partition is unrecognized. So report I/O errors if there were any */
 		res = err;
 	if (!res)
-		strlcat(check_state->pp_buf, " unknown partition table\n", PAGE_SIZE);
+		strlcat(state->pp_buf, " unknown partition table\n", PAGE_SIZE);
 	else if (warn_no_part)
-		strlcat(check_state->pp_buf, " unable to read partition table\n", PAGE_SIZE);
+		strlcat(state->pp_buf, " unable to read partition table\n", PAGE_SIZE);
 
-	printk(KERN_INFO "%s", check_state->pp_buf);
+	printk(KERN_INFO "%s", state->pp_buf);
 
-	free_page((unsigned long)check_state->pp_buf);
-	/* kfree(check_state); */
+	free_page((unsigned long)state->pp_buf);
+	kfree(state);
 	return ERR_PTR(res);
 }
 
@@ -558,21 +550,11 @@ static bool disk_unlock_native_capacity(struct gendisk *disk)
 	}
 }
 
-int rescan_partitions(struct gendisk *disk, struct block_device *bdev)
+static int drop_partitions(struct gendisk *disk, struct block_device *bdev)
 {
-	struct parsed_partitions *state = NULL;
 	struct disk_part_iter piter;
 	struct hd_struct *part;
-	int p, highest, res;
-
-rescan:
-/* Alloc once, not free */
-/*
-	if (state && !IS_ERR(state)) {
-		kfree(state);
-		state = NULL;
-	}
-*/
+	int res;
 
 	if (bdev->bd_part_count)
 		return -EBUSY;
@@ -584,6 +566,24 @@ rescan:
 	while ((part = disk_part_iter_next(&piter)))
 		delete_partition(disk, part->partno);
 	disk_part_iter_exit(&piter);
+
+	return 0;
+}
+
+int rescan_partitions(struct gendisk *disk, struct block_device *bdev)
+{
+	struct parsed_partitions *state = NULL;
+	struct hd_struct *part;
+	int p, highest, res;
+rescan:
+	if (state && !IS_ERR(state)) {
+		kfree(state);
+		state = NULL;
+	}
+
+	res = drop_partitions(disk, bdev);
+	if (res)
+		return res;
 
 	if (disk->fops->revalidate_disk)
 		disk->fops->revalidate_disk(disk);
@@ -684,8 +684,27 @@ rescan:
 			md_autodetect_dev(part_to_dev(part)->devt);
 #endif
 	}
-	/* Alloc once, not free */
-	/* kfree(state); */
+	kfree(state);
+	return 0;
+}
+
+int invalidate_partitions(struct gendisk *disk, struct block_device *bdev)
+{
+	int res;
+
+	if (!bdev->bd_invalidated)
+		return 0;
+
+	res = drop_partitions(disk, bdev);
+	if (res)
+		return res;
+
+	set_capacity(disk, 0);
+	check_disk_size_change(disk, bdev);
+	bdev->bd_invalidated = 0;
+	/* tell userspace that the media / partition table may have changed */
+	kobject_uevent(&disk_to_dev(disk)->kobj, KOBJ_CHANGE);
+
 	return 0;
 }
 
