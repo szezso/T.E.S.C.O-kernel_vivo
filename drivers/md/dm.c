@@ -1180,7 +1180,7 @@ static int __clone_and_map_empty_flush(struct clone_info *ci)
 static void __clone_and_map_simple(struct clone_info *ci, struct dm_target *ti)
 {
 	struct bio *clone, *bio = ci->bio;
-	struct dm_target_io *tio;
+	//struct dm_target_io *tio;
 
 	tio = alloc_tio(ci, ti);
 	clone = clone_bio(bio, ci->sector, ci->idx,
