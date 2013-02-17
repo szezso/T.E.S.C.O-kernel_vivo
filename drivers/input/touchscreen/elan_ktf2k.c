@@ -356,7 +356,7 @@ static int elan_ktf2k_diag_open_v2(struct i2c_client *client, uint8_t diag_comma
 				0x00, 0x00, 0x00, 0x00, 0x00},
 		},
 	};
-	uint8_t i;
+	int i = 0;
 
 	if (diag_command == TEST_MODE_DV)
 		i = 0;
