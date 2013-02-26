@@ -1991,7 +1991,7 @@ kgsl_mmap_memstore(struct kgsl_device *device, struct vm_area_struct *vma)
 		return -EINVAL;
 	}
 
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
 	result = remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
 				 vma_size, vma->vm_page_prot);
