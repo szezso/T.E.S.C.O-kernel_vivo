@@ -721,6 +721,10 @@ static void projector_complete_out(struct usb_ep *ep, struct usb_request *req)
 	int mouse_data[3];
 	int i;
 	int handled = 0;
+
+	mouse_data[1] = 0;
+	mouse_data[2] = 0;
+
 	VDBG("%s: status %d, %d bytes\n", __func__,
 		req->status, req->actual);
 
