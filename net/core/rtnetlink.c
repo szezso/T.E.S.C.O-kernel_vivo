@@ -2027,4 +2027,3 @@ void __init rtnetlink_init(void)
 	rtnl_register(PF_UNSPEC, RTM_GETADDR, NULL, rtnl_dump_all);
 	rtnl_register(PF_UNSPEC, RTM_GETROUTE, NULL, rtnl_dump_all);
 }
-
