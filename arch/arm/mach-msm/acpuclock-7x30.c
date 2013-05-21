@@ -56,7 +56,7 @@
 
 #define MAX_AXI_KHZ 192000
 #define ACPU_MIN_UV_MV 700U
-#define ACPU_MAX_UV_MV 1500U
+#define ACPU_MAX_UV_MV 1550U
 
 struct clock_state {
 	struct clkctl_acpu_speed	*current_speed;
@@ -94,6 +94,7 @@ static struct pll pll2_tbl[] = {
 	{  53, 1, 3, 0 }, /* 1024 MHz */
 	{ 125, 0, 1, 1 }, /* 1200 MHz */
 	{  73, 0, 1, 0 }, /* 1401 MHz */
+	{  78, 0, 1, 0 }, /* 1500 MHz */
 };
 
 /* Use negative numbers for sources that can't be enabled/disabled */
@@ -117,27 +118,23 @@ static struct clk *acpuclk_sources[MAX_SOURCE];
  * know all the h/w requirements.
  */
 static struct clkctl_acpu_speed acpu_freq_tbl[] = {
-	{ 0, 24576,  LPXO, 0, 0,  30720000,  900, VDD_RAW(900) },
-	{ 0, 61440,  PLL_3,    5, 11, 61440000,  900, VDD_RAW(900) },
-	{ 1, 122880, PLL_3,    5, 5,  61440000,  825, VDD_RAW(825) },
-	{ 0, 184320, PLL_3,    5, 4,  61440000,  850, VDD_RAW(850) },
-	{ 0, MAX_AXI_KHZ, AXI, 1, 0, 61440000, 900, VDD_RAW(900) },
-	{ 1, 245760, PLL_3,    5, 2,  61440000,  875, VDD_RAW(875) },
-	{ 1, 368640, PLL_3,    5, 1,  122800000, 900, VDD_RAW(900) },
+	{ 0, 24576,  LPXO, 0, 0,  30720000,  1000, VDD_RAW(1000) },
+	{ 1, 61440,  PLL_3,    5, 11, 61440000,  1000, VDD_RAW(1000) },
+	{ 1, 122880, PLL_3,    5, 5,  61440000,  1000, VDD_RAW(1000) },
+	{ 1, 184320, PLL_3,    5, 4,  61440000,  1000, VDD_RAW(1000) },
+	{ 0, MAX_AXI_KHZ, AXI, 1, 0, 61440000, 1000, VDD_RAW(1000) },
+	{ 1, 245760, PLL_3,    5, 2,  61440000,  1000, VDD_RAW(1000) },
+	{ 1, 368640, PLL_3,    5, 1,  122800000, 1050, VDD_RAW(1050) },
 	/* AXI has MSMC1 implications. See above. */
-	{ 1, 768000, PLL_1,    2, 0,  153600000, 950, VDD_RAW(950) },
+	{ 1, 768000, PLL_1,    2, 0,  153600000, 1100, VDD_RAW(1100) },
 	/*
 	 * AXI has MSMC1 implications. See above.
 	 */
-	{ 1, 806400,  PLL_2, 3, 0, UINT_MAX, 975, VDD_RAW(975), &pll2_tbl[0]},
-	{ 1, 1024000, PLL_2, 3, 0, UINT_MAX, 1100, VDD_RAW(1000), &pll2_tbl[1]},
-	{ 1, 1075200, PLL_2, 3, 0, UINT_MAX, 1150, VDD_RAW(1150), &pll2_tbl[2]},
-	{ 1, 1152000, PLL_2, 3, 0, UINT_MAX, 1125, VDD_RAW(1125), &pll2_tbl[3]},
-	{ 1, 1200000, PLL_2, 3, 0, UINT_MAX, 1150, VDD_RAW(1150), &pll2_tbl[4]},
-	{ 1, 1401600, PLL_2, 3, 0, UINT_MAX, 1200, VDD_RAW(1200), &pll2_tbl[5]},
-	{ 1, 1497600, PLL_2, 3, 0, UINT_MAX, 1250, VDD_RAW(1250), &pll2_tbl[6]},
-	{ 1, 1708800, PLL_2, 3, 0, UINT_MAX, 1300, VDD_RAW(1300), &pll2_tbl[7]},
-	{ 1, 1804800, PLL_2, 3, 0, UINT_MAX, 1350, VDD_RAW(1350), &pll2_tbl[8]},
+	{ 1, 806400,  PLL_2, 3, 0, UINT_MAX, 1100, VDD_RAW(1100), &pll2_tbl[0]},
+	{ 1, 1024000, PLL_2, 3, 0, UINT_MAX, 1200, VDD_RAW(1200), &pll2_tbl[1]},
+	{ 1, 1200000, PLL_2, 3, 0, UINT_MAX, 1200, VDD_RAW(1200), &pll2_tbl[2]},
+	{ 1, 1401600, PLL_2, 3, 0, UINT_MAX, 1250, VDD_RAW(1250), &pll2_tbl[3]},
+	{ 1, 1497600, PLL_2, 3, 0, UINT_MAX, 1250, VDD_RAW(1250), &pll2_tbl[4]},
 	{ 0 }
 };
 
@@ -257,7 +254,7 @@ static int acpuclk_7x30_set_rate(int cpu, unsigned long rate,
 	if (tgt_s->axi_clk_hz > strt_s->axi_clk_hz) {
 		rc = clk_set_rate(drv_state.ebi1_clk, tgt_s->axi_clk_hz);
 		if (rc < 0) {
-			pr_err("Setting AXI min rate failed (%d)\n", rc);
+			pr_err("Setting 			min rate failed (%d)\n", rc);
 			goto out;
 		}
 	}
@@ -544,3 +541,4 @@ unsigned int new_vdd;
 	}
 
 #endif
+
