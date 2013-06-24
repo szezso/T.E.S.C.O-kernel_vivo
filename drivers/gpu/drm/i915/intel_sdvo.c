@@ -857,45 +857,6 @@ static void intel_sdvo_dump_hdmi_buf(struct intel_sdvo *intel_sdvo)
 }
 #endif
 
-static bool intel_sdvo_write_infoframe(struct intel_sdvo *intel_sdvo,
-				       unsigned if_index, uint8_t tx_rate,
-				       uint8_t *data, unsigned length)
-{
-	uint8_t set_buf_index[2] = { if_index, 0 };
-	uint8_t hbuf_size, tmp[8];
-	int i;
-
-	if (!intel_sdvo_set_value(intel_sdvo,
-				  SDVO_CMD_SET_HBUF_INDEX,
-				  set_buf_index, 2))
-		return false;
-
-	if (!intel_sdvo_get_value(intel_sdvo, SDVO_CMD_GET_HBUF_INFO,
-				  &hbuf_size, 1))
-		return false;
-
-	/* Buffer size is 0 based, hooray! */
-	hbuf_size++;
-
-	DRM_DEBUG_KMS("writing sdvo hbuf: %i, hbuf_size %i, hbuf_size: %i\n",
-		      if_index, length, hbuf_size);
-
-	for (i = 0; i < hbuf_size; i += 8) {
-		memset(tmp, 0, 8);
-		if (i < length)
-			memcpy(tmp, data + i, min_t(unsigned, 8, length - i));
-
-		if (!intel_sdvo_set_value(intel_sdvo,
-					  SDVO_CMD_SET_HBUF_DATA,
-					  tmp, 8))
-			return false;
-	}
-
-	return intel_sdvo_set_value(intel_sdvo,
-				    SDVO_CMD_SET_HBUF_TXRATE,
-				    &tx_rate, 1);
-}
-
 static bool intel_sdvo_set_avi_infoframe(struct intel_sdvo *intel_sdvo)
 {
 	struct dip_infoframe avi_if = {
@@ -903,19 +864,29 @@ static bool intel_sdvo_set_avi_infoframe(struct intel_sdvo *intel_sdvo)
 		.ver = DIP_VERSION_AVI,
 		.len = DIP_LEN_AVI,
 	};
-	uint8_t sdvo_data[4 + sizeof(avi_if.body.avi)];
+	uint8_t tx_rate = SDVO_HBUF_TX_VSYNC;
+	uint8_t set_buf_index[2] = { 1, 0 };
+	uint64_t *data = (uint64_t *)&avi_if;
+	unsigned i;
 
 	intel_dip_infoframe_csum(&avi_if);
 
-	/* sdvo spec says that the ecc is handled by the hw, and it looks like
-	 * we must not send the ecc field, either. */
-	memcpy(sdvo_data, &avi_if, 3);
-	sdvo_data[3] = avi_if.checksum;
-	memcpy(&sdvo_data[4], &avi_if.body, sizeof(avi_if.body.avi));
+	if (!intel_sdvo_set_value(intel_sdvo,
+				  SDVO_CMD_SET_HBUF_INDEX,
+				  set_buf_index, 2))
+		return false;
 
-	return intel_sdvo_write_infoframe(intel_sdvo, SDVO_HBUF_INDEX_AVI_IF,
-					  SDVO_HBUF_TX_VSYNC,
-					  sdvo_data, sizeof(sdvo_data));
+	for (i = 0; i < sizeof(avi_if); i += 8) {
+		if (!intel_sdvo_set_value(intel_sdvo,
+					  SDVO_CMD_SET_HBUF_DATA,
+					  data, 8))
+			return false;
+		data++;
+	}
+
+	return intel_sdvo_set_value(intel_sdvo,
+				    SDVO_CMD_SET_HBUF_TXRATE,
+				    &tx_rate, 1);
 }
 
 static bool intel_sdvo_set_tv_format(struct intel_sdvo *intel_sdvo)
@@ -1605,7 +1576,7 @@ static void intel_sdvo_get_lvds_modes(struct drm_connector *connector)
 	 * Assume that the preferred modes are
 	 * arranged in priority order.
 	 */
-	intel_ddc_get_modes(connector, intel_sdvo->i2c);
+	intel_ddc_get_modes(connector, &intel_sdvo->ddc);
 	if (list_empty(&connector->probed_modes) == false)
 		goto end;
 

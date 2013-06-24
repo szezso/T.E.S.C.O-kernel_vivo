@@ -71,7 +71,7 @@ static const int multicast_filter_limit = 32;
 #define MAX_READ_REQUEST_SHIFT	12
 #define RX_FIFO_THRESH	7	/* 7 means NO threshold, Rx buffer level before first PCI xfer. */
 #define RX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
-#define TX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
+#define TX_DMA_BURST	7	/* Maximum PCI burst, '7' is unlimited */
 #define SafeMtu		0x1c20	/* ... actually life sucks beyond ~7k */
 #define InterFrameGap	0x03	/* 3 means InterFrameGap = the shortest one */
 
@@ -3027,11 +3027,34 @@ static void r810x_phy_power_up(struct rtl8169_private *tp)
 	rtl_writephy(tp, MII_BMCR, BMCR_ANENABLE);
 }
 
+static void rtl_speed_down(struct rtl8169_private *tp)
+{
+	u32 adv;
+	int lpa;
+
+	rtl_writephy(tp, 0x1f, 0x0000);
+	lpa = rtl_readphy(tp, MII_LPA);
+
+	if (lpa & (LPA_10HALF | LPA_10FULL))
+		adv = ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full;
+	else if (lpa & (LPA_100HALF | LPA_100FULL))
+		adv = ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full |
+		      ADVERTISED_100baseT_Half | ADVERTISED_100baseT_Full;
+	else
+		adv = ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full |
+		      ADVERTISED_100baseT_Half | ADVERTISED_100baseT_Full |
+		      (tp->mii.supports_gmii ?
+		       ADVERTISED_1000baseT_Half |
+		       ADVERTISED_1000baseT_Full : 0);
+
+	rtl8169_set_speed(tp->dev, AUTONEG_ENABLE, SPEED_1000, DUPLEX_FULL,
+			  adv);
+}
+
 static void r810x_pll_power_down(struct rtl8169_private *tp)
 {
 	if (__rtl8169_get_wol(tp) & WAKE_ANY) {
-		rtl_writephy(tp, 0x1f, 0x0000);
-		rtl_writephy(tp, MII_BMCR, 0x0000);
+		rtl_speed_down(tp);
 		return;
 	}
 
@@ -3123,8 +3146,7 @@ static void r8168_pll_power_down(struct rtl8169_private *tp)
 		rtl_ephy_write(ioaddr, 0x19, 0xff64);
 
 	if (__rtl8169_get_wol(tp) & WAKE_ANY) {
-		rtl_writephy(tp, 0x1f, 0x0000);
-		rtl_writephy(tp, MII_BMCR, 0x0000);
+		rtl_speed_down(tp);
 
 		RTL_W32(RxConfig, RTL_R32(RxConfig) |
 			AcceptBroadcast | AcceptMulticast | AcceptMyPhys);
@@ -4970,13 +4992,6 @@ static int rtl8169_rx_interrupt(struct net_device *dev,
 
 			dev->stats.rx_bytes += pkt_size;
 			dev->stats.rx_packets++;
-		}
-
-		/* Work around for AMD plateform. */
-		if ((desc->opts2 & cpu_to_le32(0xfffe000)) &&
-		    (tp->mac_version == RTL_GIGA_MAC_VER_05)) {
-			desc->opts2 = 0;
-			cur_rx++;
 		}
 	}
 
