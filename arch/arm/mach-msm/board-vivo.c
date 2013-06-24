@@ -3413,7 +3413,7 @@ static int msm_hsusb_ldo_set_voltage(int mV)
 static int phy_init_seq[] = { 0x06, 0x36, 0x0C, 0x31, 0x31, 0x32, 0x1, 0x0D, 0x1, 0x10, -1 };
 static struct msm_otg_platform_data msm_otg_pdata = {
 	.phy_init_seq		= phy_init_seq,
-	.mode			= USB_PERIPHERAL,
+	.mode			= USB_OTG,
 	.otg_control		= OTG_PMIC_CONTROL,
 	.power_budget		= 750,
 	.phy_type		= CI_45NM_INTEGRATED_PHY,
@@ -4026,27 +4026,27 @@ static struct platform_device *headset_devices[] = {
 static struct headset_adc_config htc_headset_mgr_config[] = {
 	{
 		.type = HEADSET_MIC,
-		.adc_max = 55426,
-		.adc_min = 38237,
+		.adc_max = 27713,
+		.adc_min = 22092,
 	},
 	{
 		.type = HEADSET_BEATS,
-		.adc_max = 38236,
-		.adc_min = 30586,
+		.adc_max = 22091,
+		.adc_min = 16271,
 	},
 	{
 		.type = HEADSET_BEATS_SOLO,
-		.adc_max = 30585,
-		.adc_min = 20292,
+		.adc_max = 16270,
+		.adc_min = 10045,
 	},
 	{
-		.type = HEADSET_NO_MIC, /* HEADSET_INDICATOR */
-		.adc_max = 20291,
-		.adc_min = 7285,
+    		.type = HEADSET_INDICATOR,
+    		.adc_max = 10044,
+    		.adc_min = 4523, 
 	},
 	{
 		.type = HEADSET_NO_MIC,
-		.adc_max = 7284,
+		.adc_max = 4522,
 		.adc_min = 0,
 	},
 };
@@ -4092,6 +4092,7 @@ static struct platform_device *devices[] __initdata = {
 	&msm_device_nand,
 #endif
 	&msm_device_otg,
+	&msm_device_hsusb_host,
 	&qsd_device_spi,
 #ifdef CONFIG_MSM_SSBI
 	&msm_device_ssbi_pmic1,

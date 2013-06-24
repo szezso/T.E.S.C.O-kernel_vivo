@@ -278,6 +278,8 @@ void set_usb_audio_amp(int on)
 void set_beats_on(int en)
 {
 	pr_aud_info("%s: %d\n", __func__, en);
+   	 en = 1;
+   	 pr_aud_info("BEATS HACK - %s: %d\n", __func__, en); 
 	mutex_lock(&spk_amp_lock);
 	if (en) {
 		tpa2051_i2c_write(BEATS_AMP_ON, AMP_ON_CMD_LEN);
@@ -322,7 +324,6 @@ int update_amp_parameter(int mode)
 	}
 	return 0;
 }
-
 
 static long tpa2051d3_ioctl(struct file *file, unsigned int cmd,
 	   unsigned long arg)

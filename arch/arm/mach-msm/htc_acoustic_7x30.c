@@ -55,7 +55,6 @@
 #define ACOUSTIC_GET_RECEIVER_STATE		_IOW(ACOUSTIC_IOCTL_MAGIC, 37, int)
 #define ACOUSTIC_GET_BEATS_STATE	_IOW(ACOUSTIC_IOCTL_MAGIC, 41, unsigned)
 #define ACOUSTIC_ENABLE_BEATS		_IOW(ACOUSTIC_IOCTL_MAGIC, 42, unsigned)
-#define ACOUSTIC_GET_AIC3008_STATE	_IOW(ACOUSTIC_IOCTL_MAGIC, 43, unsigned)
 
 #define D(fmt, args...) printk(KERN_INFO "[AUD] htc-acoustic: "fmt, ##args)
 #define E(fmt, args...) printk(KERN_ERR "[AUD] htc-acoustic: "fmt, ##args)
@@ -448,18 +447,6 @@ acoustic_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		D("Enable Beats : %d\n", en);
 		if (the_ops->enable_beats)
 			the_ops->enable_beats(en);
-		break;
-	}
-	case ACOUSTIC_GET_AIC3008_STATE: {
-		int support_aic3008 = 0;
-		if (the_ops->support_aic3008)
-			support_aic3008 = the_ops->support_aic3008();
-		D("support_aic3008: %d\n", support_aic3008);
-		if (copy_to_user((void *) arg,
-			&support_aic3008, sizeof(int))) {
-			E("acoustic_ioctl: copy to user failed\n");
-			rc = -EFAULT;
-		}
 		break;
 	}
 	default:

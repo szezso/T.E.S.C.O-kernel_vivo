@@ -280,6 +280,23 @@ int vivo_get_rx_vol(uint8_t hw, int network, int level)
 	return vol;
 }
 
+int vivo_get_speaker_channels(void)
+{
+  /* 1 - Mono, 2 - Stereo */
+  return 1;
+}
+
+int vivo_support_beats(void)
+{
+    return 1;
+}
+
+void vivo_enable_beats(int en)
+{
+  pr_aud_info("%s: %d\n", __func__, en);
+  set_beats_on(en);
+}
+
 void vivo_mic_bias_enable(int en, int shift)
 {
 	pr_aud_info("%s: %d\n", __func__, en);
@@ -376,7 +393,9 @@ static struct acoustic_ops acoustic = {
 	.support_aic3254 = vivo_support_aic3254,
 	.support_back_mic = vivo_support_back_mic,
 	.enable_back_mic =  vivo_back_mic_enable,
-	.get_acoustic_tables = vivo_get_acoustic_tables
+ 	.get_acoustic_tables = vivo_get_acoustic_tables,
+ 	.support_beats = vivo_support_beats,
+	.enable_beats = vivo_enable_beats, 
 };
 
 static struct aic3254_ctl_ops cops = {
