@@ -109,6 +109,13 @@ config CPU_FREQ_DEFAULT_GOV_INTERACTIVE
 	  loading your cpufreq low-level hardware driver, using the
 	  'interactive' governor for latency-sensitive workloads.
 
+
+config CPU_FREQ_DEFAULT_GOV_SMARTMAX
+  	bool "smartmax"
+  	select CPU_FREQ_GOV_SMARTMAX
+  	help
+   	  Use the CPUFreq governor 'smartmax' as default
+
 endchoice
 
 config CPU_FREQ_GOV_PERFORMANCE
@@ -200,6 +207,32 @@ config CPU_FREQ_GOV_LIONHEART
 	depends on CPU_FREQ
 	help
 	  'Use Lionheart' 
+
+config CPU_FREQ_GOV_SMARTMAX
+	tristate "'smartmax' cpufreq policy governor"
+	select CPU_FREQ_TABLE
+	help
+	  'smartmax' combined ondemand and smartass2
+
+config CPU_FREQ_GOV_SMARTMAX_TEGRA
+	bool "'smartmax' for tegra"
+	depends on CPU_FREQ_GOV_SMARTMAX
+
+config CPU_FREQ_GOV_SMARTMAX_30
+	bool "'smartmax' for 3.0 and 3.1 kernels"
+	depends on CPU_FREQ_GOV_SMARTMAX
+
+config CPU_FREQ_GOV_SMARTMAX_ENRC2B
+	bool "'smartmax' defaults for enrc2b"
+	depends on CPU_FREQ_GOV_SMARTMAX
+
+config CPU_FREQ_GOV_SMARTMAX_PRIMOU
+	bool "'smartmax' defaults for primou"
+	depends on CPU_FREQ_GOV_SMARTMAX
+
+config CPU_FREQ_GOV_SMARTMAX_M7
+	bool "'smartmax' defaults for m7"
+	depends on CPU_FREQ_GOV_SMARTMAX
 
 config CPU_FREQ_GOV_CONSERVATIVE
 	tristate "'conservative' cpufreq governor"

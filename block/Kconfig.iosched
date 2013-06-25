@@ -76,12 +76,12 @@ choice
 	config DEFAULT_ROW
 	bool "ROW" if IOSCHED_ROW=y
 	help
-	The ROW I/O scheduler gives priority to READ requests
-	over the WRITE requests when dispatching, without starving
-	WRITE requests. Requests are kept in priority queues.
-	Dispatching is done in a RR manner when the dispatch quantum
-	for each queue is defined according to queue priority.
-	Most suitable for mobile devices.
+	  The ROW I/O scheduler gives priority to READ requests
+	  over the WRITE requests when dispatching, without starving
+	  WRITE requests. Requests are kept in priority queues.
+	  Dispatching is done in a RR manner when the dispatch quantum
+	  for each queue is defined according to queue priority.
+	  Most suitable for mobile devices.
 
 	config DEFAULT_CFQ
 		bool "CFQ" if IOSCHED_CFQ=y

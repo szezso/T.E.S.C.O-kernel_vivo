@@ -964,6 +964,7 @@ static int cpufreq_add_dev(struct sys_device *sys_dev)
 	blocking_notifier_call_chain(&cpufreq_policy_notifier_list,
 				     CPUFREQ_START, policy);
 
+
 	ret = cpufreq_add_dev_policy(cpu, policy, sys_dev);
 	if (ret) {
 		if (ret > 0)
