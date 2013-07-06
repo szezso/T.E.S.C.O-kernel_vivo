@@ -95,6 +95,10 @@ static struct pll pll2_tbl[] = {
 	{ 125, 0, 1, 1 }, /* 1200 MHz */
 	{  73, 0, 1, 0 }, /* 1401 MHz */
 	{  78, 0, 1, 0 }, /* 1500 MHz */
+	{  88, 1, 3, 0 }, /* 1708 MHz */
+	{  93, 1, 3, 0 }, /* 1804 MHz */
+	{  98, 1, 3, 0 }, /* 1900 MHz */
+	{ 103, 1, 3, 0 }, /* 2016 MHz */
 };
 
 /* Use negative numbers for sources that can't be enabled/disabled */
@@ -118,23 +122,25 @@ static struct clk *acpuclk_sources[MAX_SOURCE];
  * know all the h/w requirements.
  */
 static struct clkctl_acpu_speed acpu_freq_tbl[] = {
-	{ 0, 24576,  LPXO, 0, 0,  30720000,  1000, VDD_RAW(1000) },
-	{ 1, 61440,  PLL_3,    5, 11, 61440000,  1000, VDD_RAW(1000) },
-	{ 1, 122880, PLL_3,    5, 5,  61440000,  1000, VDD_RAW(1000) },
-	{ 1, 184320, PLL_3,    5, 4,  61440000,  1000, VDD_RAW(1000) },
-	{ 0, MAX_AXI_KHZ, AXI, 1, 0, 61440000, 1000, VDD_RAW(1000) },
-	{ 1, 245760, PLL_3,    5, 2,  61440000,  1000, VDD_RAW(1000) },
-	{ 1, 368640, PLL_3,    5, 1,  122800000, 1050, VDD_RAW(1050) },
+	{ 0, 24576,  LPXO, 0, 0,  30720000,  900, VDD_RAW(900) },
+	{ 0, 61440,  PLL_3,    5, 11, 61440000,  900, VDD_RAW(900) },
+	{ 1, 122880, PLL_3,    5, 5,  61440000,  900, VDD_RAW(900) },
+	{ 0, 184320, PLL_3,    5, 4,  61440000,  900, VDD_RAW(900) },
+	{ 0, MAX_AXI_KHZ, AXI, 1, 0, 61440000, 900, VDD_RAW(900) },
+	{ 1, 245760, PLL_3,    5, 2,  61440000,  900, VDD_RAW(900) },
+	{ 1, 368640, PLL_3,    5, 1,  122800000, 900, VDD_RAW(900) },
+	{ 1, 614400, PLL_1,    2, 0,  153600000, 1000, VDD_RAW(1000) },
 	/* AXI has MSMC1 implications. See above. */
-	{ 1, 768000, PLL_1,    2, 0,  153600000, 1100, VDD_RAW(1100) },
+	{ 0, 768000, PLL_1,    2, 0,  153600000, 1050, VDD_RAW(1050) },
 	/*
 	 * AXI has MSMC1 implications. See above.
 	 */
 	{ 1, 806400,  PLL_2, 3, 0, UINT_MAX, 1100, VDD_RAW(1100), &pll2_tbl[0]},
 	{ 1, 1024000, PLL_2, 3, 0, UINT_MAX, 1200, VDD_RAW(1200), &pll2_tbl[1]},
-	{ 1, 1200000, PLL_2, 3, 0, UINT_MAX, 1200, VDD_RAW(1200), &pll2_tbl[2]},
-	{ 1, 1401600, PLL_2, 3, 0, UINT_MAX, 1250, VDD_RAW(1250), &pll2_tbl[3]},
-	{ 1, 1497600, PLL_2, 3, 0, UINT_MAX, 1250, VDD_RAW(1250), &pll2_tbl[4]},
+	{ 0, 1113600, PLL_2, 3, 0, UINT_MAX, 1200, VDD_RAW(1200), &pll2_tbl[2]},
+	{ 1, 1200000, PLL_2, 3, 0, UINT_MAX, 1200, VDD_RAW(1200), &pll2_tbl[3]},
+	{ 1, 1401600, PLL_2, 3, 0, UINT_MAX, 1250, VDD_RAW(1250), &pll2_tbl[4]},
+	{ 0, 1497600, PLL_2, 3, 0, UINT_MAX, 1250, VDD_RAW(1250), &pll2_tbl[5]},
 	{ 0 }
 };
 

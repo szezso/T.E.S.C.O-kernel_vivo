@@ -218,24 +218,23 @@ static int __cpuinit msm_cpufreq_init(struct cpufreq_policy *policy)
 	INIT_WORK(&cpu_work->work, set_cpu_work);
 	init_completion(&cpu_work->complete);
 #endif
-
+	policy->min = 245760;
+	policy->max = 1024000;
 	return 0;
 }
 
-static int msm_cpufreq_suspend(void)
+static int msm_cpufreq_suspend(struct cpufreq_policy *policy)
 {
 	int cpu;
 
 	for_each_possible_cpu(cpu) {
-		mutex_lock(&per_cpu(cpufreq_suspend, cpu).suspend_mutex);
 		per_cpu(cpufreq_suspend, cpu).device_suspended = 1;
-		mutex_unlock(&per_cpu(cpufreq_suspend, cpu).suspend_mutex);
 	}
 
-	return NOTIFY_DONE;
+	return 0;
 }
 
-static int msm_cpufreq_resume(void)
+static int msm_cpufreq_resume(struct cpufreq_policy *policy)
 {
 	int cpu;
 
@@ -243,22 +242,7 @@ static int msm_cpufreq_resume(void)
 		per_cpu(cpufreq_suspend, cpu).device_suspended = 0;
 	}
 
-	return NOTIFY_DONE;
-}
-
-static int msm_cpufreq_pm_event(struct notifier_block *this,
-				unsigned long event, void *ptr)
-{
-	switch (event) {
-	case PM_POST_HIBERNATION:
-	case PM_POST_SUSPEND:
-		return msm_cpufreq_resume();
-	case PM_HIBERNATION_PREPARE:
-	case PM_SUSPEND_PREPARE:
-		return msm_cpufreq_suspend();
-	default:
-		return NOTIFY_DONE;
-	}
+	return 0;
 }
 
 static ssize_t store_mfreq(struct sysdev_class *class,
@@ -291,12 +275,10 @@ static struct cpufreq_driver msm_cpufreq_driver = {
 	.init		= msm_cpufreq_init,
 	.verify		= msm_cpufreq_verify,
 	.target		= msm_cpufreq_target,
+	.suspend	= msm_cpufreq_suspend,
+	.resume		= msm_cpufreq_resume,
 	.name		= "msm",
 	.attr		= msm_freq_attr,
-};
-
-static struct notifier_block msm_cpufreq_pm_notifier = {
-	.notifier_call = msm_cpufreq_pm_event,
 };
 
 static int __init msm_cpufreq_register(void)
@@ -317,7 +299,6 @@ static int __init msm_cpufreq_register(void)
 	msm_cpufreq_wq = create_workqueue("msm-cpufreq");
 #endif
 
-	register_pm_notifier(&msm_cpufreq_pm_notifier);
 	return cpufreq_register_driver(&msm_cpufreq_driver);
 }
 

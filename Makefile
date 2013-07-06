@@ -10,6 +10,10 @@ NAME = Sneaky Weasel
 # Comments in this file are targeted only to the developer, do not
 # expect to learn how to build the kernel reading this file.
 
+CKVERSION = -ck1
+CKNAME = BFS Powered
+EXTRAVERSION := $(EXTRAVERSION)$(CKVERSION)
+
 # Do not:
 # o  use make's built-in rules and variables
 #    (this increases performance and avoids hard-to-debug behaviour);
@@ -195,7 +199,7 @@ SUBARCH := arm
 SUBARCH := arm
 export KBUILD_BUILDHOST := $(SUBARCH)
 ARCH		?= $(SUBARCH)
-CROSS_COMPILE	?= arm-eabi-
+CROSS_COMPILE	?= /home/joshua/repos/android-toolchain-eabi-newer/bin/arm-eabi-
 CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
 
 # Architecture as present in compile.h
@@ -354,12 +358,13 @@ CC		= $(REAL_CC)
 
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
-CFLAGS_MODULE   =
-AFLAGS_MODULE   =
-LDFLAGS_MODULE  =
-CFLAGS_KERNEL	=
-AFLAGS_KERNEL	=
-CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
+MODFLAGS 	= -DMODULE -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -ffast-math -fsingle-precision-constant -mtune=cortex-a8 -march=armv7-a -mfpu=neon -ftree-vectorize -funswitch-loops	
+CFLAGS_MODULE 	= $(MODFLAGS)	
+AFLAGS_MODULE 	= $(MODFLAGS)
+LDFLAGS_MODULE 	= -T $(srctree)/scripts/module-common.lds
+CFLAGS_KERNEL 	= -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -ffast-math -fsingle-precision-constant -mtune=cortex-a8 -march=armv7-a -mfpu=neon -ftree-vectorize -funswitch-loops	
+AFLAGS_KERNEL 	= -fgcse -fsingle-precision-constant -mtune=cortex-a8 -march=armv7-a -mfpu=neon -ftree-vectorize	
+CFLAGS_GCOV 	= -fprofile-arcs -ftest-coverage
 
 
 # Use LINUXINCLUDE when you must reference the include/ directory.

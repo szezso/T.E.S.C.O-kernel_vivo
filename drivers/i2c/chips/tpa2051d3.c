@@ -399,7 +399,9 @@ err2:
 			pr_err("unsupported tpa2051 mode %d\n", modeid);
 			return -EINVAL;
 		}
+	#ifndef CONFIG_SOUND_CONTROL_HAX_GPL
 		rc = update_amp_parameter(modeid);
+	#endif
 		pr_info("set tpa2051 mode to %d\n", modeid);
 		break;
 	case TPA2051_SET_PARAM:
