@@ -1,6 +1,6 @@
 #include <linux/kernel.h>
 #include <linux/gcd.h>
-#include <linux/module.h>
+#include <linux/export.h>
 
 /* Lowest common multiple */
 unsigned long lcm(unsigned long a, unsigned long b)

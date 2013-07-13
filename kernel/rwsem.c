@@ -7,7 +7,7 @@
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
-#include <linux/module.h>
+#include <linux/export.h>
 #include <linux/rwsem.h>
 
 #include <asm/system.h>
@@ -117,14 +117,15 @@ void down_read_nested(struct rw_semaphore *sem, int subclass)
 
 EXPORT_SYMBOL(down_read_nested);
 
-void down_read_non_owner(struct rw_semaphore *sem)
+void _down_write_nest_lock(struct rw_semaphore *sem, struct lockdep_map *nest)
 {
 	might_sleep();
+	rwsem_acquire_nest(&sem->dep_map, 0, 0, nest, _RET_IP_);
 
-	__down_read(sem);
+	LOCK_CONTENDED(sem, __down_write_trylock, __down_write);
 }
 
-EXPORT_SYMBOL(down_read_non_owner);
+EXPORT_SYMBOL(_down_write_nest_lock);
 
 void down_write_nested(struct rw_semaphore *sem, int subclass)
 {
@@ -135,13 +136,6 @@ void down_write_nested(struct rw_semaphore *sem, int subclass)
 }
 
 EXPORT_SYMBOL(down_write_nested);
-
-void up_read_non_owner(struct rw_semaphore *sem)
-{
-	__up_read(sem);
-}
-
-EXPORT_SYMBOL(up_read_non_owner);
 
 #endif
 
