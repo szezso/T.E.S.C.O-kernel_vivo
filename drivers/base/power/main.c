@@ -143,13 +143,11 @@ void device_pm_move_before(struct device *deva, struct device *devb)
  */
 void device_pm_move_after(struct device *deva, struct device *devb)
 {
-	if (devb) {
-		pr_debug("PM: Moving %s:%s after %s:%s\n",
-			 deva->bus ? deva->bus->name : "No Bus", dev_name(deva),
-			 devb->bus ? devb->bus->name : "No Bus", dev_name(devb));
-		/* Delete deva from dpm_list and reinsert after devb. */
-		list_move(&deva->power.entry, &devb->power.entry);
-	}
+	pr_debug("PM: Moving %s:%s after %s:%s\n",
+		 deva->bus ? deva->bus->name : "No Bus", dev_name(deva),
+		 devb->bus ? devb->bus->name : "No Bus", dev_name(devb));
+	/* Delete deva from dpm_list and reinsert after devb. */
+	list_move(&deva->power.entry, &devb->power.entry);
 }
 
 /**
@@ -607,10 +605,10 @@ static void dpm_drv_timeout(unsigned long data)
 	struct device *dev = wd_data->dev;
 	struct task_struct *tsk = wd_data->tsk;
 
-	printk(KERN_EMERG "[K] **** DPM device timeout: %s (%s)\n", dev_name(dev),
+	printk(KERN_EMERG "**** DPM device timeout: %s (%s)\n", dev_name(dev),
 	       (dev->driver ? dev->driver->name : "no driver"));
 
-	printk(KERN_EMERG "[K] dpm suspend stack:\n");
+	printk(KERN_EMERG "dpm suspend stack:\n");
 	show_stack(tsk, NULL);
 
 	BUG();
