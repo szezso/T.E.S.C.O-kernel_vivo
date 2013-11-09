@@ -2000,6 +2000,9 @@ static int handle_battery_call(struct msm_rpc_server *server,
 		if (htc_batt_info.charger == SWITCH_CHARGER_TPS65200) {
 			tps_set_charger_ctrl(args->enable);
 			if (args->enable == CHECK_CHG && htc_batt_info.charger_re_enable) {
+        			BATT_LOG("re-enable charger-> %d", DISABLE);
+        			tps_set_charger_ctrl(DISABLE);
+        			mdelay(100);
 				BATT_LOG("re-enable charger-> %d", DISABLE);
 				tps_set_charger_ctrl(DISABLE);
 				mdelay(100);
