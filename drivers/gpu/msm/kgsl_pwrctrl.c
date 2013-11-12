@@ -126,7 +126,7 @@ static int __gpuclk_store(int max, struct device *dev,
 	if (pwr->pwrlevels[pwr->active_pwrlevel].gpu_freq >
 	    pwr->pwrlevels[pwr->thermal_pwrlevel].gpu_freq)
 		kgsl_pwrctrl_pwrlevel_change(device, pwr->thermal_pwrlevel);
-	else if (!max)
+	else if (!max || (NULL == device->pwrscale.policy))
 		kgsl_pwrctrl_pwrlevel_change(device, i);
 
 done:
@@ -856,6 +856,7 @@ void kgsl_pwrctrl_wake(struct kgsl_device *device)
 			pm_qos_update_request(&device->pm_qos_req_dma,
 						GPU_SWFI_LATENCY);
 	case KGSL_STATE_ACTIVE:
+		kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 		break;
 	default:
 		KGSL_PWR_WARN(device, "unhandled state %s\n",
