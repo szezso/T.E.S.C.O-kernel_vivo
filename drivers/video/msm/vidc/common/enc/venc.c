@@ -560,13 +560,11 @@ static int vid_enc_open(struct inode *inode, struct file *file)
 
 	client_index = vid_enc_get_empty_client_index();
 
-	/* HTC_START (klockwork issue)*/
 	if (client_index < 0) {
 		ERR("%s() : No free clients client_index == -1\n",
 			__func__);
 		return -ENODEV;
 	}
-    /* HTC_END */
 
 	client_ctx =
 		&vid_enc_device_p->venc_clients[client_index];
@@ -1338,9 +1336,8 @@ static long vid_enc_ioctl(struct file *file,
 	case VEN_IOCTL_GET_SEQUENCE_HDR:
 	{
 		struct venc_seqheader seq_header, seq_header_user;
-		/* HTC_START (klockwork issue)*/
 		memset(&seq_header, 0, sizeof(struct venc_seqheader));
-		/* HTC_END */
+
 		if (copy_from_user(&venc_msg, arg, sizeof(venc_msg)))
 			return -EFAULT;
 

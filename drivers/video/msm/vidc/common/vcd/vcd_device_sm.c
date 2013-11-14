@@ -37,19 +37,20 @@ void vcd_do_device_state_transition(struct vcd_drv_ctxt *drv_ctxt,
 		VCD_MSG_ERROR("Bad parameters. drv_ctxt=%p, to_state=%d",
 				  drv_ctxt, to_state);
 	}
+ 
+	if (!drv_ctxt)
+		return;
 
 	if (!drv_ctxt)
 		return;
 
 	state_ctxt = &drv_ctxt->dev_state;
-
-	/* HTC_START (klockwork issue)*/
 	if (state_ctxt->state) {
 		if (state_ctxt->state == to_state) {
 			VCD_MSG_HIGH("Device already in requested to_state=%d",
 					to_state);
-		    return;
-        }
+			return;
+		}
 	}
 
 	VCD_MSG_MED("vcd_do_device_state_transition: D%d -> D%d, for api %d",

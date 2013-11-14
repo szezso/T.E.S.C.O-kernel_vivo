@@ -1693,8 +1693,10 @@ static int au1200fb_drv_probe(struct platform_device *dev)
 	}
 
 	/* Now hook interrupt too */
-	if ((ret = request_irq(AU1200_LCD_INT, au1200fb_handle_irq,
-		 	  IRQF_DISABLED | IRQF_SHARED, "lcd", (void *)dev)) < 0) {
+	irq = platform_get_irq(dev, 0);
+	ret = request_irq(irq, au1200fb_handle_irq,
+			  IRQF_SHARED, "lcd", (void *)dev);
+	if (ret) {
 		print_err("fail to request interrupt line %d (err: %d)",
 			  AU1200_LCD_INT, ret);
 		goto failed;

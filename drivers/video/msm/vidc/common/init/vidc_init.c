@@ -154,13 +154,8 @@ static int __devinit vidc_720p_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
-	/* HTC_START (klockwork issue)*/
 	if (resource && resource->start)
 		vidc_device_p->phys_base = resource->start;
-	/* HTC_END */
-#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-	vidc_device_p->phys_base = resource->start;
-#endif
 	vidc_device_p->virt_base = ioremap(resource->start,
 	resource->end - resource->start + 1);
 
