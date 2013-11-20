@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,6 +53,14 @@ struct clk_pair clks[KGSL_MAX_CLKS] = {
 	{
 		.name = "mem_iface_clk",
 		.map = KGSL_CLK_MEM_IFACE,
+	},
+	{
+		.name = "grp_clk",
+		.map = KGSL_CLK_GRP,
+	},
+	{
+		.name = "imem_clk",
+		.map = KGSL_CLK_IMEM,
 	},
 };
 
@@ -126,7 +134,7 @@ static int __gpuclk_store(int max, struct device *dev,
 	if (pwr->pwrlevels[pwr->active_pwrlevel].gpu_freq >
 	    pwr->pwrlevels[pwr->thermal_pwrlevel].gpu_freq)
 		kgsl_pwrctrl_pwrlevel_change(device, pwr->thermal_pwrlevel);
-	else if (!max || (NULL == device->pwrscale.policy))
+	else if (!max)
 		kgsl_pwrctrl_pwrlevel_change(device, i);
 
 done:
@@ -856,7 +864,6 @@ void kgsl_pwrctrl_wake(struct kgsl_device *device)
 			pm_qos_update_request(&device->pm_qos_req_dma,
 						GPU_SWFI_LATENCY);
 	case KGSL_STATE_ACTIVE:
-		kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 		break;
 	default:
 		KGSL_PWR_WARN(device, "unhandled state %s\n",
