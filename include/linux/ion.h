@@ -119,6 +119,12 @@ enum ion_heap_ids {
 
 #define ION_IS_CACHED(__flags)	((__flags) & (1 << ION_CACHE_SHIFT))
 
+/*
+ * This flag allows clients when mapping into the IOMMU to specify to
+ * defer un-mapping from the IOMMU until the buffer memory is freed.
+ */
+#define ION_IOMMU_UNMAP_DELAYED 1
+
 #ifdef __KERNEL__
 #include <linux/err.h>
 #include <mach/ion.h>

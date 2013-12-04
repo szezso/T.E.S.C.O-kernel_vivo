@@ -478,6 +478,11 @@ config MACH_VIVO
        help
          Support for the Qualcomm Vivo board.
 
+config VIVO_PMEM
+       depends on MACH_VIVO
+       default n
+	bool "VIVO PMEM support"
+
 config MACH_VIVOW
        depends on ARCH_MSM7X30
        default n

@@ -452,7 +452,11 @@ obj-$(CONFIG_MACH_RUNNYMEDE) += board-runnymede-rfkill.o htc_bdaddress.o
 obj-$(CONFIG_MACH_FLYER) += board-flyer.o
 obj-$(CONFIG_MACH_FLYER) += display/flyer-panel.o board-flyer-audio.o
 obj-$(CONFIG_MACH_FLYER) += htc_bdaddress.o
+ifeq ($(CONFIG_VIVO_PMEM),y)
+obj-$(CONFIG_MACH_VIVO) += board-vivo-pmem.o
+else
 obj-$(CONFIG_MACH_VIVO) += board-vivo.o
+endif
 obj-$(CONFIG_MACH_VIVO) += board-vivo-keypad.o
 obj-$(CONFIG_MACH_VIVO)+= board-vivo-mmc.o board-vivo-wifi.o
 obj-$(CONFIG_MACH_VIVO) += display/vivo-panel.o board-vivo-audio.o

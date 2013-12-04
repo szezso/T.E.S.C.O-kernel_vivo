@@ -524,11 +524,7 @@ enum {
 #ifdef __KERNEL__
 
 /* get the framebuffer physical address information */
-#if 0
-int get_fb_phys_info(unsigned long *start, unsigned long *len, int fb_num,
-	int subsys_id);
-#endif
-int get_fb_phys_info(unsigned long *start, unsigned long *len, int fb_num, int subsys_id);
+int get_fb_phys_info(unsigned long *start, unsigned long *len, int fb_num);
 struct fb_info *msm_fb_get_writeback_fb(void);
 int msm_fb_writeback_init(struct fb_info *info);
 
