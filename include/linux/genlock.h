@@ -1,6 +1,8 @@
 #ifndef _GENLOCK_H_
 #define _GENLOCK_H_
 
+#include <linux/bitops.h>
+
 #ifdef __KERNEL__
 
 struct genlock;
@@ -12,6 +14,7 @@ void genlock_put_handle(struct genlock_handle *handle);
 struct genlock *genlock_create_lock(struct genlock_handle *);
 struct genlock *genlock_attach_lock(struct genlock_handle *, int fd);
 int genlock_wait(struct genlock_handle *handle, u32 timeout);
+/* genlock_release_lock was deprecated */
 int genlock_lock(struct genlock_handle *handle, int op, int flags,
 	u32 timeout);
 #endif
@@ -20,8 +23,14 @@ int genlock_lock(struct genlock_handle *handle, int op, int flags,
 #define GENLOCK_WRLOCK 1
 #define GENLOCK_RDLOCK 2
 
-#define GENLOCK_NOBLOCK       (1 << 0)
-#define GENLOCK_WRITE_TO_READ (1 << 1)
+//FIXME: temporary fix for build break that bitops.h didn't copy to out folder
+//
+#ifndef BIT
+#define BIT(nr)		(1UL << (nr))
+#endif
+
+#define GENLOCK_NOBLOCK       BIT(0)
+#define GENLOCK_WRITE_TO_READ BIT(1)
 
 struct genlock_lock {
 	int fd;
@@ -44,15 +53,18 @@ struct genlock_info {
 #define GENLOCK_IOC_ATTACH _IOW(GENLOCK_IOC_MAGIC, 2, \
 	struct genlock_lock)
 
+/* Deprecated */
 #define GENLOCK_IOC_LOCK _IOW(GENLOCK_IOC_MAGIC, 3, \
 	struct genlock_lock)
 
+/* Deprecated */
 #define GENLOCK_IOC_RELEASE _IO(GENLOCK_IOC_MAGIC, 4)
 #define GENLOCK_IOC_WAIT _IOW(GENLOCK_IOC_MAGIC, 5, \
 	struct genlock_lock)
 #define GENLOCK_IOC_DREADLOCK _IOW(GENLOCK_IOC_MAGIC, 6, \
 	struct genlock_lock)
 
+/* HTC: Add optional ioctl for fd leak debugging */
 #define GENLOCK_IOC_SETINFO _IOW(GENLOCK_IOC_MAGIC, 32, \
     struct genlock_info)
 

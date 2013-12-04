@@ -121,6 +121,8 @@
 #include <mach/bcm_bt_lpm.h>
 #endif
 
+#include <linux/ion.h>
+
 int htc_get_usb_accessory_adc_level(uint32_t *buffer);
 
 #define GPS_EN_GPIO -1
@@ -3419,19 +3421,6 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.phy_type		= CI_45NM_INTEGRATED_PHY,
 };
 
-static struct android_pmem_platform_data android_pmem_pdata = {
-	.name = "pmem",
-	.allocator_type = PMEM_ALLOCATORTYPE_ALLORNOTHING,
-	.cached = 1,
-	.memory_type = MEMTYPE_EBI1,
-};
-
-static struct platform_device android_pmem_device = {
-	.name = "android_pmem",
-	.id = 0,
-	.dev = { .platform_data = &android_pmem_pdata },
-};
-
 #if defined(CONFIG_FB_MSM_HDMI_ADV7520_PANEL) || defined(CONFIG_BOSCH_BMA150)
 /* there is an i2c address conflict between adv7520 and bma150 sensor after
  * power up on fluid. As a solution, the default address of adv7520's packet
@@ -3553,47 +3542,6 @@ static struct platform_device msm_migrate_pages_device = {
 	.id     = -1,
 };
 
-static struct android_pmem_platform_data android_pmem_adsp_pdata = {
-       .name = "pmem_adsp",
-       .allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
-       .cached = 0,
-	.memory_type = MEMTYPE_EBI1,
-};
-
-static struct android_pmem_platform_data android_pmem_adsp2_pdata = {
-       .name = "pmem_adsp2",
-       .allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
-       .cached = 0,
-	.memory_type = MEMTYPE_EBI1,
-};
-
-#if 0
-static struct android_pmem_platform_data android_pmem_audio_pdata = {
-       .name = "pmem_audio",
-       .allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
-       .cached = 0,
-	.memory_type = MEMTYPE_EBI0,
-};
-#endif
-static struct platform_device android_pmem_adsp_device = {
-       .name = "android_pmem",
-       .id = 2,
-       .dev = { .platform_data = &android_pmem_adsp_pdata },
-};
-
-static struct platform_device android_pmem_adsp2_device = {
-       .name = "android_pmem",
-       .id = 3,
-       .dev = { .platform_data = &android_pmem_adsp2_pdata },
-};
-
-#if 0
-static struct platform_device android_pmem_audio_device = {
-       .name = "android_pmem",
-       .id = 4,
-       .dev = { .platform_data = &android_pmem_audio_pdata },
-};
-#endif
 #if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
 		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE) || \
 		defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
@@ -4067,6 +4015,7 @@ static struct platform_device htc_headset_mgr = {
 	},
 };
 
+static struct platform_device ion_dev;
 
 static struct platform_device *devices[] __initdata = {
 	&ram_console_device,
@@ -4101,14 +4050,10 @@ static struct platform_device *devices[] __initdata = {
 	/*&msm_device_ssbi6,*/
 	&msm_device_ssbi7,
 #endif
-	&android_pmem_device,
 	&msm_migrate_pages_device,
 #ifdef CONFIG_MSM_ROTATOR
 	&msm_rotator_device,
 #endif
-	&android_pmem_adsp_device,
-	&android_pmem_adsp2_device,
-	//&android_pmem_audio_device,
 	&msm_device_i2c,
 	&msm_device_i2c_2,
 	&hs_device,
@@ -4180,8 +4125,101 @@ static struct platform_device *devices[] __initdata = {
 */
 	&pm8058_leds,
 	&htc_drm,
-
+#ifdef CONFIG_ION_MSM
+	&ion_dev,
+#endif
 };
+
+#ifdef CONFIG_ION_MSM
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+#define MSM_ION_HEAP_NUM        5
+#else
+#define MSM_ION_HEAP_NUM        1
+#endif
+
+#define MSM_ION_CAMERA_SIZE		0x2800000
+#define MSM_ION_ROTATOR_SIZE	0x2C0000
+#define MSM_ION_SF_SIZE			0x2000000
+#define MSM_ION_AUDIO_SIZE		0x700000
+
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+static struct ion_co_heap_pdata co_ion_pdata = {
+	.adjacent_mem_id = INVALID_HEAP_ID,
+	.align = PAGE_SIZE,
+};
+#endif
+
+static struct ion_platform_data ion_pdata = {
+	.nr = MSM_ION_HEAP_NUM,
+	.heaps = {
+		{
+			.id	= ION_SYSTEM_HEAP_ID,
+			.type	= ION_HEAP_TYPE_SYSTEM,
+			.name	= ION_VMALLOC_HEAP_NAME,
+		},
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+		{
+			.id	= ION_CAMERA_HEAP_ID,
+			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.name	= ION_CAMERA_HEAP_NAME,
+			.size	= MSM_ION_CAMERA_SIZE,
+			.memory_type = ION_EBI_TYPE,
+			.extra_data = &co_ion_pdata,
+		},
+		{
+			.id	= ION_AUDIO_HEAP_ID,
+			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.name	= ION_AUDIO_HEAP_NAME,
+			.size	= MSM_ION_AUDIO_SIZE,
+			.memory_type = ION_EBI_TYPE,
+			.extra_data = (void *) &co_ion_pdata,
+		},
+		{
+			.id	= ION_CP_ROTATOR_HEAP_ID,
+			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.name	= ION_ROTATOR_HEAP_NAME,
+			.size	= MSM_ION_ROTATOR_SIZE,
+			.memory_type = ION_EBI_TYPE,
+			.extra_data = &co_ion_pdata,
+		},
+		{
+			.id	= ION_SF_HEAP_ID,
+			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.name	= ION_SF_HEAP_NAME,
+			.size	= MSM_ION_SF_SIZE,
+			.memory_type = ION_EBI_TYPE,
+			.extra_data = &co_ion_pdata,
+		},
+#endif
+	}
+};
+
+static struct platform_device ion_dev = {
+	.name = "ion-msm",
+	.id = 1,
+	.dev = { .platform_data = &ion_pdata },
+};
+
+static struct memtype_reserve msm7x30_reserve_table[] __initdata = {
+	[MEMTYPE_SMI] = {
+	},
+	[MEMTYPE_EBI0] = {
+		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
+	},
+	[MEMTYPE_EBI1] = {
+		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
+	},
+};
+
+static void __init reserve_ion_memory(void) {
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	msm7x30_reserve_table[MEMTYPE_EBI0].size += MSM_ION_CAMERA_SIZE;
+	msm7x30_reserve_table[MEMTYPE_EBI0].size += MSM_ION_AUDIO_SIZE;
+	msm7x30_reserve_table[MEMTYPE_EBI0].size += MSM_ION_ROTATOR_SIZE;
+	msm7x30_reserve_table[MEMTYPE_EBI0].size += MSM_ION_SF_SIZE;
+#endif
+}
+#endif
 
 static struct msm_gpio msm_i2c_gpios_hw[] = {
 	{ GPIO_CFG(70, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_16MA), "i2c_scl" },
@@ -5705,16 +5743,7 @@ static void __init vivo_init(void)
 		pm8058_leds_data.num_leds = ARRAY_SIZE(pm_led_config);
 	}
 }
-/*
-static unsigned pmem_sf_size = MSM_PMEM_SF_SIZE;
-static int __init pmem_sf_size_setup(char *p)
-{
-	pmem_sf_size = memparse(p, NULL);
-	return 0;
-}
 
-early_param("pmem_sf_size", pmem_sf_size_setup);
-*/
 static unsigned fb_size = MSM_FB_SIZE;
 static int __init fb_size_setup(char *p)
 {
@@ -5723,86 +5752,17 @@ static int __init fb_size_setup(char *p)
 }
 early_param("fb_size", fb_size_setup);
 
-static unsigned pmem_adsp_size = MSM_PMEM_ADSP_SIZE;
-static int __init pmem_adsp_size_setup(char *p)
-{
-	pmem_adsp_size = memparse(p, NULL);
-	return 0;
-}
-early_param("pmem_adsp_size", pmem_adsp_size_setup);
-
-static unsigned pmem_adsp2_size = MSM_PMEM_ADSP2_SIZE;
-static int __init pmem_adsp2_size_setup(char *p)
-{
-	pmem_adsp2_size = memparse(p, NULL);
-	return 0;
-}
-early_param("pmem_adsp2_size", pmem_adsp2_size_setup);
-
-static struct memtype_reserve msm7x30_reserve_table[] __initdata = {
-	[MEMTYPE_SMI] = {
-	},
-	[MEMTYPE_EBI0] = {
-		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
-	},
-	[MEMTYPE_EBI1] = {
-		.start	=	PMEM_KERNEL_EBI1_BASE,
-		.limit	=	PMEM_KERNEL_EBI1_SIZE,
-		.size	=	PMEM_KERNEL_EBI1_SIZE,
-		.flags	=	MEMTYPE_FLAGS_FIXED,
-	},
-};
-
-static void __init size_pmem_device(struct android_pmem_platform_data *pdata, unsigned long start, unsigned long size)
-{
-	pdata->start = start;
-	pdata->size = size;
-	if (pdata->start)
-		pr_info("%s: pmem %s requests %lu bytes at 0x%p (0x%lx physical).\r\n",
-			__func__, pdata->name, size, __va(start), start);
-	else
-		pr_info("%s: pmem %s requests %lu bytes dynamically.\r\n",
-			__func__, pdata->name, size);
-}
-static void __init size_pmem_devices(void)
-{
-#ifdef CONFIG_ANDROID_PMEM
-	size_pmem_device(&android_pmem_adsp_pdata, MSM_PMEM_ADSP_BASE, pmem_adsp_size);
-	size_pmem_device(&android_pmem_adsp2_pdata, MSM_PMEM_ADSP2_BASE, pmem_adsp2_size);
-	/*size_pmem_device(&android_pmem_pdata, MSM_PMEM_SF_BASE, pmem_sf_size);*/
-#endif
-}
-
-static void __init reserve_memory_for(struct android_pmem_platform_data *p)
-{
-	if (p->start == 0) {
-		pr_info("%s: reserve %lu bytes from memory %d for %s.\r\n", __func__, p->size, p->memory_type, p->name);
-		msm7x30_reserve_table[p->memory_type].size += p->size;
-	}
-}
-
-static void __init reserve_pmem_memory(void)
-{
-#ifdef CONFIG_ANDROID_PMEM
-	reserve_memory_for(&android_pmem_adsp_pdata);
-	reserve_memory_for(&android_pmem_adsp2_pdata);
-	reserve_memory_for(&android_pmem_pdata);
-#endif
-}
-
 static void __init msm7x30_calculate_reserve_sizes(void)
 {
-	size_pmem_devices();
-	reserve_pmem_memory();
+#ifdef CONFIG_ION_MSM
+	reserve_ion_memory();
+#endif
 }
 
 static int msm7x30_paddr_to_memtype(unsigned int paddr)
 {
-	if (paddr < 0x40000000)
-		return MEMTYPE_EBI0;
-	if (paddr >= 0x40000000 && paddr < 0x80000000)
-		return MEMTYPE_EBI1;
-	return MEMTYPE_NONE;
+	printk("paddr=0x%x\n", paddr);
+	return MEMTYPE_EBI0;
 }
 
 static struct reserve_info msm7x30_reserve_info __initdata = {
@@ -5815,6 +5775,9 @@ static void __init vivo_reserve(void)
 {
 	reserve_info = &msm7x30_reserve_info;
 	msm_reserve();
+	printk("SMI start=0x%lx size=0x%lx limit=0x%lx\n", msm7x30_reserve_table[MEMTYPE_SMI].start, msm7x30_reserve_table[MEMTYPE_SMI].size, msm7x30_reserve_table[MEMTYPE_SMI].limit);
+	printk("EBI0 start=0x%lx size=0x%lx limit=0x%lx\n", msm7x30_reserve_table[MEMTYPE_EBI0].start, msm7x30_reserve_table[MEMTYPE_EBI0].size, msm7x30_reserve_table[MEMTYPE_EBI0].limit);
+	printk("EBI1 start=0x%lx size=0x%lx limit=0x%lx\n", msm7x30_reserve_table[MEMTYPE_EBI1].start, msm7x30_reserve_table[MEMTYPE_EBI1].size, msm7x30_reserve_table[MEMTYPE_EBI1].limit);
 }
 
 static void __init vivo_allocate_memory_regions(void)
@@ -5849,7 +5812,7 @@ static void __init vivo_fixup(struct machine_desc *desc, struct tag *tags,
 
 	mi->nr_banks = 2;
 	mi->bank[0].start = MSM_LINUX_BASE1;
-	mi->bank[0].size = MSM_LINUX_SIZE1 + MSM_MEM_256MB_OFFSET;
+	mi->bank[0].size = MSM_LINUX_SIZE1;
 	mi->bank[1].start = MSM_LINUX_BASE2;
 	mi->bank[1].size = MSM_LINUX_SIZE2;
 }

@@ -15,6 +15,7 @@
 
 enum {
 	GLOBAL_DOMAIN,
+        ROTATOR_DOMAIN,
 	MAX_DOMAINS
 };
 
@@ -22,6 +23,7 @@ enum {
 	VIDEO_FIRMWARE_POOL,
 	LOW_256MB_POOL,
 	HIGH_POOL,
+        GEN_POOL,
 };
 
 
