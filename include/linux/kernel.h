@@ -395,10 +395,16 @@ extern void hex2bin(u8 *dst, const char *src, size_t count);
 			printk(KERN_ERR pr_aud_fmt(fmt), ##__VA_ARGS__)
 #define pr_aud_err1(fmt, ...) \
 			printk(KERN_ERR pr_aud_fmt1(fmt), ##__VA_ARGS__)
+#ifdef CONFIG_DEBUG_KERNEL
 #define pr_aud_info(fmt, ...) \
 			printk(KERN_INFO pr_aud_fmt(fmt), ##__VA_ARGS__)
 #define pr_aud_info1(fmt, ...) \
 			printk(KERN_INFO pr_aud_fmt1(fmt), ##__VA_ARGS__)
+#else
+#define pr_aud_info(fmt, ...) do { } while (0)
+#define pr_aud_info1(fmt, ...) do { } while (0)
+#endif
+
 /*
  * General tracing related utility functions - trace_printk(),
  * tracing_on/tracing_off and tracing_start()/tracing_stop

@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,7 +20,9 @@
 struct fmem_platform_data {
 	unsigned long phys;
 	unsigned long size;
-	unsigned long reserved_size;
+	unsigned long reserved_size_low;
+	unsigned long reserved_size_high;
+	unsigned long align;
 };
 
 struct fmem_data {
@@ -28,7 +30,8 @@ struct fmem_data {
 	void *virt;
 	struct vm_struct *area;
 	unsigned long size;
-	unsigned long reserved_size;
+	unsigned long reserved_size_low;
+	unsigned long reserved_size_high;
 };
 
 enum fmem_state {
