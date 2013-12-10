@@ -26,44 +26,41 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef _MACH_QDSP5_V2_AUDIO_DEF_H
-#define _MACH_QDSP5_V2_AUDIO_DEF_H
+#ifndef _MACH_QDSP5_V2_MI2S_H
+#define _MACH_QDSP5_V2_MI2S_H
 
-/* Define sound device capability */
-#define SNDDEV_CAP_RX 0x1 /* RX direction */
-#define SNDDEV_CAP_TX 0x2 /* TX direction */
-#define SNDDEV_CAP_VOICE 0x4 /* Support voice call */
-#define SNDDEV_CAP_PLAYBACK 0x8 /* Support playback */
-#define SNDDEV_CAP_FM 0x10 /* Support FM radio */
-#define SNDDEV_CAP_TTY 0x20 /* Support TTY */
-#define SNDDEV_CAP_ANC 0x40 /* Support ANC */
-#define VOC_NB_INDEX	0
-#define VOC_WB_INDEX	1
-#define VOC_RX_VOL_ARRAY_NUM	2
+#define WT_16_BIT 0
+#define WT_24_BIT 1
+#define WT_32_BIT 2
+#define WT_MAX 4
 
-/* Device volume types . In Current deisgn only one of these are supported. */
-#define SNDDEV_DEV_VOL_DIGITAL  0x1  /* Codec Digital volume control */
-#define SNDDEV_DEV_VOL_ANALOG   0x2  /* Codec Analog volume control */
-
-#define Q5V2_HW_HANDSET	0
-#define Q5V2_HW_HEADSET	1
-#define Q5V2_HW_SPEAKER	2
-#define Q5V2_HW_BT_SCO	3
-#define Q5V2_HW_TTY	4
-#define Q5V2_HW_HS_SPKR 5
-#define Q5V2_HW_USB_HS  6
-#define Q5V2_HW_HAC  7
-
-#define Q5V2_HW_COUNT	8
-
-struct q5v2_hw_info {
-	int min_gain[VOC_RX_VOL_ARRAY_NUM];
-	int max_gain[VOC_RX_VOL_ARRAY_NUM];
+enum mi2s_ret_enum_type {
+	MI2S_FALSE = 0,
+	MI2S_TRUE
 };
 
-struct q5v2_hw_info_percentage {
-	int max_step;
-	int gain[VOC_RX_VOL_ARRAY_NUM][10];
-};
+#define MI2S_CHAN_MONO_RAW 0
+#define MI2S_CHAN_MONO_PACKED 1
+#define MI2S_CHAN_STEREO 2
+#define MI2S_CHAN_4CHANNELS 3
+#define MI2S_CHAN_6CHANNELS 4
+#define MI2S_CHAN_8CHANNELS 5
+#define MI2S_CHAN_MAX_OUTBOUND_CHANNELS MI2S__CHAN_8CHANNELS
 
-#endif /* _MACH_QDSP5_V2_AUDIO_DEF_H */
+#define MI2S_SD_0    0x01
+#define MI2S_SD_1    0x02
+#define MI2S_SD_2    0x04
+#define MI2S_SD_3    0x08
+
+#define MI2S_SD_LINE_MASK    (MI2S_SD_0 | MI2S_SD_1 | MI2S_SD_2 |  MI2S_SD_3)
+
+bool mi2s_set_hdmi_output_path(uint8_t channels, uint8_t size,
+				uint8_t sd_line);
+
+bool mi2s_set_hdmi_input_path(uint8_t channels, uint8_t size, uint8_t sd_line);
+
+bool mi2s_set_codec_output_path(uint8_t channels, uint8_t size);
+
+bool mi2s_set_codec_input_path(uint8_t channels, uint8_t size);
+
+#endif /* #ifndef MI2S_H */

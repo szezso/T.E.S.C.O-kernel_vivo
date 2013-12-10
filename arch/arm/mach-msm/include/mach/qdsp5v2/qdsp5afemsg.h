@@ -26,44 +26,22 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef _MACH_QDSP5_V2_AUDIO_DEF_H
-#define _MACH_QDSP5_V2_AUDIO_DEF_H
+#ifndef __MACH_QDSP5_V2_QDSP5AFEMSG_H
+#define __MACH_QDSP5_V2_QDSP5AFEMSG_H
 
-/* Define sound device capability */
-#define SNDDEV_CAP_RX 0x1 /* RX direction */
-#define SNDDEV_CAP_TX 0x2 /* TX direction */
-#define SNDDEV_CAP_VOICE 0x4 /* Support voice call */
-#define SNDDEV_CAP_PLAYBACK 0x8 /* Support playback */
-#define SNDDEV_CAP_FM 0x10 /* Support FM radio */
-#define SNDDEV_CAP_TTY 0x20 /* Support TTY */
-#define SNDDEV_CAP_ANC 0x40 /* Support ANC */
-#define VOC_NB_INDEX	0
-#define VOC_WB_INDEX	1
-#define VOC_RX_VOL_ARRAY_NUM	2
+#define AFE_APU_MSG_CODEC_CONFIG_ACK		0x0001
+#define AFE_APU_MSG_CODEC_CONFIG_ACK_LEN	\
+	sizeof(struct afe_msg_codec_config_ack)
 
-/* Device volume types . In Current deisgn only one of these are supported. */
-#define SNDDEV_DEV_VOL_DIGITAL  0x1  /* Codec Digital volume control */
-#define SNDDEV_DEV_VOL_ANALOG   0x2  /* Codec Analog volume control */
+#define AFE_APU_MSG_VOC_TIMING_SUCCESS		0x0002
 
-#define Q5V2_HW_HANDSET	0
-#define Q5V2_HW_HEADSET	1
-#define Q5V2_HW_SPEAKER	2
-#define Q5V2_HW_BT_SCO	3
-#define Q5V2_HW_TTY	4
-#define Q5V2_HW_HS_SPKR 5
-#define Q5V2_HW_USB_HS  6
-#define Q5V2_HW_HAC  7
+#define AFE_MSG_CODEC_CONFIG_ENABLED 0x1
+#define AFE_MSG_CODEC_CONFIG_DISABLED 0xFFFF
 
-#define Q5V2_HW_COUNT	8
+struct afe_msg_codec_config_ack {
+	uint16_t device_id;
+	uint16_t device_activity;
+	uint16_t reserved;
+} __attribute__((packed));
 
-struct q5v2_hw_info {
-	int min_gain[VOC_RX_VOL_ARRAY_NUM];
-	int max_gain[VOC_RX_VOL_ARRAY_NUM];
-};
-
-struct q5v2_hw_info_percentage {
-	int max_step;
-	int gain[VOC_RX_VOL_ARRAY_NUM][10];
-};
-
-#endif /* _MACH_QDSP5_V2_AUDIO_DEF_H */
+#endif /* QDSP5AFEMSG_H */

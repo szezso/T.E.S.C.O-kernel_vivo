@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,44 +26,39 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef _MACH_QDSP5_V2_AUDIO_DEF_H
-#define _MACH_QDSP5_V2_AUDIO_DEF_H
+#ifndef _MACH_QDSP5_V2_AUDIO_ACDB_DEF_H
+#define _MACH_QDSP5_V2_AUDIO_ACDB_DEF_H
 
-/* Define sound device capability */
-#define SNDDEV_CAP_RX 0x1 /* RX direction */
-#define SNDDEV_CAP_TX 0x2 /* TX direction */
-#define SNDDEV_CAP_VOICE 0x4 /* Support voice call */
-#define SNDDEV_CAP_PLAYBACK 0x8 /* Support playback */
-#define SNDDEV_CAP_FM 0x10 /* Support FM radio */
-#define SNDDEV_CAP_TTY 0x20 /* Support TTY */
-#define SNDDEV_CAP_ANC 0x40 /* Support ANC */
-#define VOC_NB_INDEX	0
-#define VOC_WB_INDEX	1
-#define VOC_RX_VOL_ARRAY_NUM	2
+/* Define ACDB device ID */
+#define ACDB_ID_HANDSET_SPKR				1
+#define ACDB_ID_HANDSET_MIC				2
+#define ACDB_ID_HEADSET_MIC				3
+#define ACDB_ID_HEADSET_SPKR_MONO			4
+#define ACDB_ID_HEADSET_SPKR_STEREO			5
+#define ACDB_ID_SPKR_PHONE_MIC				6
+#define ACDB_ID_SPKR_PHONE_MONO				7
+#define ACDB_ID_SPKR_PHONE_STEREO			8
+#define ACDB_ID_BT_SCO_MIC				9
+#define ACDB_ID_BT_SCO_SPKR				0x0A
+#define ACDB_ID_BT_A2DP_SPKR				0x0B
+#define ACDB_ID_BT_A2DP_TX				0x10
+#define ACDB_ID_TTY_HEADSET_MIC				0x0C
+#define ACDB_ID_TTY_HEADSET_SPKR			0x0D
+#define ACDB_ID_HEADSET_MONO_PLUS_SPKR_MONO_RX		0x11
+#define ACDB_ID_HEADSET_STEREO_PLUS_SPKR_STEREO_RX	0x14
+#define ACDB_ID_FM_TX_LOOPBACK				0x17
+#define ACDB_ID_FM_TX					0x18
+#define ACDB_ID_LP_FM_SPKR_PHONE_STEREO_RX		0x19
+#define ACDB_ID_LP_FM_HEADSET_SPKR_STEREO_RX		0x1A
+#define ACDB_ID_I2S_RX					0x20
+#define ACDB_ID_SPKR_PHONE_MIC_BROADSIDE		0x2B
+#define ACDB_ID_HANDSET_MIC_BROADSIDE			0x2C
+#define ACDB_ID_SPKR_PHONE_MIC_ENDFIRE			0x2D
+#define ACDB_ID_HANDSET_MIC_ENDFIRE			0x2E
+#define ACDB_ID_I2S_TX					0x30
+#define ACDB_ID_HDMI					0x40
 
-/* Device volume types . In Current deisgn only one of these are supported. */
-#define SNDDEV_DEV_VOL_DIGITAL  0x1  /* Codec Digital volume control */
-#define SNDDEV_DEV_VOL_ANALOG   0x2  /* Codec Analog volume control */
+/* ID used for virtual devices */
+#define PSEUDO_ACDB_ID 					0xFFFF
 
-#define Q5V2_HW_HANDSET	0
-#define Q5V2_HW_HEADSET	1
-#define Q5V2_HW_SPEAKER	2
-#define Q5V2_HW_BT_SCO	3
-#define Q5V2_HW_TTY	4
-#define Q5V2_HW_HS_SPKR 5
-#define Q5V2_HW_USB_HS  6
-#define Q5V2_HW_HAC  7
-
-#define Q5V2_HW_COUNT	8
-
-struct q5v2_hw_info {
-	int min_gain[VOC_RX_VOL_ARRAY_NUM];
-	int max_gain[VOC_RX_VOL_ARRAY_NUM];
-};
-
-struct q5v2_hw_info_percentage {
-	int max_step;
-	int gain[VOC_RX_VOL_ARRAY_NUM][10];
-};
-
-#endif /* _MACH_QDSP5_V2_AUDIO_DEF_H */
+#endif /* _MACH_QDSP5_V2_AUDIO_ACDB_DEF_H */

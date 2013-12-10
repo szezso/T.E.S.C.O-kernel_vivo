@@ -26,44 +26,20 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef _MACH_QDSP5_V2_AUDIO_DEF_H
-#define _MACH_QDSP5_V2_AUDIO_DEF_H
+#ifndef __MACH_QDSP5_V2_AUDIO_INTERCT_H
+#define __MACH_QDSP5_V2_AUDIO_INTERCT_H
 
-/* Define sound device capability */
-#define SNDDEV_CAP_RX 0x1 /* RX direction */
-#define SNDDEV_CAP_TX 0x2 /* TX direction */
-#define SNDDEV_CAP_VOICE 0x4 /* Support voice call */
-#define SNDDEV_CAP_PLAYBACK 0x8 /* Support playback */
-#define SNDDEV_CAP_FM 0x10 /* Support FM radio */
-#define SNDDEV_CAP_TTY 0x20 /* Support TTY */
-#define SNDDEV_CAP_ANC 0x40 /* Support ANC */
-#define VOC_NB_INDEX	0
-#define VOC_WB_INDEX	1
-#define VOC_RX_VOL_ARRAY_NUM	2
+#define AUDIO_INTERCT_ADSP 0
+#define AUDIO_INTERCT_LPA 1
+#define AUDIO_ADSP_A 1
+#define AUDIO_ADSP_V 0
 
-/* Device volume types . In Current deisgn only one of these are supported. */
-#define SNDDEV_DEV_VOL_DIGITAL  0x1  /* Codec Digital volume control */
-#define SNDDEV_DEV_VOL_ANALOG   0x2  /* Codec Analog volume control */
+void audio_interct_lpa(u32 source);
+void audio_interct_aux_regsel(u32 source);
+void audio_interct_rpcm_source(u32 source);
+void audio_interct_tpcm_source(u32 source);
+void audio_interct_pcmmi2s(u32 source);
+void audio_interct_codec(u32 source);
+void audio_interct_multichannel(u32 source);
 
-#define Q5V2_HW_HANDSET	0
-#define Q5V2_HW_HEADSET	1
-#define Q5V2_HW_SPEAKER	2
-#define Q5V2_HW_BT_SCO	3
-#define Q5V2_HW_TTY	4
-#define Q5V2_HW_HS_SPKR 5
-#define Q5V2_HW_USB_HS  6
-#define Q5V2_HW_HAC  7
-
-#define Q5V2_HW_COUNT	8
-
-struct q5v2_hw_info {
-	int min_gain[VOC_RX_VOL_ARRAY_NUM];
-	int max_gain[VOC_RX_VOL_ARRAY_NUM];
-};
-
-struct q5v2_hw_info_percentage {
-	int max_step;
-	int gain[VOC_RX_VOL_ARRAY_NUM][10];
-};
-
-#endif /* _MACH_QDSP5_V2_AUDIO_DEF_H */
+#endif

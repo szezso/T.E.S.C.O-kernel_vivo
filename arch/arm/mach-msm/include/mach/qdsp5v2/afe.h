@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,44 +26,39 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef _MACH_QDSP5_V2_AUDIO_DEF_H
-#define _MACH_QDSP5_V2_AUDIO_DEF_H
+#ifndef _MACH_QDSP5_V2_AFE_H
+#define _MACH_QDSP5_V2_AFE_H
 
-/* Define sound device capability */
-#define SNDDEV_CAP_RX 0x1 /* RX direction */
-#define SNDDEV_CAP_TX 0x2 /* TX direction */
-#define SNDDEV_CAP_VOICE 0x4 /* Support voice call */
-#define SNDDEV_CAP_PLAYBACK 0x8 /* Support playback */
-#define SNDDEV_CAP_FM 0x10 /* Support FM radio */
-#define SNDDEV_CAP_TTY 0x20 /* Support TTY */
-#define SNDDEV_CAP_ANC 0x40 /* Support ANC */
-#define VOC_NB_INDEX	0
-#define VOC_WB_INDEX	1
-#define VOC_RX_VOL_ARRAY_NUM	2
+#include <asm/types.h>
 
-/* Device volume types . In Current deisgn only one of these are supported. */
-#define SNDDEV_DEV_VOL_DIGITAL  0x1  /* Codec Digital volume control */
-#define SNDDEV_DEV_VOL_ANALOG   0x2  /* Codec Analog volume control */
+#define AFE_HW_PATH_CODEC_RX    1
+#define AFE_HW_PATH_CODEC_TX    2
+#define AFE_HW_PATH_AUXPCM_RX   3
+#define AFE_HW_PATH_AUXPCM_TX   4
+#define AFE_HW_PATH_MI2S_RX     5
+#define AFE_HW_PATH_MI2S_TX     6
 
-#define Q5V2_HW_HANDSET	0
-#define Q5V2_HW_HEADSET	1
-#define Q5V2_HW_SPEAKER	2
-#define Q5V2_HW_BT_SCO	3
-#define Q5V2_HW_TTY	4
-#define Q5V2_HW_HS_SPKR 5
-#define Q5V2_HW_USB_HS  6
-#define Q5V2_HW_HAC  7
+#define AFE_VOLUME_UNITY 0x4000 /* Based on Q14 */
 
-#define Q5V2_HW_COUNT	8
-
-struct q5v2_hw_info {
-	int min_gain[VOC_RX_VOL_ARRAY_NUM];
-	int max_gain[VOC_RX_VOL_ARRAY_NUM];
+struct msm_afe_config {
+	u16 sample_rate;
+	u16 channel_mode;
+	u16 volume;
+	/* To be expaned for AUX CODEC */
 };
 
-struct q5v2_hw_info_percentage {
-	int max_step;
-	int gain[VOC_RX_VOL_ARRAY_NUM][10];
-};
+int afe_enable(u8 path_id, struct msm_afe_config *config);
 
-#endif /* _MACH_QDSP5_V2_AUDIO_DEF_H */
+int afe_disable(u8 path_id);
+
+int afe_config_aux_codec(int pcm_ctl_value, int aux_codec_intf_value,
+			int data_format_pad);
+int afe_config_fm_codec(int fm_enable, uint16_t source);
+
+int afe_config_fm_volume(uint16_t volume);
+
+void afe_loopback(int enable);
+
+void afe_device_volume_ctrl(u16 device_id, u16 device_volume);
+
+#endif
