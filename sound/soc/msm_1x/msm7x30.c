@@ -35,11 +35,11 @@
 #include <linux/msm_audio_7X30.h>
 #include "msm7kv2-pcm.h"
 #include <asm/mach-types.h>
-#include <mach/qdsp5v2_2x/snddev_icodec.h>
+#include <mach/qdsp5v2/snddev_icodec.h>
 #include <linux/mfd/msm-adie-codec.h>
-#include <mach/qdsp5v2_2x/audio_dev_ctl.h>
+#include <mach/qdsp5v2/audio_dev_ctl.h>
 #include <mach/debug_mm.h>
-#include <mach/qdsp5v2_2x/afe.h>
+#include <mach/qdsp5v2/afe.h>
 
 
 static struct platform_device *msm_audio_snd_device;

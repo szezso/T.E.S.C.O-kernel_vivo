@@ -20,15 +20,15 @@
 #define _MSM_PCM_H
 
 
-#include <mach/qdsp5v2_2x/qdsp5audppcmdi.h>
-#include <mach/qdsp5v2_2x/qdsp5audppmsg.h>
-#include <mach/qdsp5v2_2x/qdsp5audplaycmdi.h>
-#include <mach/qdsp5v2_2x/qdsp5audplaymsg.h>
-#include <mach/qdsp5v2_2x/audpp.h>
+#include <mach/qdsp5v2/qdsp5audppcmdi.h>
+#include <mach/qdsp5v2/qdsp5audppmsg.h>
+#include <mach/qdsp5v2/qdsp5audplaycmdi.h>
+#include <mach/qdsp5v2/qdsp5audplaymsg.h>
+#include <mach/qdsp5v2/audpp.h>
 #include <mach/msm_adsp.h>
-#include <mach/qdsp5v2_2x/qdsp5audreccmdi.h>
-#include <mach/qdsp5v2_2x/qdsp5audrecmsg.h>
-#include <mach/qdsp5v2_2x/audpreproc.h>
+#include <mach/qdsp5v2/qdsp5audreccmdi.h>
+#include <mach/qdsp5v2/qdsp5audrecmsg.h>
+#include <mach/qdsp5v2/audpreproc.h>
 
 
 #define FRAME_NUM               (8)
