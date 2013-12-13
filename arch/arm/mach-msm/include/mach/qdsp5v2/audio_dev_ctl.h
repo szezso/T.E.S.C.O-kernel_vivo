@@ -1,29 +1,13 @@
-/* Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *     * Neither the name of Code Aurora Forum, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
  *
- * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
- * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  */
 #ifndef __MACH_QDSP5_V2_SNDDEV_H
@@ -64,7 +48,9 @@ struct msm_snddev_info {
 	u32 sample_rate;
 	u32 set_sample_rate;
 	u32 sessions;
-	u32 vol_idx;
+	int usage_count;
+	s32 max_voc_rx_vol[VOC_RX_VOL_ARRAY_NUM]; /* [0] is for NB,[1] for WB */
+	s32 min_voc_rx_vol[VOC_RX_VOL_ARRAY_NUM];
 };
 
 struct msm_volume {
@@ -74,6 +60,9 @@ struct msm_volume {
 
 extern struct msm_volume msm_vol_ctl;
 
+int msm_get_dual_mic_config(int enc_session_id);
+int msm_set_dual_mic_config(int enc_session_id, int config);
+int msm_reset_all_device(void);
 void msm_snddev_register(struct msm_snddev_info *);
 void msm_snddev_unregister(struct msm_snddev_info *);
 int msm_snddev_devcount(void);
@@ -102,10 +91,17 @@ struct auddev_evt_voc_devinfo {
 						[0] is for NB, other for WB */
 	s32 min_rx_vol[VOC_RX_VOL_ARRAY_NUM];	/* unit is mb */
 	u32 dev_id;             /* registered device id */
-	u32 vol_idx;
 };
 
 struct auddev_evt_audcal_info {
+	u32 dev_id;
+	u32 acdb_id;
+	u32 sample_rate;
+	u32 dev_type;
+	u32 sessions;
+};
+
+struct auddev_evt_devinfo {
 	u32 dev_id;
 	u32 acdb_id;
 	u32 sample_rate;
@@ -138,6 +134,7 @@ union auddev_evt_data {
 	s32 session_vol;
 	s32 voice_state;
 	struct auddev_evt_audcal_info audcal_info;
+	struct auddev_evt_devinfo devinfo;
 };
 
 struct message_header {
@@ -155,7 +152,8 @@ struct message_header {
 #define AUDDEV_EVT_STREAM_VOL_CHG	0x80 	/* device volume changed */
 #define AUDDEV_EVT_FREQ_CHG		0x100	/* Change in freq */
 #define AUDDEV_EVT_VOICE_STATE_CHG	0x200   /* Change in voice state */
-#define AUDDEV_EVT_DEVICE_INFO		0x400	/* routed device information */
+#define AUDDEV_EVT_DEVICE_INFO		0x400	/* routed device information
+							event */
 
 #define AUDDEV_CLNT_VOC 		0x1	/* Vocoder clients */
 #define AUDDEV_CLNT_DEC 		0x2	/* Decoder clients */
@@ -200,6 +198,9 @@ int msm_get_voc_freq(int *tx_freq, int *rx_freq);
 int msm_snddev_get_enc_freq(int session_id);
 int msm_set_voice_vol(int dir, s32 volume);
 int msm_set_voice_mute(int dir, int mute);
-int msm_get_call_state(void);
 int msm_get_voice_state(void);
+#ifdef CONFIG_DEBUG_FS
+bool is_dev_opened(u32 acdb_id);
+#endif
+
 #endif
