@@ -65,14 +65,6 @@ config ANDROID_PMEM
 	bool "Android pmem allocator"
 	default y
 
-config ANDROID_PMEM_ADSP
-  bool "Android pmem adsp support"
-  depends on (MSM_CAMERA || MSM_VIDC_720P) && ANDROID_PMEM
-  default n
-  help
-    Say Y here if your board has older software that cannot be updated
-    to support ION. This patch disabled ION support for VIDC & Camera.
-
 config ATMEL_PWM
 	tristate "Atmel AT32/AT91 PWM support"
 	depends on AVR32 || ARCH_AT91SAM9263 || ARCH_AT91SAM9RL || ARCH_AT91CAP9

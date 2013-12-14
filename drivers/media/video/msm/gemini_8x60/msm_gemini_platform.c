@@ -69,10 +69,6 @@
  * END OF ALTERNATE GPL TERMS
  */
 
-#ifdef CONFIG_ANDROID_PMEM_ADSP
-#undef CONFIG_MSM_MULTIMEDIA_USE_ION
-#endif
-
 #include <linux/module.h>
 #include <linux/pm_qos_params.h>
 #include <linux/clk.h>
