@@ -159,6 +159,7 @@ struct ion_platform_heap {
 	ion_phys_addr_t base;
 	size_t size;
 	enum ion_memory_types memory_type;
+	unsigned int has_outer_cache;
 	void *extra_data;
 };
 
@@ -227,6 +228,7 @@ struct ion_co_heap_pdata {
  * Provided by the board file in the form of platform data to a platform device.
  */
 struct ion_platform_data {
+	unsigned int has_outer_cache;
 	int nr;
 	void (*request_region)(void *);
 	void (*release_region)(void *);

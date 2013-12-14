@@ -23,6 +23,10 @@
 /* FIXME: check limits on command lenghts passed from userspace */
 /* FIXME: __msm_release: which queues should we flush when opencnt != 0 */
 
+#ifdef CONFIG_ANDROID_PMEM_ADSP
+#undef CONFIG_MSM_MULTIMEDIA_USE_ION
+#endif
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
