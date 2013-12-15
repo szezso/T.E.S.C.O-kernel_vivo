@@ -4154,7 +4154,7 @@ static struct platform_device *devices[] __initdata = {
 
 #ifdef CONFIG_ION_MSM
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-#define MSM_ION_HEAP_NUM        3
+#define MSM_ION_HEAP_NUM        4
 #else
 #define MSM_ION_HEAP_NUM        1
 #endif
