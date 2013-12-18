@@ -3568,13 +3568,6 @@ static struct android_pmem_platform_data android_pmem_adsp_pdata = {
 	.memory_type = MEMTYPE_EBI0,
 };
 
-static struct android_pmem_platform_data android_pmem_adsp2_pdata = {
-       .name = "pmem_adsp2",
-       .allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
-       .cached = 0,
-	.memory_type = MEMTYPE_EBI1,
-};
-
 #if 0
 static struct android_pmem_platform_data android_pmem_audio_pdata = {
        .name = "pmem_audio",
@@ -3587,12 +3580,6 @@ static struct platform_device android_pmem_adsp_device = {
        .name = "android_pmem",
        .id = 2,
        .dev = { .platform_data = &android_pmem_adsp_pdata },
-};
-
-static struct platform_device android_pmem_adsp2_device = {
-       .name = "android_pmem",
-       .id = 3,
-       .dev = { .platform_data = &android_pmem_adsp2_pdata },
 };
 
 #if 0
@@ -4115,7 +4102,6 @@ static struct platform_device *devices[] __initdata = {
 	&msm_rotator_device,
 #endif
 	&android_pmem_adsp_device,
-	&android_pmem_adsp2_device,
 	//&android_pmem_audio_device,
 	&msm_device_i2c,
 	&msm_device_i2c_2,
@@ -5783,14 +5769,6 @@ static struct platform_device ion_dev = {
 };
 #endif
 
-static unsigned pmem_adsp2_size = MSM_PMEM_ADSP2_SIZE;
-static int __init pmem_adsp2_size_setup(char *p)
-{
-	pmem_adsp2_size = memparse(p, NULL);
-	return 0;
-}
-early_param("pmem_adsp2_size", pmem_adsp2_size_setup);
-
 static struct memtype_reserve msm7x30_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
 	},
@@ -5833,7 +5811,6 @@ static void __init reserve_pmem_memory(void)
 #ifdef CONFIG_ANDROID_PMEM
 	reserve_memory_for(&android_pmem_adsp_pdata);
 #ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
-	reserve_memory_for(&android_pmem_adsp2_pdata);
 	reserve_memory_for(&android_pmem_pdata);
         msm7x30_reserve_table[MEMTYPE_EBI0].size += PMEM_KERNEL_EBI0_SIZE;
 #endif
@@ -5916,7 +5893,7 @@ static void __init vivo_fixup(struct machine_desc *desc, struct tag *tags,
 
 	mi->nr_banks = 2;
 	mi->bank[0].start = MSM_LINUX_BASE1;
-	mi->bank[0].size = MSM_LINUX_SIZE1 + MSM_MEM_256MB_OFFSET;
+	mi->bank[0].size = MSM_LINUX_SIZE1;
 	mi->bank[1].start = MSM_LINUX_BASE2;
 	mi->bank[1].size = MSM_LINUX_SIZE2;
 }
