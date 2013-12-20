@@ -51,6 +51,67 @@ struct msm_iommu_dev {
 	int ncb;
 };
 
+/*
+ * Interrupt handler for the IOMMU context fault interrupt. Hooking the
+ * interrupt is not supported in the API yet, but this will print an error
+ * message and dump useful IOMMU registers.
+ */
+irqreturn_t msm_iommu_fault_handler(int irq, void *dev_id);
+
+enum {
+	PROC_APPS,
+	PROC_GPU,
+	PROC_MAX
+};
+
+/* Allows kgsl iommu driver to acquire lock */
+#define msm_iommu_lock() \
+	do { \
+		msm_iommu_mutex_lock(); \
+		msm_iommu_remote_spin_lock(); \
+	} while (0)
+
+#define msm_iommu_unlock() \
+	do { \
+		msm_iommu_remote_spin_unlock(); \
+		msm_iommu_mutex_unlock(); \
+	} while (0)
+
+#ifdef CONFIG_MSM_IOMMU_GPU_SYNC
+void msm_iommu_remote_p0_spin_lock(void);
+void msm_iommu_remote_p0_spin_unlock(void);
+
+#define msm_iommu_remote_lock_init() _msm_iommu_remote_spin_lock_init()
+#define msm_iommu_remote_spin_lock() msm_iommu_remote_p0_spin_lock()
+#define msm_iommu_remote_spin_unlock() msm_iommu_remote_p0_spin_unlock()
+#else
+#define msm_iommu_remote_lock_init()
+#define msm_iommu_remote_spin_lock()
+#define msm_iommu_remote_spin_unlock()
+#endif
+
+/* Expose structure to allow kgsl iommu driver to use the same structure to
+ * communicate to GPU the addresses of the flag and turn variables.
+ */
+struct remote_iommu_petersons_spinlock {
+	uint32_t flag[PROC_MAX];
+	uint32_t turn;
+};
+
+#ifdef CONFIG_MSM_IOMMU
+void *msm_iommu_lock_initialize(void);
+void msm_iommu_mutex_lock(void);
+void msm_iommu_mutex_unlock(void);
+#else
+static inline void *msm_iommu_lock_initialize(void)
+{
+	return NULL;
+}
+static inline void msm_iommu_mutex_lock(void) { }
+static inline void msm_iommu_mutex_unlock(void) { }
+
+#endif
+
 /**
  * struct msm_iommu_ctx_dev - an IOMMU context bank instance
  * name		Human-readable name given to this context bank
@@ -84,6 +145,7 @@ struct msm_iommu_drvdata {
 	int ncb;
 	struct clk *clk;
 	struct clk *pclk;
+	struct clk *aclk;
 	const char *name;
 };
 
@@ -124,10 +186,17 @@ static inline struct device *msm_iommu_get_ctx(const char *ctx_name)
 }
 #endif
 
-#endif
-
-static inline int msm_soc_version_supports_iommu(void)
+static inline int msm_soc_version_supports_iommu_v1(void)
 {
+#ifdef CONFIG_OF
+	struct device_node *node;
+
+	node = of_find_compatible_node(NULL, NULL, "qcom,msm-smmu-v2");
+	if (node) {
+		of_node_put(node);
+		return 0;
+	}
+#endif
 	if (cpu_is_msm8960() &&
 	    SOCINFO_VERSION_MAJOR(socinfo_get_version()) < 2)
 		return 0;
@@ -139,3 +208,4 @@ static inline int msm_soc_version_supports_iommu(void)
 	}
 	return 1;
 }
+#endif

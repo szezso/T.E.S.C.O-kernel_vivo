@@ -29,8 +29,12 @@
 
 struct device;
 
+typedef int (*iommu_fault_handler_t)(struct iommu_domain *,
+				struct device *, unsigned long, int);
+
 struct iommu_domain {
 	void *priv;
+	iommu_fault_handler_t handler;
 };
 
 #define IOMMU_CAP_CACHE_COHERENCY	0x1
@@ -59,7 +63,9 @@ struct iommu_ops {
 
 extern void register_iommu(struct iommu_ops *ops);
 extern bool iommu_found(void);
-extern struct iommu_domain *iommu_domain_alloc(int flags);
+extern bool iommu_present(struct bus_type *bus);
+extern void iommu_set_fault_handler(struct iommu_domain *domain,
+					iommu_fault_handler_t handler);
 extern void iommu_domain_free(struct iommu_domain *domain);
 extern int iommu_attach_device(struct iommu_domain *domain,
 			       struct device *dev);
@@ -77,6 +83,8 @@ extern phys_addr_t iommu_iova_to_phys(struct iommu_domain *domain,
 				      unsigned long iova);
 extern int iommu_domain_has_cap(struct iommu_domain *domain,
 				unsigned long cap);
+extern phys_addr_t iommu_get_pt_base_addr(struct iommu_domain *domain);
+extern void iommu_set_fault_handler(struct iommu_domain *domain);
 
 #else /* CONFIG_IOMMU_API */
 
@@ -89,7 +97,12 @@ static inline bool iommu_found(void)
 	return false;
 }
 
-static inline struct iommu_domain *iommu_domain_alloc(int flags)
+static inline bool iommu_present(struct bus_type *bus)
+{
+	return false;
+}
+
+static inline struct iommu_domain *iommu_domain_alloc(struct bus_type *bus, int flags)
 {
 	return NULL;
 }
@@ -144,6 +157,16 @@ static inline int domain_has_cap(struct iommu_domain *domain,
 				 unsigned long cap)
 {
 	return 0;
+}
+
+static inline phys_addr_t iommu_get_pt_base_addr(struct iommu_domain *domain)
+{
+	return 0;
+}
+
+static inline void iommu_set_fault_handler(struct iommu_domain *domain,
+					iommu_fault_handler_t handler)
+{
 }
 
 #endif /* CONFIG_IOMMU_API */
