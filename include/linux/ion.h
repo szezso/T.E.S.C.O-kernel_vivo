@@ -310,9 +310,6 @@ void ion_free(struct ion_client *client, struct ion_handle *handle);
 int ion_phys(struct ion_client *client, struct ion_handle *handle,
 	     ion_phys_addr_t *addr, size_t *len);
 
-struct sg_table *ion_sg_table(struct ion_client *client,
-			      struct ion_handle *handle);
-
 /**
  * ion_map_kernel - create mapping for the given handle
  * @client:	the client
@@ -392,8 +389,6 @@ struct ion_handle *ion_import(struct ion_client *client,
  * the handle to use to refer to it further.
  */
 struct ion_handle *ion_import_fd(struct ion_client *client, int fd);
-
-struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd);
 
 /**
  * ion_handle_get_flags - get the flags for a given handle
@@ -540,12 +535,6 @@ static inline int ion_phys(struct ion_client *client,
 	return -ENODEV;
 }
 
-static inline struct sg_table *ion_sg_table(struct ion_client *client,
-			      struct ion_handle *handle)
-{
-	return ERR_PTR(-ENODEV);
-}
-
 static inline void *ion_map_kernel(struct ion_client *client,
 	struct ion_handle *handle, unsigned long flags)
 {
@@ -578,11 +567,6 @@ static inline struct ion_handle *ion_import(struct ion_client *client,
 
 static inline struct ion_handle *ion_import_fd(struct ion_client *client,
 	int fd)
-{
-	return ERR_PTR(-ENODEV);
-}
-
-static inline struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd)
 {
 	return ERR_PTR(-ENODEV);
 }

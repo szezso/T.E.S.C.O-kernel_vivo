@@ -1,8 +1,10 @@
-/*
- * include/linux/ion.h
+/* drivers/usb/gadget/f_diag.h
  *
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Diag Function Device - Route DIAG frames between SMD and USB
  *
+ * Copyright (C) 2008-2009 Google, Inc.
+ * Copyright (c) 2009, The Linux Foundation. All rights reserved.
+ * Author: Brian Swetland <swetland@google.com>
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
  * may be copied, distributed, and modified under those terms.
@@ -13,18 +15,10 @@
  * GNU General Public License for more details.
  *
  */
+#ifndef __F_DIAG_H
+#define __F_DIAG_H
 
-#ifndef _LINUX_MSM_ION_H
-#define _LINUX_MSM_ION_H
+int diag_function_add(struct usb_configuration *c, const char *);
 
-#include <linux/ion.h>
+#endif /* __F_DIAG_H */
 
-static inline struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd)
-{
-	return ERR_PTR(-ENODEV);
-}
-
-struct sg_table *ion_sg_table(struct ion_client *client,
-			      struct ion_handle *handle);
-
-#endif
