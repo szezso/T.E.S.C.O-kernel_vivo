@@ -33,6 +33,9 @@
 
 #include <asm/mach/map.h>
 
+#undef request_region
+#undef release_region
+
 /**
  * struct ion_cp_heap - container for the heap and shared heap data
 

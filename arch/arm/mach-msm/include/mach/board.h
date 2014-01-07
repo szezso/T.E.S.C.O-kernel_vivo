@@ -477,7 +477,6 @@ struct msm_panel_common_pdata {
 	struct panel_dcr_info *dcr_panel_pinfo;
 	unsigned int auto_bkl_stat;
 	int (*bkl_enable)(int);
-	char cont_splash_enabled;
 #ifdef CONFIG_FB_MSM8960
 	int (*acl_enable)(int);
 #else
@@ -541,9 +540,6 @@ struct mipi_dsi_panel_platform_data {
 	struct mipi_dsi_phy_ctrl *phy_ctrl_settings;
 };
 
-#ifdef CONFIG_ARCH_MSM7X27A
-#define PANEL_NAME_MAX_LEN 50
-#endif
 struct msm_fb_platform_data {
 	int (*detect_client)(const char *name);
 	int mddi_prescan;
@@ -552,10 +548,6 @@ struct msm_fb_platform_data {
 	uint32_t width;
 	uint32_t height;
 	bool     is_3d_panel;
-#ifdef CONFIG_ARCH_MSM7X27A
-	char prim_panel_name[PANEL_NAME_MAX_LEN];
-	char ext_panel_name[PANEL_NAME_MAX_LEN];
-#endif
 };
 
 #ifdef CONFIG_FB_MSM8960

@@ -12,7 +12,7 @@ msm_kgsl_core-y = \
 	kgsl_snapshot.o \
 	kgsl_events.o
 
-#msm_kgsl_core-$(CONFIG_DEBUG_FS) += kgsl_debugfs.o
+msm_kgsl_core-$(CONFIG_DEBUG_FS) += kgsl_debugfs.o
 msm_kgsl_core-$(CONFIG_MSM_KGSL_CFF_DUMP) += kgsl_cffdump.o
 msm_kgsl_core-$(CONFIG_MSM_KGSL_DRM) += kgsl_drm.o
 msm_kgsl_core-$(CONFIG_MSM_SCM) += kgsl_pwrscale_trustzone.o

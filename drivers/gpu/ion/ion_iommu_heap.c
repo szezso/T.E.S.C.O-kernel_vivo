@@ -204,7 +204,7 @@ int ion_iommu_heap_map_iommu(struct ion_buffer *buffer,
 
 	if (extra &&
 		msm_iommu_map_extra
-			(domain, temp_iova, extra, flags) < 0)
+			(domain, temp_iova, extra, SZ_4K, flags) < 0)
 		goto out2;
 
 	return 0;

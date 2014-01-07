@@ -31,6 +31,9 @@
 #include <mach/iommu_domains.h>
 #include <asm/mach/map.h>
 
+#undef request_region
+#undef release_region
+
 struct ion_carveout_heap {
 	struct ion_heap heap;
 	struct gen_pool *pool;
@@ -317,7 +320,7 @@ int ion_carveout_heap_map_iommu(struct ion_buffer *buffer,
 		}
 	}
 
-	if (extra && (msm_iommu_map_extra(domain, temp_iova, extra, flags) < 0))
+	if (extra && (msm_iommu_map_extra(domain, temp_iova, extra, SZ_4K, flags) < 0))
 		goto out2;
 
 	return 0;

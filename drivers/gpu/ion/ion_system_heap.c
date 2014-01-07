@@ -253,7 +253,7 @@ int ion_system_heap_map_iommu(struct ion_buffer *buffer,
 		}
 	}
 
-	if (extra && (msm_iommu_map_extra(domain, temp_iova, extra, flags) < 0))
+	if (extra && (msm_iommu_map_extra(domain, temp_iova, extra, SZ_4K, flags) < 0))
 		goto out2;
 
 	return 0;
@@ -453,7 +453,7 @@ int ion_system_contig_heap_map_iommu(struct ion_buffer *buffer,
 		}
 	}
 
-	if (extra && (msm_iommu_map_extra(domain, temp_iova, extra, flags) < 0))
+	if (extra && (msm_iommu_map_extra(domain, temp_iova, extra, SZ_4K, flags) < 0))
 		goto out2;
 
 	return 0;

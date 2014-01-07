@@ -654,7 +654,7 @@ static struct of_device_id adreno_match_table[] = {
 };
 
 static inline int adreno_of_read_property(struct device_node *node,
-	const char *prop, unsigned int *ptr)
+	char *prop, unsigned int *ptr)
 {
 	int ret = of_property_read_u32(node, prop, ptr);
 	if (ret)
