@@ -1249,7 +1249,8 @@ static int setup_fbmem(struct msmfb_info *msmfb, struct platform_device *pdev)
 
 	fbram_size = pdev->resource[0].end - pdev->resource[0].start + 1;
 	fbram_phys = (char *)pdev->resource[0].start;
-	fbram = ioremap((unsigned long)fbram_phys, fbram_size);
+	fbram = __va(fbram_phys);
+
 	if (!fbram) {
 		printk(KERN_ERR "fbram ioremap failed!\n");
 		return -ENOMEM;
