@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,10 +34,15 @@
 #define GENLOCK_LOG_ERR(fmt, args...) \
 pr_err("genlock: %s: " fmt, __func__, ##args)
 
-#define GENLOCK_LOG_INFO(fmt, args...) \
-pr_info("genlock: %s: " fmt, __func__, ##args)
+/* The genlock magic stored in the kernel private data is used to protect
+ * against the possibility of user space passing a valid fd to a
+ * non-genlock file for genlock_attach_lock()
+ */
+#define GENLOCK_MAGIC_OK  0xD2EAD10C
+#define GENLOCK_MAGIC_BAD 0xD2EADBAD
 
 struct genlock {
+	unsigned int magic;       /* Magic for attach verification */
 	struct list_head active;  /* List of handles holding lock */
 	spinlock_t lock;          /* Spinlock to protect the lock internals */
 	wait_queue_head_t queue;  /* Holding pen for processes pending lock */
@@ -52,7 +57,6 @@ struct genlock_handle {
 	struct file *file;        /* File structure associated with handle */
 	int active;		  /* Number of times the active lock has been
 				     taken */
-	struct genlock_info info;
 };
 
 /*
@@ -60,7 +64,7 @@ struct genlock_handle {
  * released while another process tries to attach it
  */
 
-static DEFINE_SPINLOCK(genlock_file_lock);
+static DEFINE_SPINLOCK(genlock_ref_lock);
 
 static void genlock_destroy(struct kref *kref)
 {
@@ -72,10 +76,9 @@ static void genlock_destroy(struct kref *kref)
 	 * still active after the lock gets released
 	 */
 
-	spin_lock(&genlock_file_lock);
 	if (lock->file)
 		lock->file->private_data = NULL;
-	spin_unlock(&genlock_file_lock);
+	lock->magic = GENLOCK_MAGIC_BAD;
 
 	kfree(lock);
 }
@@ -134,6 +137,7 @@ struct genlock *genlock_create_lock(struct genlock_handle *handle)
 	init_waitqueue_head(&lock->queue);
 	spin_lock_init(&lock->lock);
 
+	lock->magic = GENLOCK_MAGIC_OK;
 	lock->state = _UNLOCKED;
 
 	/*
@@ -207,22 +211,30 @@ struct genlock *genlock_attach_lock(struct genlock_handle *handle, int fd)
 	 * released and then attached
 	 */
 
-	spin_lock(&genlock_file_lock);
+	spin_lock(&genlock_ref_lock);
 	lock = file->private_data;
-	spin_unlock(&genlock_file_lock);
 
 	fput(file);
 
 	if (lock == NULL) {
 		GENLOCK_LOG_ERR("File descriptor is invalid\n");
-		return ERR_PTR(-EINVAL);
+		goto fail_invalid;
+	}
+
+	if (lock->magic != GENLOCK_MAGIC_OK) {
+		GENLOCK_LOG_ERR("Magic is invalid - 0x%X\n", lock->magic);
+		goto fail_invalid;
 	}
 
 	handle->lock = lock;
-	if (atomic_read(&(lock->refcount.refcount)) > 0)
-		kref_get(&lock->refcount);
+	kref_get(&lock->refcount);
+	spin_unlock(&genlock_ref_lock);
 
 	return lock;
+
+fail_invalid:
+	spin_unlock(&genlock_ref_lock);
+	return ERR_PTR(-EINVAL);
 }
 EXPORT_SYMBOL(genlock_attach_lock);
 
@@ -263,8 +275,6 @@ static int _genlock_unlock(struct genlock *lock, struct genlock_handle *handle)
 
 	if (lock->state == _UNLOCKED) {
 		GENLOCK_LOG_ERR("Trying to unlock an unlocked handle\n");
-		/* workaround return unlock success for graphic infinite loop issue */
-		ret = 0;
 		goto done;
 	}
 
@@ -296,7 +306,6 @@ static int _genlock_lock(struct genlock *lock, struct genlock_handle *handle,
 	unsigned long irqflags;
 	int ret = 0;
 	unsigned long ticks = msecs_to_jiffies(timeout);
-	int blocking_read = 0;
 
 	spin_lock_irqsave(&lock->lock, irqflags);
 
@@ -348,8 +357,6 @@ static int _genlock_lock(struct genlock *lock, struct genlock_handle *handle,
 				ret = -EINVAL;
 				goto done;
 			}
-		} else if (lock->state == _WRLOCK && op == _RDLOCK) {
-			blocking_read = 1;
 		}
 	} else {
 
@@ -357,6 +364,7 @@ static int _genlock_lock(struct genlock *lock, struct genlock_handle *handle,
 		 * Check to ensure the caller has not attempted to convert a
 		 * write to a read without holding the lock.
 		 */
+
 		if (flags & GENLOCK_WRITE_TO_READ) {
 			GENLOCK_LOG_ERR("Handle must have lock to convert"
 				"write to read\n");
@@ -405,15 +413,6 @@ static int _genlock_lock(struct genlock *lock, struct genlock_handle *handle,
 		spin_lock_irqsave(&lock->lock, irqflags);
 
 		if (elapsed <= 0) {
-			if(list_empty(&lock->active))
-				printk("[genlock] lock failed, but list_empty\n");
-			else {
-				struct genlock_handle *h;
-				printk("[genlock] lock failed %d, the follows hold lock %d\n", op, lock->state);
-				list_for_each_entry(h, &lock->active, entry) {
-					printk("[genlock] handle %p pid %d\n", h, h->info.pid);
-				}
-			}
 			ret = (elapsed < 0) ? elapsed : -ETIMEDOUT;
 			goto done;
 		}
@@ -421,28 +420,7 @@ static int _genlock_lock(struct genlock *lock, struct genlock_handle *handle,
 		ticks = (unsigned long) elapsed;
 	}
 
-	/* Check if lock is already acquire by current handle.
-	 * If so, just increase its reference. */
-	if (handle_has_lock(lock, handle)) {
-		if (blocking_read) {
-			pr_debug("%s: incr handle(%p, active:%d, op:%d, flags:%d into lock(%p, op:%d)\n",
-				__func__, handle, handle->active, op, flags, lock, lock->state);
-			handle->active++;
-			goto done;
-		} else {
-			pr_warn("%s: strange incr handle(%p, active:%d, op:%d, flags:%d into lock(%p, op:%d)\n",
-				__func__, handle, handle->active, op, flags, lock, lock->state);
-			handle->active++;
-			goto done;
-		}
-	} else if (blocking_read) {
-		pr_warn("%s: unexpected status handle(%p, active:%d, op:%d, flags:%d into lock(%p, op:%d)\n",
-			__func__, handle, handle->active, op, flags, lock, lock->state);
-	}
-
 dolock:
-	pr_debug("%s: added handle(%p, op:%d, flags:%d into lock(%p, op:%d)\n",
-		__func__, handle, op, flags, lock, lock->state);
 	/* We can now get the lock, add ourselves to the list of owners */
 
 	list_add_tail(&handle->entry, &lock->active);
@@ -485,10 +463,6 @@ int genlock_lock(struct genlock_handle *handle, int op, int flags,
 		return -EINVAL;
 	}
 
-	if (atomic_read(&(lock->refcount.refcount)) == 0)
-		return 0;
-	else kref_get(&lock->refcount);
-
 	switch (op) {
 	case GENLOCK_UNLOCK:
 		ret = _genlock_unlock(lock, handle);
@@ -508,10 +482,6 @@ int genlock_lock(struct genlock_handle *handle, int op, int flags,
 		GENLOCK_LOG_ERR("Invalid lock operation\n");
 		ret = -EINVAL;
 		break;
-	}
-	if (kref_put(&lock->refcount, genlock_destroy)) {
-		GENLOCK_LOG_INFO("release lock after ioctl complete, pid (%d/%d)\n",
-		    current->tgid, current->pid);
 	}
 
 	return ret;
@@ -628,28 +598,25 @@ done:
 static void genlock_release_lock(struct genlock_handle *handle)
 {
 	unsigned long flags;
-	struct genlock *lock = NULL;
 
 	if (handle == NULL || handle->lock == NULL)
 		return;
-	if (atomic_read(&(handle->lock->refcount.refcount)) == 0)
-		return;
 
 	spin_lock_irqsave(&handle->lock->lock, flags);
-	lock = handle->lock;
 
 	/* If the handle is holding the lock, then force it closed */
 
 	if (handle_has_lock(handle->lock, handle)) {
-		GENLOCK_LOG_INFO("Releasing a handle that still holds lock (%d)\n", lock->state);
 		list_del(&handle->entry);
 		_genlock_signal(handle->lock);
 	}
+	spin_unlock_irqrestore(&handle->lock->lock, flags);
+
+	spin_lock(&genlock_ref_lock);
+	kref_put(&handle->lock->refcount, genlock_destroy);
+	spin_unlock(&genlock_ref_lock);
 	handle->lock = NULL;
 	handle->active = 0;
-	spin_unlock_irqrestore(&lock->lock, flags);
-
-	kref_put(&lock->refcount, genlock_destroy);
 }
 
 /*
@@ -815,13 +782,6 @@ static long genlock_dev_ioctl(struct file *filep, unsigned int cmd,
 		GENLOCK_LOG_ERR("Deprecated RELEASE ioctl called\n");
 		return -EINVAL;
 	}
-	case GENLOCK_IOC_SETINFO: {
-		if (copy_from_user(&(handle->info), (void __user *) arg, sizeof(handle->info))) {
-			GENLOCK_LOG_ERR("invalid param size");
-			return -EINVAL;
-		}
-		return 0;
-	}
 	default:
 		GENLOCK_LOG_ERR("Invalid ioctl\n");
 		return -EINVAL;
@@ -831,16 +791,6 @@ static long genlock_dev_ioctl(struct file *filep, unsigned int cmd,
 static int genlock_dev_release(struct inode *inodep, struct file *file)
 {
 	struct genlock_handle *handle = file->private_data;
-
-	if (handle->info.fd) {
-		char task_name[FIELD_SIZEOF(struct task_struct, comm) + 1];
-		get_task_comm(task_name, current);
-
-		pr_warn("[GENLOCK] Unexpected! genlock fd was closed before detached. "
-		    "owner={fd=%d, pid:%d, res=[0x%x, 0x%x]} current thread = %d (%s)\n",
-			handle->info.fd, handle->info.pid,
-			handle->info.rsvd[0], handle->info.rsvd[1], current->pid, task_name);
-	}
 
 	genlock_release_lock(handle);
 	kfree(handle);

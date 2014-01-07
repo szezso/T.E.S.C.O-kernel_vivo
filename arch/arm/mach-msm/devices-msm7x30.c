@@ -870,7 +870,7 @@ static struct resource msm_vidc_720p_resources[] = {
 
 struct msm_vidc_platform_data vidc_platform_data = {
 	.memtype = MEMTYPE_EBI0,
-	.enable_ion = 0,
+	.enable_ion = 1,
 	.disable_dmx = 0
 };
 
