@@ -25,7 +25,9 @@
 #include <mach/dma.h>
 #include <mach/board.h>
 #include <asm/clkdev.h>
+#ifdef CONFIG_ION_MSM
 #include <linux/ion.h>
+#endif
 
 #include "devices.h"
 #include "gpio_hw.h"
