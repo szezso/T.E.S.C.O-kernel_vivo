@@ -95,8 +95,6 @@ enum dhd_bus_state {
 #define DHD_BEACON_TIMEOUT_NORMAL	4
 #define DHD_BEACON_TIMEOUT_HIGH		10
 
-#define DYNAMIC_DTIM_SKIP 1
-
 enum dhd_bus_wake_state {
 	WAKE_LOCK_OFF,
 	WAKE_LOCK_PRIV,
@@ -237,11 +235,6 @@ typedef struct dhd_pub {
 #ifdef WLMEDIA_HTSF
 	uint8 htsfdlystat_sz; /* Size of delay stats, max 255B */
 #endif
-#ifdef DYNAMIC_DTIM_SKIP
-	ulong pre_rx_packets;
-	int   dynamic_dtim_skip;
-	int   dynamic_dtim_data_counter;
-#endif
 } dhd_pub_t;
 
 typedef struct dhd_cmn {
@@ -339,7 +332,7 @@ inline static void MUTEX_UNLOCK_SOFTAP_SET(dhd_pub_t * dhdp)
 #define DHD_OS_WAKE_LOCK_TIMEOUT(pub)		dhd_os_wake_lock_timeout(pub)
 #define DHD_OS_WAKE_LOCK_RX_TIMEOUT_ENABLE(pub, val)	dhd_os_wake_lock_rx_timeout_enable(pub, val)
 #define DHD_OS_WAKE_LOCK_CTRL_TIMEOUT_ENABLE(pub, val)	dhd_os_wake_lock_ctrl_timeout_enable(pub, val)
-#define DHD_PACKET_TIMEOUT_MS	500
+#define DHD_PACKET_TIMEOUT_MS	1000
 #define DHD_EVENT_TIMEOUT_MS	1500
 
 /* interface operations (register, remove) should be atomic, use this lock to prevent race

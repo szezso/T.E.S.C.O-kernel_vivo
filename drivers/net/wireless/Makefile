@@ -61,11 +61,11 @@ obj-$(CONFIG_IWM)	+= iwmc3200wifi/
 
 obj-$(CONFIG_MWIFIEX)	+= mwifiex/
 
-obj-$(CONFIG_BCMDHD)	+= bcmdhd/
+ifeq ($(CONFIG_BCMDHD_GOOGLE),y)
+    obj-$(CONFIG_BCMDHD)	+= bcmdhd/
+endif
 
 obj-$(CONFIG_LIBRA_SDIOIF)	+= libra/
 obj-$(CONFIG_WCNSS_CORE)	+= wcnss/
-
-obj-$(CONFIG_BCM4329_248)	+= bcm4329_248/
 
 obj-$(CONFIG_QUALCOMM_WLAN)        += qualcomm_wlan/prima/CORE/HDD/src/

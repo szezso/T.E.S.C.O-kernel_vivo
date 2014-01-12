@@ -68,8 +68,6 @@
 #include <proto/bt_amp_hci.h>
 #include <dhd_bta.h>
 
-#define DYNAMIC_DTIM_SKIP 1
-
 #ifdef WLMEDIA_HTSF
 #include <linux/time.h>
 #include <htsf.h>
@@ -291,16 +289,7 @@ typedef struct dhd_info {
 #ifdef ARP_OFFLOAD_SUPPORT
 	u32 pend_ipaddr;
 #endif /* ARP_OFFLOAD_SUPPORT */
-
-#ifdef DYNAMIC_DTIM_SKIP
-#define DYNAMIC_TIME 900 //900ms
-#define DYNAMIC_RX_DIFF 5
-#define DYNAMIC_SETUP_COUNTER 2
-	struct timer_list dtim_timer;
-	tsk_ctl_t dtim_tsk;
-#endif
 } dhd_info_t;
-
 
 /* Definitions to provide path to the firmware and nvram
  * example nvram_path[MOD_PARAM_PATHLEN]="/projects/wlan/nvram.txt"
@@ -539,100 +528,6 @@ static void dhd_set_packet_filter(int value, dhd_pub_t *dhd)
 #endif
 }
 
-#ifdef DYNAMIC_DTIM_SKIP
-static int
-dhd_dtim_thread(void *data)
-{
-	char iovbuf[32];
-	tsk_ctl_t *tsk = (tsk_ctl_t *)data;
-	dhd_info_t *dhd = (dhd_info_t *)tsk->parent;
-	dhd_pub_t *dhdp = &dhd->pub;
-	ulong rx_packets;
-
-	DAEMONIZE("dhd_dtim");
-
-	complete(&tsk->completed);
-	while(1)
-		if (down_interruptible(&tsk->sema) == 0) {
-			SMP_RD_BARRIER_DEPENDS();
-			if (tsk->terminated)
-				break;
-
-			rx_packets = dhdp->rx_packets;
-			if ((rx_packets - dhdp->pre_rx_packets) >= DYNAMIC_RX_DIFF) {
-				if (dhdp->dynamic_dtim_skip &&
-					(dhdp->dynamic_dtim_data_counter-- < 0)) {
-
-					/* data comes in 3 times querry, switch dtim skip to 0 */
-					dhdp->dynamic_dtim_skip = 0;
-					dhdp->dynamic_dtim_data_counter = DYNAMIC_SETUP_COUNTER;
-					bcm_mkiovar("bcn_li_dtim", (char *)&dhdp->dynamic_dtim_skip,
-							4, iovbuf, sizeof(iovbuf));
-					dhd_wl_ioctl_cmd(dhdp, WLC_SET_VAR, iovbuf,
-							sizeof(iovbuf), TRUE, 0);
-				}
-
-				/* reset counter since dtim_skip is 0 and data comes in */
-				if (!dhdp->dynamic_dtim_skip)
-					dhdp->dynamic_dtim_data_counter = DYNAMIC_SETUP_COUNTER;
-			} else {
-				if (!dhdp->dynamic_dtim_skip &&
-					(dhdp->dynamic_dtim_data_counter-- < 0)) {
-
-					/* no data comes in 3 times querry, switch dtim skip to 3 */
-					dhdp->dynamic_dtim_skip = dhd_get_dtim_skip(dhdp);
-					dhdp->dynamic_dtim_data_counter = DYNAMIC_SETUP_COUNTER;
-					bcm_mkiovar("bcn_li_dtim", (char *)&dhdp->dynamic_dtim_skip,
-							4, iovbuf, sizeof(iovbuf));
-					dhd_wl_ioctl_cmd(dhdp, WLC_SET_VAR, iovbuf,
-							sizeof(iovbuf), TRUE, 0);
-				}
-
-				/* reset counter since dtim_skip is 3 and no data comes in */
-				if (dhdp->dynamic_dtim_skip)
-					dhdp->dynamic_dtim_data_counter = DYNAMIC_SETUP_COUNTER;
-			}
-
-			dhdp->pre_rx_packets = rx_packets;
-			mod_timer(&dhd->dtim_timer,jiffies + DYNAMIC_TIME * HZ / 1000);
-		}else {
-			break;
-		}
-	complete_and_exit(&tsk->completed, 0);
-}
-
-static void
-dhd_dynamic_dtim_func(ulong data)
-{
-	dhd_info_t *dhd = (dhd_info_t *)data;
-	if( dhd->dtim_tsk.thr_pid >= 0) {
-		up(&dhd->dtim_tsk.sema);
-		return;
-	}
-}
-
-static void
-dhd_dynamic_dtim_skip_init(dhd_pub_t *dhdp)
-{
-	dhd_info_t *dhd = (dhd_info_t *)dhdp->info;
-
-	//init values
-	dhdp->pre_rx_packets = dhdp->rx_packets;
-	dhdp->dynamic_dtim_data_counter = 0;
-	dhdp->dynamic_dtim_skip = dhd_get_dtim_skip(dhdp);
-
-	mod_timer(&dhd->dtim_timer,jiffies + DYNAMIC_TIME * HZ / 1000);
-}
-
-static void
-dhd_dynamic_dtim_skip_release(dhd_pub_t *dhdp)
-{
-	dhd_info_t *dhd = (dhd_info_t *)dhdp->info;
-
-	del_timer_sync(&dhd->dtim_timer);
-}
-#endif
-
 static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 {
 #if !defined(SUPPORT_PM2_ONLY)
@@ -674,10 +569,6 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 			bcm_mkiovar("roam_off", (char *)&roamvar, 4,
 				iovbuf, sizeof(iovbuf));
 			dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
-
-#ifdef DYNAMIC_DTIM_SKIP
-			dhd_dynamic_dtim_skip_init(dhd);
-#endif
 		} else {
 
 			/* Kernel resumed  */
@@ -692,9 +583,6 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 			/* disable pkt filter */
 			dhd_set_packet_filter(0, dhd);
 
-#ifdef DYNAMIC_DTIM_SKIP
-			dhd_dynamic_dtim_skip_release(dhd);
-#endif
 			/* restore pre-suspend setting for dtim_skip */
 			bcm_mkiovar("bcn_li_dtim", (char *)&dhd->dtim_skip,
 				4, iovbuf, sizeof(iovbuf));
@@ -2877,14 +2765,6 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 	dhd->dhd_tasklet_create = TRUE;
 #endif /* DHDTHREAD */
 
-#ifdef DYNAMIC_DTIM_SKIP
-	dhd->dtim_tsk.thr_pid = -1;
-	init_timer(&dhd->dtim_timer);
-	dhd->dtim_timer.data = (ulong)dhd;
-	dhd->dtim_timer.function = dhd_dynamic_dtim_func;
-	PROC_START(dhd_dtim_thread, dhd, &dhd->dtim_tsk, 0);
-#endif
-
 	if (dhd_sysioc) {
 		PROC_START(_dhd_sysioc_thread, dhd, &dhd->thr_sysioc_ctl, 0);
 	} else {
@@ -3186,7 +3066,7 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 
 #if !defined(AP)  && defined(WLP2P)
 	/* Check if firmware with WFD support used */
-#if defined(WL_ENABLE_P2P_IF)
+#if 0 //defined(WL_ENABLE_P2P_IF)
 	if ((ret = dhd_concurrent_fw(dhd)) < 0) {
 		DHD_ERROR(("%s error : firmware can't support p2p mode\n", __FUNCTION__));
 		goto done;
@@ -3892,12 +3772,6 @@ void dhd_detach(dhd_pub_t *dhdp)
 		else
 #endif /* DHDTHREAD */
 		tasklet_kill(&dhd->tasklet);
-
-#ifdef DYNAMIC_DTIM_SKIP
-		if( dhd->dtim_tsk.thr_pid >= 0) {
-			PROC_STOP(&dhd->dtim_tsk);
-		}
-#endif
 	}
 	if (dhd->dhd_state & DHD_ATTACH_STATE_PROT_ATTACH) {
 		dhd_bus_detach(dhdp);
