@@ -47,7 +47,7 @@ static int pmic_vibrator_level;
 struct wake_lock vib_wake_lock;
 
 
-#ifdef CONFIG_MSM_RPC_VIBRATOR
+#ifdef CONFIG_RPC_VIBRATOR
 static void set_pmic_vibrator(int on)
 {
 	static struct msm_rpc_endpoint *vib_endpoint;
@@ -111,7 +111,7 @@ static void set_pmic_vibrator_off(void){
 
 static void update_vibrator(struct work_struct *work)
 {
-#ifdef CONFIG_MSM_RPC_VIBRATOR
+#ifdef CONFIG_RPC_VIBRATOR
 	set_pmic_vibrator(vibe_state);
 #endif
 }
@@ -119,7 +119,7 @@ static void update_vibrator(struct work_struct *work)
 
 static void vibrator_enable(struct timed_output_dev *dev, int value)
 {
-#ifdef CONFIG_MSM_RPC_VIBRATOR
+#ifdef CONFIG_RPC_VIBRATOR
 	unsigned long	flags;
 
 retry:
@@ -181,7 +181,7 @@ static int vibrator_get_time(struct timed_output_dev *dev)
 static enum hrtimer_restart vibrator_timer_func(struct hrtimer *timer)
 {
 	VIB_INFO_LOG("%s\n", __func__);
-#ifdef CONFIG_MSM_RPC_VIBRATOR
+#ifdef CONFIG_RPC_VIBRATOR
 	vibe_state = 0;
 	schedule_work(&vibrator_work);
 #else
