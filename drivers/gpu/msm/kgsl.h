@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +22,8 @@
 #include <linux/cdev.h>
 #include <linux/regulator/consumer.h>
 #include <linux/mm.h>
+
+#include <mach/kgsl.h>
 
 #define KGSL_NAME "kgsl"
 
@@ -70,7 +72,6 @@
 	do { _stat += (_size); if (_stat > _max) _max = _stat; } while (0)
 
 struct kgsl_device;
-struct kgsl_context;
 
 struct kgsl_driver {
 	struct cdev cdev;
@@ -193,9 +194,6 @@ int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 
 void kgsl_cancel_events(struct kgsl_device *device,
 	void *owner);
-
-void kgsl_cancel_events_ctxt(struct kgsl_device *device,
-	struct kgsl_context *context);
 
 extern const struct dev_pm_ops kgsl_pm_ops;
 
