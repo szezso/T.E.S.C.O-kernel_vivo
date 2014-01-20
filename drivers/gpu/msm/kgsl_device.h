@@ -14,7 +14,7 @@
 #define __KGSL_DEVICE_H
 
 #include <linux/idr.h>
-#include <linux/pm_qos_params.h>
+#include <linux/pm_qos.h>
 #include <linux/earlysuspend.h>
 
 #include "kgsl.h"
