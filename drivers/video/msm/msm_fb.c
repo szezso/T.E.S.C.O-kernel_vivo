@@ -1419,7 +1419,8 @@ static struct platform_driver msm_panel_driver = {
 	.driver = {.name = "msm_panel"},
 };
 
-int get_fb_phys_info(unsigned long *start, unsigned long *len, int fb_num)
+int get_fb_phys_info(unsigned long *start, unsigned long *len, int fb_num,
+	int subsys_id)
 {
 	struct fb_info *fi;
 	PR_DISP_DEBUG("%s fb_num %d\n", __func__, fb_num);

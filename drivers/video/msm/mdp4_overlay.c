@@ -1611,7 +1611,8 @@ static int get_img(struct msmfb_data *img, struct fb_info *info,
 
 	if (MAJOR(file->f_dentry->d_inode->i_rdev) == FB_MAJOR) {
 		fb_num = MINOR(file->f_dentry->d_inode->i_rdev);
-		if (get_fb_phys_info(start, len, fb_num))
+			if (get_fb_phys_info(start, len, fb_num,
+				DISPLAY_SUBSYSTEM_ID))
 			ret = -1;
 		else
 			*pp_file = file;

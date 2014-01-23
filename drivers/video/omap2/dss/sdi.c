@@ -24,6 +24,7 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/regulator/consumer.h>
+#include <linux/export.h>
 
 #include <video/omapdss.h>
 #include <plat/cpu.h>
