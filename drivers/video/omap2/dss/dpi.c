@@ -25,6 +25,7 @@
 #include <linux/kernel.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/export.h>
 #include <linux/err.h>
 #include <linux/errno.h>
 #include <linux/platform_device.h>

@@ -25,7 +25,12 @@
 #include <linux/rbtree.h>
 #include <linux/ashmem.h>
 #include <linux/major.h>
+#include <linux/highmem.h>
+#ifdef CONFIG_KGSL_COMPAT
+#include <linux/ion.h>
+#else
 #include <linux/msm_ion.h>
+#endif
 #include <linux/io.h>
 #include <mach/socinfo.h>
 
@@ -51,155 +56,6 @@ MODULE_PARM_DESC(ksgl_mmu_type,
 "Type of MMU to be used for graphics. Valid values are 'iommu' or 'gpummu' or 'nommu'");
 
 static struct ion_client *kgsl_ion_client;
-
-/**
- * kgsl_add_event - Add a new timstamp event for the KGSL device
- * @device - KGSL device for the new event
- * @ts - the timestamp to trigger the event on
- * @cb - callback function to call when the timestamp expires
- * @priv - private data for the specific event type
- * @owner - driver instance that owns this event
- *
- * @returns - 0 on success or error code on failure
- */
-
-int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
-	void (*cb)(struct kgsl_device *, void *, u32, u32), void *priv,
-	void *owner)
-{
-	struct kgsl_event *event;
-	struct list_head *n;
-	unsigned int cur_ts;
-	struct kgsl_context *context = NULL;
-
-	if (cb == NULL)
-		return -EINVAL;
-
-	if (id != KGSL_MEMSTORE_GLOBAL) {
-		context = idr_find(&device->context_idr, id);
-		if (context == NULL)
-			return -EINVAL;
-	}
-	cur_ts = kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED);
-
-	/* Check to see if the requested timestamp has already fired */
-
-	if (timestamp_cmp(cur_ts, ts) >= 0) {
-		cb(device, priv, id, cur_ts);
-		return 0;
-	}
-
-	event = kzalloc(sizeof(*event), GFP_KERNEL);
-	if (event == NULL)
-		return -ENOMEM;
-
-	event->context = context;
-	event->timestamp = ts;
-	event->priv = priv;
-	event->func = cb;
-	event->owner = owner;
-
-	/* inc refcount to avoid race conditions in cleanup */
-	if (context)
-		kgsl_context_get(context);
-
-	/*
-	 * Add the event in order to the list.  Order is by context id
-	 * first and then by timestamp for that context.
-	 */
-
-	for (n = device->events.next ; n != &device->events; n = n->next) {
-		struct kgsl_event *e =
-			list_entry(n, struct kgsl_event, list);
-
-		if (e->context != context)
-			continue;
-
-		if (timestamp_cmp(e->timestamp, ts) > 0) {
-			list_add(&event->list, n->prev);
-			break;
-		}
-	}
-
-	if (n == &device->events)
-		list_add_tail(&event->list, &device->events);
-
-	queue_work(device->work_queue, &device->ts_expired_ws);
-	return 0;
-}
-EXPORT_SYMBOL(kgsl_add_event);
-
-/**
- * kgsl_cancel_events_ctxt - Cancel all events for a context
- * @device - KGSL device for the events to cancel
- * @ctxt - context whose events we want to cancel
- *
- */
-static void kgsl_cancel_events_ctxt(struct kgsl_device *device,
-	struct kgsl_context *context)
-{
-	struct kgsl_event *event, *event_tmp;
-	unsigned int id, cur;
-
-	cur = kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED);
-	id = context->id;
-
-	list_for_each_entry_safe(event, event_tmp, &device->events, list) {
-		if (event->context != context)
-			continue;
-
-		/*
-		 * "cancel" the events by calling their callback.
-		 * Currently, events are used for lock and memory
-		 * management, so if the process is dying the right
-		 * thing to do is release or free.
-		 */
-		if (event->func)
-			event->func(device, event->priv, id, cur);
-
-		kgsl_context_put(context);
-		list_del(&event->list);
-		kfree(event);
-	}
-}
-
-/**
- * kgsl_cancel_events - Cancel all events for a process
- * @device - KGSL device for the events to cancel
- * @owner - driver instance that owns the events to cancel
- *
- */
-void kgsl_cancel_events(struct kgsl_device *device,
-	void *owner)
-{
-	struct kgsl_event *event, *event_tmp;
-	unsigned int id, cur;
-
-	list_for_each_entry_safe(event, event_tmp, &device->events, list) {
-		if (event->owner != owner)
-			continue;
-
-		cur = kgsl_readtimestamp(device, event->context,
-					 KGSL_TIMESTAMP_RETIRED);
-
-		id = event->context ? event->context->id : KGSL_MEMSTORE_GLOBAL;
-		/*
-		 * "cancel" the events by calling their callback.
-		 * Currently, events are used for lock and memory
-		 * management, so if the process is dying the right
-		 * thing to do is release or free.
-		 */
-		if (event->func)
-			event->func(device, event->priv, id, cur);
-
-		if (event->context)
-			kgsl_context_put(event->context);
-
-		list_del(&event->list);
-		kfree(event);
-	}
-}
-EXPORT_SYMBOL(kgsl_cancel_events);
 
 /* kgsl_get_mem_entry - get the mem_entry structure for the specified object
  * @device - Pointer to the device structure
@@ -265,6 +121,9 @@ kgsl_mem_entry_destroy(struct kref *kref)
 	 */
 
 	if (entry->memtype == KGSL_MEM_ENTRY_ION) {
+#ifdef CONFIG_KGSL_COMPAT
+		ion_unmap_dma(kgsl_ion_client, entry->priv_data);
+#endif
 		entry->memdesc.sg = NULL;
 	}
 
@@ -379,6 +238,25 @@ kgsl_create_context(struct kgsl_device_private *dev_priv)
 
 	if (kgsl_sync_timeline_create(context)) {
 		idr_remove(&dev_priv->device->context_idr, id);
+		goto func_end;
+	}
+
+	/* Initialize the pending event list */
+	INIT_LIST_HEAD(&context->events);
+
+	/*
+	 * Initialize the node that is used to maintain the master list of
+	 * contexts with pending events in the device structure. Normally we
+	 * wouldn't take the time to initalize a node but at event add time we
+	 * call list_empty() on the node as a quick way of determining if the
+	 * context is already in the master list so it needs to always be either
+	 * active or in an unused but initialized state
+	 */
+
+	INIT_LIST_HEAD(&context->events_list);
+
+func_end:
+	if (ret) {
 		kfree(context);
 		return NULL;
 	}
@@ -430,55 +308,6 @@ kgsl_context_destroy(struct kref *kref)
 	kgsl_sync_timeline_destroy(context);
 	kfree(context);
 }
-
-void kgsl_timestamp_expired(struct work_struct *work)
-{
-	struct kgsl_device *device = container_of(work, struct kgsl_device,
-		ts_expired_ws);
-	struct kgsl_event *event, *event_tmp;
-	uint32_t ts_processed;
-	unsigned int id;
-
-	mutex_lock(&device->mutex);
-
-	/* Process expired events */
-	list_for_each_entry_safe(event, event_tmp, &device->events, list) {
-		ts_processed = kgsl_readtimestamp(device, event->context,
-						  KGSL_TIMESTAMP_RETIRED);
-		if (timestamp_cmp(ts_processed, event->timestamp) < 0)
-			continue;
-
-		id = event->context ? event->context->id : KGSL_MEMSTORE_GLOBAL;
-
-		if (event->func)
-			event->func(device, event->priv, id, ts_processed);
-
-		if (event->context)
-			kgsl_context_put(event->context);
-
-		list_del(&event->list);
-		kfree(event);
-	}
-
-	/* Send the next pending event for each context to the device */
-	if (device->ftbl->next_event) {
-		unsigned int id = KGSL_MEMSTORE_GLOBAL;
-
-		list_for_each_entry(event, &device->events, list) {
-
-			if (!event->context)
-				continue;
-
-			if (event->context->id != id) {
-				device->ftbl->next_event(device, event);
-				id = event->context->id;
-			}
-		}
-	}
-
-	mutex_unlock(&device->mutex);
-}
-EXPORT_SYMBOL(kgsl_timestamp_expired);
 
 static void kgsl_check_idle_locked(struct kgsl_device *device)
 {
@@ -583,7 +412,7 @@ static int kgsl_suspend_device(struct kgsl_device *device, pm_message_t state)
 	kgsl_pwrctrl_request_state(device, KGSL_STATE_SUSPEND);
 	/* Make sure no user process is waiting for a timestamp *
 	 * before supending */
-	if (device->active_cnt != 0) {
+	if (device->state == KGSL_STATE_ACTIVE && device->active_cnt != 0) {
 		mutex_unlock(&device->mutex);
 		wait_for_completion(&device->suspend_gate);
 		mutex_lock(&device->mutex);
@@ -724,17 +553,75 @@ void kgsl_late_resume_driver(struct early_suspend *h)
 }
 EXPORT_SYMBOL(kgsl_late_resume_driver);
 
-/* file operations */
+/**
+ * kgsl_destroy_process_private - Cleanup function to free process private
+ * struct object and the all the other resources attached to it.
+ * Since the function can be used when not all reources inside process
+ * private have been allocated, there is a check to (before each resource
+ * cleanup) see if the struct member being cleaned is in fact allocated
+ * or not. If the value is not NULL, resource is freed.
+ * @kref - Pointer to object being destroyed's kref struct
+ */
+static void kgsl_destroy_process_private(struct kref *kref)
+{
+
+	struct kgsl_mem_entry *entry = NULL;
+	struct rb_node *node;
+
+
+	struct kgsl_process_private *private = container_of(kref,
+			struct kgsl_process_private, refcount);
+	/* Remove this process from global process list */
+
+	/* We do not acquire a lock first as it is expected that
+	 * kgsl_destroy_process_private() is only going to be called
+	 * through kref_put() which is only called after acquiring
+	 * the lock.
+	 */
+	list_del(&private->list);
+	mutex_unlock(&kgsl_driver.process_mutex);
+
+	if (private->pagetable) {
+
+		for (node = rb_first(&private->mem_rb); node; ) {
+			entry = rb_entry(node, struct kgsl_mem_entry, node);
+			node = rb_next(&entry->node);
+
+			rb_erase(&entry->node, &private->mem_rb);
+			kgsl_mem_entry_detach_process(entry);
+		}
+		kgsl_mmu_putpagetable(private->pagetable);
+	}
+
+	if (private->kobj.parent)
+		kgsl_process_uninit_sysfs(private);
+	if (private->debug_root)
+		debugfs_remove_recursive(private->debug_root);
+
+	kfree(private);
+	return;
+}
+
+/**
+ * find_process_private() - Helper function to search for
+ * the current process in the list of processes with an open KGSL handle.
+ * If the process is not found, a new struct object for this process
+ * is created and returned.
+ * @cur_dev_priv: Pointer to device private structure which
+ * contains pointers to device and process_private structs.
+ * @returns: Pointer to the found/newly created private struct
+ */
 static struct kgsl_process_private *
-kgsl_get_process_private(struct kgsl_device_private *cur_dev_priv)
+kgsl_find_process_private(struct kgsl_device_private *cur_dev_priv)
 {
 	struct kgsl_process_private *private;
 
+	/* Search in the process list */
 	mutex_lock(&kgsl_driver.process_mutex);
 	list_for_each_entry(private, &kgsl_driver.process_list, list) {
 		if (private->pid == task_tgid_nr(current)) {
-			private->refcnt++;
-			goto out;
+			kref_get(&private->refcount);
+			goto done;
 		}
 	}
 
@@ -743,68 +630,79 @@ kgsl_get_process_private(struct kgsl_device_private *cur_dev_priv)
 	if (private == NULL) {
 		KGSL_DRV_ERR(cur_dev_priv->device, "kzalloc(%d) failed\n",
 			sizeof(struct kgsl_process_private));
-		goto out;
+		goto done;
 	}
 
-	spin_lock_init(&private->mem_lock);
-	private->refcnt = 1;
+	kref_init(&private->refcount);
 	private->pid = task_tgid_nr(current);
-	private->mem_rb = RB_ROOT;
+	spin_lock_init(&private->mem_lock);
+	mutex_init(&private->process_private_mutex);
+	/* Add the newly created process struct obj to the process list */
+	list_add(&private->list, &kgsl_driver.process_list);
+done:
+	mutex_unlock(&kgsl_driver.process_mutex);
+	return private;
+}
 
-	if (kgsl_mmu_enabled())
-	{
+static void kgsl_put_process_private(struct kgsl_device *device,
+		struct kgsl_process_private *private)
+{
+	mutex_lock(&kgsl_driver.process_mutex);
+
+	/* kref_put() returns 1 when the refcnt has reached 0
+	 * and the destroying function is called and returns 0 when decrementing
+	 * refcnt doesn't give 0 and since we unlock mutex in
+	 * kgsl_destroy_process_private anyway, we only unlock the mutex in this
+	 * function if decrementing refcnt didn't bring it to 0, which would
+	 * happen when kref_put() returns 0.
+	 */
+	if (!kref_put(&private->refcount, kgsl_destroy_process_private))
+		mutex_unlock(&kgsl_driver.process_mutex);
+	return;
+}
+
+/**
+ * kgsl_get_process_private() - Used to find the process private struct obj
+ * and populate its members by allocating resources. If the process
+ * struct obj is not found in current list of open processes, a new process
+ * struct obj is created and its members populated likewise.
+ * Before populating any member there is a check to see if it is NULL.
+ * If it is not NULL, it has already been populated by another thread
+ * and resource allocation for that member is skipped.
+ * @returns: Pointer to the private process struct obj found/created or
+ * NULL if pagetable creation for this process private obj failed.
+ */
+static struct kgsl_process_private *
+kgsl_get_process_private(struct kgsl_device *device,
+		struct kgsl_device_private *cur_dev_priv)
+{
+	struct kgsl_process_private *private;
+
+	private = kgsl_find_process_private(cur_dev_priv);
+
+	mutex_lock(&private->process_private_mutex);
+	if (!private->mem_rb.rb_node)
+		private->mem_rb = RB_ROOT;
+
+	if ((!private->pagetable) && kgsl_mmu_enabled()) {
 		unsigned long pt_name;
 
 		pt_name = task_tgid_nr(current);
 		private->pagetable = kgsl_mmu_getpagetable(pt_name);
 		if (private->pagetable == NULL) {
-			kfree(private);
-			private = NULL;
-			goto out;
+			mutex_unlock(&private->process_private_mutex);
+			kgsl_put_process_private(device, private);
+			return NULL;
 		}
 	}
 
-	list_add(&private->list, &kgsl_driver.process_list);
+	if (!private->kobj.parent)
+		kgsl_process_init_sysfs(private);
+	if (!private->debug_root)
+		kgsl_process_init_debugfs(private);
 
-	kgsl_process_init_sysfs(private);
-	kgsl_process_init_debugfs(private);
-
-out:
-	mutex_unlock(&kgsl_driver.process_mutex);
+	mutex_unlock(&private->process_private_mutex);
 	return private;
-}
-
-static void
-kgsl_put_process_private(struct kgsl_device *device,
-			 struct kgsl_process_private *private)
-{
-	struct kgsl_mem_entry *entry = NULL;
-	struct rb_node *node;
-
-	if (!private)
-		return;
-
-	mutex_lock(&kgsl_driver.process_mutex);
-
-	if (--private->refcnt)
-		goto unlock;
-
-	kgsl_process_uninit_sysfs(private);
-	debugfs_remove_recursive(private->debug_root);
-
-	list_del(&private->list);
-
-	for (node = rb_first(&private->mem_rb); node; ) {
-		entry = rb_entry(node, struct kgsl_mem_entry, node);
-		node = rb_next(&entry->node);
-
-		rb_erase(&entry->node, &private->mem_rb);
-		kgsl_mem_entry_detach_process(entry);
-	}
-	kgsl_mmu_putpagetable(private->pagetable);
-	kfree(private);
-unlock:
-	mutex_unlock(&kgsl_driver.process_mutex);
 }
 
 static int kgsl_release(struct inode *inodep, struct file *filep)
@@ -890,7 +788,7 @@ static int kgsl_open(struct inode *inodep, struct file *filep)
 	filep->private_data = dev_priv;
 
 	/* Get file (per process) private struct */
-	dev_priv->process_priv = kgsl_get_process_private(dev_priv);
+	dev_priv->process_priv = kgsl_get_process_private(device, dev_priv);
 	if (dev_priv->process_priv ==  NULL) {
 		result = -ENOMEM;
 		goto err_freedevpriv;
@@ -1106,11 +1004,8 @@ static long kgsl_ioctl_device_waittimestamp_ctxtid(struct kgsl_device_private
 	int result;
 
 	context = kgsl_find_context(dev_priv, param->context_id);
-	if (context == NULL) {
-		KGSL_DRV_ERR(dev_priv->device, "invalid context_id %d\n",
-			param->context_id);
+	if (context == NULL)
 		return -EINVAL;
-	}
 	/*
 	 * A reference count is needed here, because waittimestamp may
 	 * block with the device mutex unlocked and userspace could
@@ -1134,9 +1029,6 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	context = kgsl_find_context(dev_priv, param->drawctxt_id);
 	if (context == NULL) {
 		result = -EINVAL;
-		KGSL_DRV_ERR(dev_priv->device,
-			"invalid context_id %d\n",
-			param->drawctxt_id);
 		goto done;
 	}
 
@@ -1247,11 +1139,9 @@ static long kgsl_ioctl_cmdstream_readtimestamp_ctxtid(struct kgsl_device_private
 	struct kgsl_context *context;
 
 	context = kgsl_find_context(dev_priv, param->context_id);
-	if (context == NULL) {
-		KGSL_DRV_ERR(dev_priv->device, "invalid context_id %d\n",
-			param->context_id);
+	if (context == NULL)
 		return -EINVAL;
-	}
+
 
 	return _cmdstream_readtimestamp(dev_priv, context,
 			param->type, &param->timestamp);
@@ -1711,12 +1601,20 @@ static int kgsl_setup_ion(struct kgsl_mem_entry *entry,
 {
 	struct ion_handle *handle;
 	struct scatterlist *s;
+#ifdef CONFIG_KGSL_COMPAT
+	unsigned long flags;
+#else
 	struct sg_table *sg_table;
+#endif
 
 	if (IS_ERR_OR_NULL(kgsl_ion_client))
 		return -ENODEV;
 
+#ifdef CONFIG_KGSL_COMPAT
+	handle = ion_import_fd(kgsl_ion_client, fd);
+#else
 	handle = ion_import_dma_buf(kgsl_ion_client, fd);
+#endif
 	if (IS_ERR(handle))
 		return PTR_ERR(handle);
 	else if (!handle)
@@ -1727,12 +1625,21 @@ static int kgsl_setup_ion(struct kgsl_mem_entry *entry,
 	entry->memdesc.pagetable = pagetable;
 	entry->memdesc.size = 0;
 
+#ifdef CONFIG_KGSL_COMPAT
+	if (ion_handle_get_flags(kgsl_ion_client, handle, &flags))
+		goto err;
+
+	entry->memdesc.sg = ion_map_dma(kgsl_ion_client, handle, flags);
+	if (IS_ERR_OR_NULL(entry->memdesc.sg))
+		goto err;
+#else
 	sg_table = ion_sg_table(kgsl_ion_client, handle);
 
 	if (IS_ERR_OR_NULL(sg_table))
 		goto err;
 
 	entry->memdesc.sg = sg_table->sgl;
+#endif
 
 	/* Calculate the size of the memdesc from the sglist */
 
@@ -1863,6 +1770,9 @@ error_put_file_ptr:
 			fput(entry->priv_data);
 		break;
 	case KGSL_MEM_ENTRY_ION:
+#ifdef CONFIG_KGSL_COMPAT
+		ion_unmap_dma(kgsl_ion_client, entry->priv_data);
+#endif
 		ion_free(kgsl_ion_client, entry->priv_data);
 		break;
 	default:
@@ -2589,18 +2499,17 @@ int kgsl_postmortem_dump(struct kgsl_device *device, int manual)
 			kgsl_idle(device);
 
 	}
-	KGSL_LOG_DUMP(device, "|%s| Dump Started\n", device->name);
-	KGSL_LOG_DUMP(device, "POWER: FLAGS = %08lX | ACTIVE POWERLEVEL = %08X",
-			pwr->power_flags, pwr->active_pwrlevel);
 
-	KGSL_LOG_DUMP(device, "POWER: INTERVAL TIMEOUT = %08X ",
-		pwr->interval_timeout);
+	if (device->pm_dump_enable) {
 
-	KGSL_LOG_DUMP(device, "GRP_CLK = %lu ",
-				  kgsl_get_clkrate(pwr->grp_clks[0]));
+		KGSL_LOG_DUMP(device,
+				"POWER: FLAGS = %08lX | ACTIVE POWERLEVEL = %08X",
+				pwr->power_flags, pwr->active_pwrlevel);
 
-	KGSL_LOG_DUMP(device, "BUS CLK = %lu ",
-		kgsl_get_clkrate(pwr->ebi1_clk));
+		KGSL_LOG_DUMP(device, "POWER: INTERVAL TIMEOUT = %08X ",
+				pwr->interval_timeout);
+
+	}
 
 	/* Disable the idle timer so we don't get interrupted */
 	del_timer_sync(&device->idle_timer);
@@ -2628,7 +2537,7 @@ int kgsl_postmortem_dump(struct kgsl_device *device, int manual)
 	/* On a manual trigger, turn on the interrupts and put
 	   the clocks to sleep.  They will recover themselves
 	   on the next event.  For a hang, leave things as they
-	   are until recovery kicks in. */
+	   are until fault tolerance kicks in. */
 
 	if (manual) {
 		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
@@ -2637,8 +2546,6 @@ int kgsl_postmortem_dump(struct kgsl_device *device, int manual)
 		kgsl_pwrctrl_request_state(device, KGSL_STATE_SLEEP);
 		kgsl_pwrctrl_sleep(device);
 	}
-
-	KGSL_LOG_DUMP(device, "|%s| Dump Finished\n", device->name);
 
 	return 0;
 }

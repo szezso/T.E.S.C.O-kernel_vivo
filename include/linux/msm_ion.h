@@ -19,15 +19,12 @@
 
 #include <linux/ion.h>
 
-enum cp_mem_usage {
-	VIDEO_BITSTREAM = 0x1,
-	VIDEO_PIXEL = 0x2,
-	VIDEO_NONPIXEL = 0x3,
-	MAX_USAGE = 0x4,
-	UNKNOWN = 0x7FFFFFFF,
-};
+static inline struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd)
+{
+	return ERR_PTR(-ENODEV);
+}
 
-#define ION_SET_CACHED(__cache)		(__cache | ION_FLAG_CACHED)
-#define ION_SET_UNCACHED(__cache)	(__cache & ~ION_FLAG_CACHED)
+struct sg_table *ion_sg_table(struct ion_client *client,
+			      struct ion_handle *handle);
 
 #endif

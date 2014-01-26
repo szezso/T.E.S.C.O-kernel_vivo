@@ -74,24 +74,18 @@ struct msm_iommu_ctx_dev {
  * @irq:	Interrupt number
  * @clk:	The bus clock for this IOMMU hardware instance
  * @pclk:	The clock for the IOMMU bus interconnect
- * @aclk:	Alternate clock for this IOMMU core, if any
- * @name:	Human-readable name of this IOMMU device
- * @gdsc:	Regulator needed to power this HW block (v2 only)
- * @nsmr:	Size of the SMT on this HW block (v2 only)
  *
  * A msm_iommu_drvdata holds the global driver data about a single piece
  * of an IOMMU hardware instance.
  */
 struct msm_iommu_drvdata {
 	void __iomem *base;
+	int irq;
 	int ncb;
-	int ttbr_split;
 	struct clk *clk;
 	struct clk *pclk;
 	struct clk *aclk;
 	const char *name;
-	struct regulator *gdsc;
-	unsigned int nsmr;
 };
 
 /**
@@ -116,6 +110,7 @@ struct msm_iommu_ctx_drvdata {
  * message and dump useful IOMMU registers.
  */
 irqreturn_t msm_iommu_fault_handler(int irq, void *dev_id);
+irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id);
 
 enum {
 	PROC_APPS,
@@ -142,7 +137,6 @@ static inline void *msm_iommu_lock_initialize(void)
 }
 static inline void msm_iommu_mutex_lock(void) { }
 static inline void msm_iommu_mutex_unlock(void) { }
-
 #endif
 
 #ifdef CONFIG_MSM_IOMMU_GPU_SYNC
@@ -171,6 +165,12 @@ void msm_iommu_remote_p0_spin_unlock(void);
 		msm_iommu_mutex_unlock(); \
 	} while (0)
 
+/*
+ * Interrupt handler for the IOMMU context fault interrupt. Hooking the
+ * interrupt is not supported in the API yet, but this will print an error
+ * message and dump useful IOMMU registers.
+ */
+irqreturn_t msm_iommu_fault_handler(int irq, void *dev_id);
 
 #ifdef CONFIG_MSM_IOMMU
 /*
@@ -185,7 +185,7 @@ static inline struct device *msm_iommu_get_ctx(const char *ctx_name)
 	return NULL;
 }
 #endif
-
+//------------
 static inline int msm_soc_version_supports_iommu_v1(void)
 {
 #ifdef CONFIG_OF
@@ -208,4 +208,19 @@ static inline int msm_soc_version_supports_iommu_v1(void)
 	}
 	return 1;
 }
+
 #endif
+//---------------
+static inline int msm_soc_version_supports_iommu(void)
+{
+	if (cpu_is_msm8960() &&
+	    SOCINFO_VERSION_MAJOR(socinfo_get_version()) < 2)
+		return 0;
+
+	if (cpu_is_msm8x60() &&
+	    (SOCINFO_VERSION_MAJOR(socinfo_get_version()) != 2 ||
+	    SOCINFO_VERSION_MINOR(socinfo_get_version()) < 1))	{
+		return 0;
+	}
+	return 1;
+}

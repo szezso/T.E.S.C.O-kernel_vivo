@@ -377,8 +377,11 @@ static void kgsl_page_alloc_free(struct kgsl_memdesc *memdesc)
 		kgsl_driver.stats.vmalloc -= memdesc->size;
 	}
 	if (memdesc->sg)
-		for_each_sg(memdesc->sg, sg, sglen, i)
+		for_each_sg(memdesc->sg, sg, sglen, i){
+			if (sg->length == 0)
+				break;
 			__free_pages(sg_page(sg), get_order(sg->length));
+		}
 }
 
 static int kgsl_contiguous_vmflags(struct kgsl_memdesc *memdesc)
@@ -603,7 +606,7 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 	while (len > 0) {
 		struct page *page;
 		unsigned int gfp_mask = GFP_KERNEL | __GFP_HIGHMEM |
-			__GFP_NOWARN | __GFP_NORETRY;
+			__GFP_NOWARN;
 		int j;
 
 		/* don't waste space at the end of the allocation*/

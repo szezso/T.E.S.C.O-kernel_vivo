@@ -1,4 +1,4 @@
-ccflags-y := -Iinclude/drm -Idrivers/gpu/msm
+ccflags-y := -Iinclude/drm -Idrivers/gpu/msm -Ofast -fsingle-precision-constant -mtune=cortex-a8 -marm -march=armv7-a -mfpu=neon -ftree-vectorize -mvectorize-with-neon-double
 
 msm_kgsl_core-y = \
 	kgsl.o \
@@ -9,7 +9,8 @@ msm_kgsl_core-y = \
 	kgsl_mmu.o \
 	kgsl_gpummu.o \
 	kgsl_iommu.o \
-	kgsl_snapshot.o
+	kgsl_snapshot.o \
+	kgsl_events.o
 
 msm_kgsl_core-$(CONFIG_DEBUG_FS) += kgsl_debugfs.o
 msm_kgsl_core-$(CONFIG_MSM_KGSL_CFF_DUMP) += kgsl_cffdump.o
@@ -27,9 +28,6 @@ msm_adreno-y += \
 	adreno_a2xx.o \
 	adreno_a2xx_trace.o \
 	adreno_a2xx_snapshot.o \
-	adreno_a3xx.o \
-	adreno_a3xx_trace.o \
-	adreno_a3xx_snapshot.o \
 	adreno.o
 
 msm_adreno-$(CONFIG_DEBUG_FS) += adreno_debugfs.o

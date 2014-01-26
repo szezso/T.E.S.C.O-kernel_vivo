@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -224,6 +224,11 @@ static enum msm_cpu cpu_of_id[] = {
 	/* 8627 IDs */
 	[120] = MSM_CPU_8627,
 	[121] = MSM_CPU_8627,
+
+       /* 8625 IDs */
+       [127] = MSM_CPU_8625,
+       [128] = MSM_CPU_8625,
+       [129] = MSM_CPU_8625,
 
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
@@ -591,6 +596,8 @@ void *setup_dummy_socinfo(void)
 		dummy_socinfo.id = 109;
 	else if (machine_is_msm9615_mtp() || machine_is_msm9615_cdp())
 		dummy_socinfo.id = 104;
+       else if (machine_is_msm8625_rumi3())
+               dummy_socinfo.id = 127;
 	return (void *) &dummy_socinfo;
 }
 
