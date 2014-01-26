@@ -762,14 +762,13 @@ void r600_hpd_init(struct radeon_device *rdev)
 	struct drm_device *dev = rdev->ddev;
 	struct drm_connector *connector;
 
-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
-		struct radeon_connector *radeon_connector = to_radeon_connector(connector);
+	if (ASIC_IS_DCE3(rdev)) {
+		u32 tmp = DC_HPDx_CONNECTION_TIMER(0x9c4) | DC_HPDx_RX_INT_TIMER(0xfa);
+		if (ASIC_IS_DCE32(rdev))
+			tmp |= DC_HPDx_EN;
 
-		if (ASIC_IS_DCE3(rdev)) {
-			u32 tmp = DC_HPDx_CONNECTION_TIMER(0x9c4) | DC_HPDx_RX_INT_TIMER(0xfa);
-			if (ASIC_IS_DCE32(rdev))
-				tmp |= DC_HPDx_EN;
-
+		list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
+			struct radeon_connector *radeon_connector = to_radeon_connector(connector);
 			switch (radeon_connector->hpd.hpd) {
 			case RADEON_HPD_1:
 				WREG32(DC_HPD1_CONTROL, tmp);
@@ -799,7 +798,10 @@ void r600_hpd_init(struct radeon_device *rdev)
 			default:
 				break;
 			}
-		} else {
+		}
+	} else {
+		list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
+			struct radeon_connector *radeon_connector = to_radeon_connector(connector);
 			switch (radeon_connector->hpd.hpd) {
 			case RADEON_HPD_1:
 				WREG32(DC_HOT_PLUG_DETECT1_CONTROL, DC_HOT_PLUG_DETECTx_EN);
@@ -817,7 +819,6 @@ void r600_hpd_init(struct radeon_device *rdev)
 				break;
 			}
 		}
-		radeon_hpd_set_polarity(rdev, radeon_connector->hpd.hpd);
 	}
 	if (rdev->irq.installed)
 		r600_irq_set(rdev);

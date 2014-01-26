@@ -22,21 +22,6 @@
 #include <linux/types.h>
 
 
-#define ION_SET_CACHED(__cache)		(__cache | ION_FLAG_CACHED)
-#define ION_SET_UNCACHED(__cache)	(__cache & ~ION_FLAG_CACHED)
-
-#define ION_FLAG_CACHED 1		/* mappings of this buffer should be
-					   cached, ion will do cache
-					   maintenance when the buffer is
-					   mapped for dma */
-
-enum ion_fixed_position {
-	NOT_FIXED,
-	FIXED_LOW,
-	FIXED_MIDDLE,
-	FIXED_HIGH,
-};
-
 struct ion_handle;
 /**
  * enum ion_heap_types - list of all possible types of heaps
@@ -67,6 +52,21 @@ enum ion_heap_type {
 #define ION_HEAP_CARVEOUT_MASK		(1 << ION_HEAP_TYPE_CARVEOUT)
 #define ION_HEAP_CP_MASK			(1 << ION_HEAP_TYPE_CP)
 
+/**
+ * heap flags - the lower 16 bits are used by core ion, the upper 16
+ * bits are reserved for use by the heaps themselves.
+ */
+#define ION_FLAG_CACHED 1		/* mappings of this buffer should be
+					   cached, ion will do cache
+					   maintenance when the buffer is
+					   mapped for dma */
+
+/**
+ * Flag for clients to force contiguous memort allocation
+ *
+ * Use of this flag is carefully monitored!
+ */
+#define ION_FORCE_CONTIGUOUS (1 << 30)
 
 /**
  * These are the only ids that should be used for Ion heap ids.
@@ -99,6 +99,13 @@ enum ion_heap_ids {
 	ION_SYSTEM_HEAP_ID = 30,
 
 	ION_HEAP_ID_RESERVED = 31 /** Bit reserved for ION_SECURE flag */
+};
+
+enum ion_fixed_position {
+	NOT_FIXED,
+	FIXED_LOW,
+	FIXED_MIDDLE,
+	FIXED_HIGH,
 };
 
 /**
@@ -165,7 +172,9 @@ struct ion_buffer;
  * @base:	base address of heap in physical memory if applicable
  * @size:	size of the heap in bytes if applicable
  * @memory_type:Memory type used for the heap
+ * @has_outer_cache:    set to 1 if outer cache is used, 0 otherwise.
  * @extra_data:	Extra data specific to each heap type
+ * @priv:	heap private data
  */
 struct ion_platform_heap {
 	enum ion_heap_type type;
@@ -192,12 +201,19 @@ struct ion_platform_heap {
  *			of this heap in the case of a shared heap.
  * @reusable		Flag indicating whether this heap is reusable of not.
  *			(see FMEM)
+ * @mem_is_fmem		Flag indicating whether this memory is coming from fmem
+ *			or not.
+ * @fixed_position	If nonzero, position in the fixed area.
  * @virt_addr:		Virtual address used when using fmem.
+ * @iommu_map_all:	Indicates whether we should map whole heap into IOMMU.
+ * @iommu_2x_map_domain: Indicates the domain to use for overmapping.
  * @request_region:	function to be called when the number of allocations
  *			goes from 0 -> 1
  * @release_region:	function to be called when the number of allocations
  *			goes from 1 -> 0
  * @setup_region:	function to be called upon ion registration
+ * @memory_type:Memory type used for the heap
+ * @no_nonsecure_alloc: don't allow non-secure allocations from this heap
  *
  */
 struct ion_cp_heap_pdata {
@@ -309,7 +325,6 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 			     size_t align, unsigned int heap_mask,
 			     unsigned int flags);
 
-
 /**
  * ion_free - free a handle
  * @client:	the client
@@ -338,6 +353,9 @@ void ion_free(struct ion_client *client, struct ion_handle *handle);
 int ion_phys(struct ion_client *client, struct ion_handle *handle,
 	     ion_phys_addr_t *addr, size_t *len);
 
+struct sg_table *ion_sg_table(struct ion_client *client,
+			      struct ion_handle *handle);
+
 /**
  * ion_map_kernel - create mapping for the given handle
  * @client:	the client
@@ -349,7 +367,6 @@ int ion_phys(struct ion_client *client, struct ion_handle *handle,
  * will return a non-secure uncached mapping.
  */
 void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle);
-
 /**
  * ion_unmap_kernel() - destroy a kernel mapping for a handle
  * @client:	the client
@@ -358,15 +375,40 @@ void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle);
 void ion_unmap_kernel(struct ion_client *client, struct ion_handle *handle);
 
 /**
- * ion_map_dma - return an sg_table describing a handle
+ * ion_share_dma_buf() - given an ion client, create a dma-buf fd
  * @client:	the client
  * @handle:	the handle
- *
- * This function returns the sg_table describing
- * a particular ion handle.
  */
-struct sg_table *ion_sg_table(struct ion_client *client,
-			      struct ion_handle *handle);
+int ion_share_dma_buf(struct ion_client *client, struct ion_handle *handle);
+
+/**
+ * ion_import_dma_buf() - given an dma-buf fd from the ion exporter get handle
+ * @client:	the client
+ * @fd:		the dma-buf fd
+ *
+ * Given an dma-buf fd that was allocated through ion via ion_share_dma_buf,
+ * import that fd and return a handle representing it.  If a dma-buf from
+ * another exporter is passed in this function will return ERR_PTR(-EINVAL)
+ */
+struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd);
+
+/**
+ * ion_map_dma - create a dma mapping for a given handle
+ * @client:	the client
+ * @handle:	handle to map
+ *
+ * Return an sglist describing the given handle
+ */
+struct scatterlist *ion_map_dma(struct ion_client *client,
+				struct ion_handle *handle,
+				unsigned long flags);
+
+/**
+ * ion_unmap_dma() - destroy a dma mapping for a handle
+ * @client:	the client
+ * @handle:	handle to unmap
+ */
+void ion_unmap_dma(struct ion_client *client, struct ion_handle *handle);
 
 /**
  * ion_share() - given a handle, obtain a buffer to pass to other clients
@@ -399,8 +441,8 @@ struct ion_handle *ion_import(struct ion_client *client,
 
 /**
  * ion_import_fd() - given an fd obtained via ION_IOC_SHARE ioctl, import it
- * @client:	this blocks client
- * @fd:		the fd
+ * @client:        this blocks client
+ * @fd:                the fd
  *
  * A helper function for drivers that will be recieving ion buffers shared
  * with them from userspace.  These buffers are represented by a file
@@ -408,7 +450,12 @@ struct ion_handle *ion_import(struct ion_client *client,
  * This function coverts that fd into the underlying buffer, and returns
  * the handle to use to refer to it further.
  */
-struct ion_handle *ion_import_fd(struct ion_client *client, int fd);
+
+static inline struct ion_handle *ion_import_fd(struct ion_client *client,
+        int fd)
+{
+        return ERR_PTR(-ENODEV);
+}
 
 /**
  * ion_handle_get_flags - get the flags for a given handle
@@ -438,6 +485,7 @@ int ion_handle_get_flags(struct ion_client *client, struct ion_handle *handle,
  * @iova - pointer to store the iova address
  * @buffer_size - pointer to store the size of the buffer
  * @flags - flags for options to map
+ * @iommu_flags - flags specific to the iommu.
  *
  * Maps the handle into the iova space specified via domain number. Iova
  * will be allocated from the partition specified via partition_num.
@@ -604,12 +652,6 @@ static inline struct ion_buffer *ion_share(struct ion_client *client,
 
 static inline struct ion_handle *ion_import(struct ion_client *client,
 	struct ion_buffer *buffer)
-{
-	return ERR_PTR(-ENODEV);
-}
-
-static inline struct ion_handle *ion_import_fd(struct ion_client *client,
-	int fd)
 {
 	return ERR_PTR(-ENODEV);
 }

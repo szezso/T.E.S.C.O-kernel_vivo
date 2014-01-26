@@ -24,7 +24,6 @@
 
 #include <linux/kernel.h>
 #include <linux/dma-mapping.h>
-#include <linux/export.h>
 #include <linux/vmalloc.h>
 #include <linux/clk.h>
 #include <linux/io.h>

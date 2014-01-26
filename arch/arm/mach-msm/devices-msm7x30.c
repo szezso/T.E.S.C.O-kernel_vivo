@@ -17,17 +17,16 @@
 #include <linux/platform_device.h>
 #include <linux/msm_rotator.h>
 #include <linux/dma-mapping.h>
-#include <linux/msm_kgsl.h>
+#include <mach/kgsl.h>
 #include <linux/android_pmem.h>
 #include <linux/regulator/machine.h>
 #include <mach/irqs.h>
 #include <mach/msm_iomap.h>
 #include <mach/dma.h>
-#include <mach/kgsl.h>
 #include <mach/board.h>
 #include <asm/clkdev.h>
 #ifdef CONFIG_ION_MSM
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #endif
 
 #include "devices.h"
@@ -1105,8 +1104,7 @@ static struct msm_rot_clocks rotator_clocks[] = {
 static struct msm_rotator_platform_data rotator_pdata = {
 	.number_of_clocks = ARRAY_SIZE(rotator_clocks),
 	.hardware_version_number = 0x1000303,
-	.rotator_clks = rotator_clocks,
-	.regulator_name = "fs_rot",
+	.rotator_clks = rotator_clocks,	
 };
 
 struct platform_device msm_rotator_device = {
@@ -1263,12 +1261,13 @@ struct platform_device msm_kgsl_2d0 = {
 };
 
 struct platform_device *msm_footswitch_devices[] = {
-	FS_PCOM(FS_GFX2D0, "fs_gfx2d0"),
-	FS_PCOM(FS_GFX3D,  "fs_gfx3d"),
-	FS_PCOM(FS_MDP,    "fs_mdp"),
-	FS_PCOM(FS_MFC,    "fs_mfc"),
-	FS_PCOM(FS_ROT,    "fs_rot"),
-	FS_PCOM(FS_VFE,    "fs_vfe"),
-	FS_PCOM(FS_VPE,    "fs_vpe"),
+  	FS_PCOM(FS_GFX2D0, "vdd", "kgsl-2d0.0"),
+  	FS_PCOM(FS_GFX3D,  "vdd", "kgsl-3d0.0"),
+  	FS_PCOM(FS_MDP,    "vdd", "mdp.0"),
+  	FS_PCOM(FS_MFC,    "fs_mfc",    NULL),
+  	FS_PCOM(FS_ROT,    "vdd",  "msm_rotator.0"),
+  	FS_PCOM(FS_VFE,    "fs_vfe",    NULL),
+  	FS_PCOM(FS_VPE,    "fs_vpe",    NULL),
 };
+
 unsigned msm_num_footswitch_devices = ARRAY_SIZE(msm_footswitch_devices);

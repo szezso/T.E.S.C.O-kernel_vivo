@@ -19,13 +19,6 @@
 
 #include <linux/ion.h>
 
-/**
- * Flag for clients to force contiguous memort allocation
- *
- * Use of this flag is carefully monitored!
- */
-#define ION_FORCE_CONTIGUOUS (1 << 30)
-
 enum cp_mem_usage {
 	VIDEO_BITSTREAM = 0x1,
 	VIDEO_PIXEL = 0x2,
@@ -34,15 +27,7 @@ enum cp_mem_usage {
 	UNKNOWN = 0x7FFFFFFF,
 };
 
-/**
- * ion_import_dma_buf() - given an dma-buf fd from the ion exporter get handle
- * @client:	the client
- * @fd:		the dma-buf fd
- *
- * Given an dma-buf fd that was allocated through ion via ion_share_dma_buf,
- * import that fd and return a handle representing it.  If a dma-buf from
- * another exporter is passed in this function will return ERR_PTR(-EINVAL)
- */
-struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd);
+#define ION_SET_CACHED(__cache)		(__cache | ION_FLAG_CACHED)
+#define ION_SET_UNCACHED(__cache)	(__cache & ~ION_FLAG_CACHED)
 
 #endif
