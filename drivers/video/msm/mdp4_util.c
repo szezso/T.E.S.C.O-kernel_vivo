@@ -1,14 +1,58 @@
-/*
- * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+
+/* Copyright (c) 2009, Code Aurora Forum. All rights reserved.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the name of Code Aurora Forum nor
+ *       the names of its contributors may be used to endorse or promote
+ *       products derived from this software without specific prior written
+ *       permission.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Alternatively, provided that this notice is retained in full, this software
+ * may be relicensed by the recipient under the terms of the GNU General Public
+ * License version 2 ("GPL") and only version 2, in which case the provisions of
+ * the GPL apply INSTEAD OF those given above.  If the recipient relicenses the
+ * software under the GPL, then the identification text in the MODULE_LICENSE
+ * macro must be changed to reflect "GPLv2" instead of "Dual BSD/GPL".  Once a
+ * recipient changes the license terms to the GPL, subsequent recipients shall
+ * not relicense under alternate licensing terms, including the BSD or dual
+ * BSD/GPL terms.  In addition, the following license statement immediately
+ * below and between the words START and END shall also then apply when this
+ * software is relicensed under the GPL:
+ *
+ * START
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License version 2 and only version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * END
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  *
  */
 
@@ -21,196 +65,32 @@
 #include <linux/spinlock.h>
 #include <linux/hrtimer.h>
 #include <linux/clk.h>
+#include <mach/hardware.h>
 #include <linux/io.h>
 #include <linux/debugfs.h>
-#include <linux/semaphore.h>
-#include <linux/uaccess.h>
 #include <linux/msm_mdp.h>
+
 #include <asm/system.h>
 #include <asm/mach-types.h>
-#include <mach/hardware.h>
-#include <mach/iommu_domains.h>
-#include "mdp.h"
-#include "msm_fb.h"
+#include <linux/semaphore.h>
+#include <linux/uaccess.h>
+#include <mach/debug_display.h>
+
+#include "mdp_hw.h"
 #include "mdp4.h"
 
-struct mdp4_statistic mdp4_stat;
 
-struct mdp_csc_cfg_data csc_cfg_matrix[CSC_MAX_BLOCKS] = {
-	{
-	.block = MDP_BLOCK_VG_1,
-	.csc_data = {
-			(MDP_CSC_FLAG_YUV_OUT),
-			{
-				0x0254, 0x0000, 0x0331,
-				0x0254, 0xff37, 0xfe60,
-				0x0254, 0x0409, 0x0000,
-			},
-			{
-				0xfff0, 0xff80, 0xff80,
-			},
-			{
-				0, 0, 0,
-			},
-			{
-				0, 0xff, 0, 0xff, 0, 0xff,
-			},
-			{
-				0, 0xff, 0, 0xff, 0, 0xff,
-			},
-		},
-	},
-	{
-	.block = MDP_BLOCK_VG_2,
-	.csc_data = {
-			(MDP_CSC_FLAG_YUV_OUT),
-			{
-				0x0254, 0x0000, 0x0331,
-				0x0254, 0xff37, 0xfe60,
-				0x0254, 0x0409, 0x0000,
-			},
-			{
-				0xfff0, 0xff80, 0xff80,
-			},
-			{
-				0, 0, 0,
-			},
-			{
-				0, 0xff, 0, 0xff, 0, 0xff,
-			},
-			{
-				0, 0xff, 0, 0xff, 0, 0xff,
-			},
-		},
-	},
-	{
-	.block = MDP_BLOCK_DMA_P,
-	.csc_data = {
-			(0),
-			{
-				0x0200, 0x0000, 0x0000,
-				0x0000, 0x0200, 0x0000,
-				0x0000, 0x0000, 0x0200,
-			},
-			{
-				0x0, 0x0, 0x0,
-			},
-			{
-				0, 0, 0,
-			},
-			{
-				0, 0xff, 0, 0xff, 0, 0xff,
-			},
-			{
-				0, 0xff, 0, 0xff, 0, 0xff,
-			},
-		},
-	},
-	{
-	.block = MDP_BLOCK_OVERLAY_1,
-	.csc_data = {
-			(0),
-			{
-				0x0083, 0x0102, 0x0032,
-				0x1fb5, 0x1f6c, 0x00e1,
-				0x00e1, 0x1f45, 0x1fdc,
-			},
-			{
-				0x0, 0x0, 0x0,
-			},
-			{
-				0x0010, 0x0080, 0x0080,
-			},
-			{
-				0, 0xff, 0, 0xff, 0, 0xff,
-			},
-			{
-				0x0010, 0x00eb, 0x0010,
-				0x00f0, 0x0010, 0x00f0,
-			},
-		},
-	},
-	{
-	.block = MDP_BLOCK_OVERLAY_2,
-	.csc_data = {
-			(0),
-			{
-				0x0083, 0x0102, 0x0032,
-				0x1fb5, 0x1f6c, 0x00e1,
-				0x00e1, 0x1f45, 0x1fdc,
-			},
-			{
-				0x0, 0x0, 0x0,
-			},
-			{
-				0x0010, 0x0080, 0x0080,
-			},
-			{
-				0, 0xff, 0, 0xff, 0, 0xff,
-			},
-			{
-				0x0010, 0x00eb, 0x0010,
-				0x00f0, 0x0010, 0x00f0,
-			},
-		},
-	},
-	{
-	.block = MDP_BLOCK_DMA_S,
-	.csc_data = {
-			(0),
-			{
-				0x0200, 0x0000, 0x0000,
-				0x0000, 0x0200, 0x0000,
-				0x0000, 0x0000, 0x0200,
-			},
-			{
-				0x0, 0x0, 0x0,
-			},
-			{
-				0, 0, 0,
-			},
-			{
-				0, 0xff, 0, 0xff, 0, 0xff,
-			},
-			{
-				0, 0xff, 0, 0xff, 0, 0xff,
-			},
-		},
-	},
-};
-
-unsigned is_mdp4_hw_reset(void)
+void mdp4_sw_reset(struct mdp_info *mdp, ulong bits)
 {
-	unsigned hw_reset = 0;
-
-	/* Only revisions > v2.1 may be reset or powered off/on at runtime */
-	if (mdp_hw_revision > MDP4_REVISION_V2_1) {
-		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-		hw_reset = !inpdw(MDP_BASE + 0x003c);
-		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
-	}
-
-	return hw_reset;
-}
-
-void mdp4_sw_reset(ulong bits)
-{
-	/* MDP cmd block enable */
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-
 	bits &= 0x1f;	/* 5 bits */
-	outpdw(MDP_BASE + 0x001c, bits);	/* MDP_SW_RESET */
-	wmb();
+	mdp_writel(mdp, bits, 0x001c);	/* MDP_SW_RESET */
 
-	while (inpdw(MDP_BASE + 0x001c) & bits) /* self clear when complete */
+	while (mdp_readl(mdp, 0x001c) & bits) /* self clear when complete */
 		;
-	/* MDP cmd block disable */
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
-
-	pr_debug("mdp4_sw_reset: 0x%x\n", (int)bits);
+	PR_DISP_WARN("mdp4_sw_reset: 0x%x\n", (int)bits);
 }
 
-void mdp4_overlay_cfg(int overlayer, int blt_mode, int refresh, int direct_out)
+void mdp4_overlay_cfg(struct mdp_info *mdp, int overlayer, int blt_mode, int refresh, int direct_out)
 {
 	ulong bits = 0;
 
@@ -220,41 +100,33 @@ void mdp4_overlay_cfg(int overlayer, int blt_mode, int refresh, int direct_out)
 	bits |= (refresh << 1);
 	direct_out &= 0x01;
 	bits |= direct_out;
-	/* MDP cmd block enable */
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-
 
 	if (overlayer == MDP4_MIXER0)
-		outpdw(MDP_BASE + 0x10004, bits); /* MDP_OVERLAY0_CFG */
-	else if (overlayer == MDP4_MIXER1)
-		outpdw(MDP_BASE + 0x18004, bits); /* MDP_OVERLAY1_CFG */
+	  mdp_writel(mdp, bits, 0x10004); /* MDP_OVERLAY0_CFG */
+	else
+	  mdp_writel(mdp, bits, 0x18004); /* MDP_OVERLAY1_CFG */
 
-	MSM_FB_DEBUG("mdp4_overlay_cfg: 0x%x\n",
-		(int)inpdw(MDP_BASE + 0x10004));
-	/* MDP cmd block disable */
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+	PR_DISP_WARN("mdp4_overlay_cfg: 0x%x\n", (int)mdp_readl(mdp, 0x10004));
 }
 
-void mdp4_display_intf_sel(int output, ulong intf)
+void mdp4_display_intf_sel(struct mdp_info *mdp, int output, ulong intf)
 {
 	ulong bits, mask, data;
-	/* MDP cmd block enable */
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
-	bits = inpdw(MDP_BASE + 0x0038);	/* MDP_DISP_INTF_SEL */
+	bits = mdp_readl(mdp, 0x0038);	/* MDP_DISP_INTF_SEL */
 
 	if (intf == DSI_VIDEO_INTF) {
 		data = 0x40;	/* bit 6 */
 		intf = MDDI_LCDC_INTF;
 		if (output == SECONDARY_INTF_SEL) {
-			MSM_FB_INFO("%s: Illegal INTF selected, output=%d \
+			PR_DISP_INFO("%s: Illegal INTF selected, output=%d \
 				intf=%d\n", __func__, output, (int)intf);
 		}
 	} else if (intf == DSI_CMD_INTF) {
 		data = 0x80;	/* bit 7 */
 		intf = MDDI_INTF;
 		if (output == EXTERNAL_INTF_SEL) {
-			MSM_FB_INFO("%s: Illegal INTF selected, output=%d \
+			PR_DISP_INFO("%s: Illegal INTF selected, output=%d \
 				intf=%d\n", __func__, output, (int)intf);
 		}
 	} else
@@ -283,45 +155,30 @@ void mdp4_display_intf_sel(int output, ulong intf)
 	bits &= ~mask;
 	bits |= intf;
 
-	outpdw(MDP_BASE + 0x0038, bits);	/* MDP_DISP_INTF_SEL */
-	/* MDP cmd block disable */
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+	mdp_writel(mdp, bits, 0x0038); /* MDP_DISP_INTF_SEL */
 
-  MSM_FB_DEBUG("mdp4_display_intf_sel: 0x%x\n", (int)inpdw(MDP_BASE + 0x0038));
+  PR_DISP_WARN("mdp4_display_intf_sel: 0x%x\n", (int)mdp_readl(mdp, 0x0038));
 }
 
-unsigned long mdp4_display_status(void)
+unsigned long mdp4_display_status(struct mdp_info *mdp)
 {
-	ulong status;
-	/* MDP cmd block enable */
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-
-	status = inpdw(MDP_BASE + 0x0018) & 0x3ff;	/* MDP_DISPLAY_STATUS */
-
-	/* MDP cmd block disable */
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
-	return status;
+	return mdp_readl(mdp, 0x0018) & 0x3ff;	/* MDP_DISPLAY_STATUS */
 }
 
-void mdp4_ebi2_lcd_setup(int lcd, ulong base, int ystride)
+void mdp4_ebi2_lcd_setup(struct mdp_info *mdp, int lcd, ulong base, int ystride)
 {
 	/* always use memory map */
 	ystride &= 0x01fff;	/* 13 bits */
-	/* MDP cmd block enable */
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-
 	if (lcd == EBI2_LCD0) {
-		outpdw(MDP_BASE + 0x0060, base);/* MDP_EBI2_LCD0 */
-		outpdw(MDP_BASE + 0x0068, ystride);/* MDP_EBI2_LCD0_YSTRIDE */
+		mdp_writel(mdp, base, 0x0060);/* MDP_EBI2_LCD0 */
+		mdp_writel(mdp, ystride, 0x0068);/* MDP_EBI2_LCD0_YSTRIDE */
 	} else {
-		outpdw(MDP_BASE + 0x0064, base);/* MDP_EBI2_LCD1 */
-		outpdw(MDP_BASE + 0x006c, ystride);/* MDP_EBI2_LCD1_YSTRIDE */
+		mdp_writel(mdp, base, 0x0064);/* MDP_EBI2_LCD1 */
+		mdp_writel(mdp, ystride, 0x006c);/* MDP_EBI2_LCD1_YSTRIDE */
 	}
-	/* MDP cmd block disable */
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 }
 
-void mdp4_mddi_setup(int mddi, unsigned long id)
+void mdp4_mddi_setup(struct mdp_info *mdp, int mddi, unsigned long id)
 {
 	ulong 	bits;
 
@@ -335,382 +192,413 @@ void mdp4_mddi_setup(int mddi, unsigned long id)
 	id <<= 16;
 
 	bits |= id;
-	/* MDP cmd block enable */
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
-	outpdw(MDP_BASE + 0x0090, bits); /* MDP_MDDI_PARAM_WR_SEL */
-	/* MDP cmd block disable */
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+  mdp_writel(mdp, bits, 0x0090);  /* MDP_MDDI_PARAM_WR_SEL */
+
 }
 
-int mdp_ppp_blit(struct fb_info *info, struct mdp_blit_req *req)
+
+
+void mdp4_fetch_cfg(struct mdp_info *mdp, uint32_t clk, uint32_t pclk)
 {
 
-	/* not implemented yet */
-	return -1;
-}
-
-void mdp4_fetch_cfg(uint32 core_clk)
-{
-	uint32 dmap_data, vg_data;
-	char *base;
+	uint32_t dmap_data, vg_data;
+	uint32_t base;
 	int i;
-	/* MDP cmd block enable */
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
-	if (mdp_rev >= MDP_REV_41 || core_clk >= 90000000) { /* 90 Mhz */
+	if (clk <= pclk)
+		PR_DISP_INFO("mdp4_fetch_cfg: ERROR!! mdp_clk=%d \
+				<= mdp_pclk=%d\n", (int)clk, (int)pclk);
+
+	if (clk >= 90000000) { /* 90 Mhz */
 		dmap_data = 0x47; /* 16 bytes-burst x 8 req */
-		vg_data = 0x47; /* 16 bytes-burs x 8 req */
+		vg_data = 0xc7; /* 16 bytes-burs x 8 req */
 	} else {
 		dmap_data = 0x27; /* 8 bytes-burst x 8 req */
-		vg_data = 0x43; /* 16 bytes-burst x 4 req */
+		vg_data = 0xc3; /* 16 bytes-burst x 4 req */
 	}
 
-	MSM_FB_DEBUG("mdp4_fetch_cfg: dmap=%x vg=%x\n",
+	PR_DISP_INFO("mdp4_fetch_cfg: dmap=%x vg=%x\n",
 			dmap_data, vg_data);
 
 	/* dma_p fetch config */
-	outpdw(MDP_BASE + 0x91004, dmap_data);
+	mdp_writel(mdp, dmap_data, 0x91004);
 	/* dma_e fetch config */
-	outpdw(MDP_BASE + 0xB1004, dmap_data);
+	mdp_writel(mdp, dmap_data, 0xB1004);
 
 	/*
 	 * set up two vg pipes and two rgb pipes
 	 */
-	base = MDP_BASE + MDP4_VIDEO_BASE;
+	base = MDP4_VIDEO_BASE;
 	for (i = 0; i < 4; i++) {
-		outpdw(base + 0x1004, vg_data);
+		mdp_writel(mdp, vg_data, base + 0x1004);
 		base += MDP4_VIDEO_OFF;
 	}
-	/* MDP cmd block disable */
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 }
 
-void mdp4_hw_init(void)
+void mdp4_hw_init(struct mdp_info *mdp)
 {
 	ulong bits;
-	uint32 clk_rate;
-	int i;
-	/* MDP cmd block enable */
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-	mdp_clk_ctrl(1);
 
+	PR_DISP_WARN("%s\n", __func__);
 #ifdef MDP4_ERROR
 	/*
 	 * Issue software reset on DMA_P will casue DMA_P dma engine stall
 	 * on LCDC mode. However DMA_P does not stall at MDDI mode.
 	 * This need further investigation.
 	 */
-	mdp4_sw_reset(0x17);
+	mdp4_sw_reset(mdp, 0x17);
 #endif
 
-	if (mdp_rev > MDP_REV_41) {
-		/* mdp chip select controller */
-		outpdw(MDP_BASE + 0x00c0, CS_CONTROLLER_0);
-		outpdw(MDP_BASE + 0x00c4, CS_CONTROLLER_1);
-	}
+	mdp4_clear_lcdc(mdp);
 
-	mdp4_clear_lcdc();
+	mdp4_mixer_blend_init(mdp, 0);
+	mdp4_mixer_blend_init(mdp, 1);
+	mdp4_vg_qseed_init(mdp, 0);
+	mdp4_vg_qseed_init(mdp, 1);
 
-	mdp4_mixer_blend_init(0);
-	mdp4_mixer_blend_init(1);
-	mdp4_vg_qseed_init(0);
-	mdp4_vg_qseed_init(1);
+	/* yuv2rgb */
+	mdp4_vg_qseed_init(mdp, 0);
+	mdp4_vg_qseed_init(mdp, 1);
+	mdp4_vg_csc_mv_setup(mdp, 0);
+	mdp4_vg_csc_mv_setup(mdp, 1);
+	mdp4_vg_csc_pre_bv_setup(mdp, 0);
+	mdp4_vg_csc_pre_bv_setup(mdp, 1);
+	mdp4_vg_csc_post_bv_setup(mdp, 0);
+	mdp4_vg_csc_post_bv_setup(mdp, 1);
+	mdp4_vg_csc_pre_lv_setup(mdp, 0);
+	mdp4_vg_csc_pre_lv_setup(mdp, 1);
+	mdp4_vg_csc_post_lv_setup(mdp, 0);
+	mdp4_vg_csc_post_lv_setup(mdp, 1);
 
-	for (i = 0; i < CSC_MAX_BLOCKS; i++)
-		mdp4_csc_config(&csc_cfg_matrix[i]);
+	/* rgb2yuv */
+	mdp4_mixer1_csc_mv_setup(mdp);
+	mdp4_mixer1_csc_pre_bv_setup(mdp);
+	mdp4_mixer1_csc_post_bv_setup(mdp);
+	mdp4_mixer1_csc_pre_lv_setup(mdp);
+	mdp4_mixer1_csc_post_lv_setup(mdp);
 
-	if (mdp_rev <= MDP_REV_41) {
-		mdp4_mixer_gc_lut_setup(0);
-		mdp4_mixer_gc_lut_setup(1);
-	}
+	mdp4_mixer_gc_lut_setup(mdp, 0);
+	mdp4_mixer_gc_lut_setup(mdp, 1);
 
-	mdp4_vg_igc_lut_setup(0);
-	mdp4_vg_igc_lut_setup(1);
+	mdp4_vg_igc_lut_setup(mdp, 0);
+	mdp4_vg_igc_lut_setup(mdp, 1);
 
-	mdp4_rgb_igc_lut_setup(0);
-	mdp4_rgb_igc_lut_setup(1);
+	 mdp4_rgb_igc_lut_setup(mdp, 0);
+	 mdp4_rgb_igc_lut_setup(mdp, 1);
 
-	outp32(MDP_EBI2_PORTMAP_MODE, 0x3);
+
+	mdp_writel(mdp, 0x3, MDP_EBI2_PORTMAP_MODE);
 
 	/* system interrupts */
+	bits =  MDP4_ANY_INTR_MASK;
+	mdp_writel(mdp, bits, 0x0050);/* enable specififed interrupts */
 
-	bits =  mdp_intr_mask;
-	outpdw(MDP_BASE + 0x0050, bits);/* enable specififed interrupts */
+	/* histogram */
+	mdp_writel(mdp, 1, 0x95010);	/* auto clear HIST */
 
+	/* enable histogram interrupts */
+	mdp_writel(mdp, INTR_HIST_DONE, 0x9501c);
+#if defined(CONFIG_FB_MSM_MDP_ABL)
+	mdp_writel(mdp, MDP_HIST_DONE, MDP_INTR_ENABLE);
+#endif
 	/* For the max read pending cmd config below, if the MDP clock     */
 	/* is less than the AXI clock, then we must use 3 pending          */
 	/* pending requests.  Otherwise, we should use 8 pending requests. */
 	/* In the future we should do this detection automatically.	   */
 
 	/* max read pending cmd config */
-	outpdw(MDP_BASE + 0x004c, 0x02222);	/* 3 pending requests */
-	outpdw(MDP_BASE + 0x0400, 0x7FF);
-	outpdw(MDP_BASE + 0x0404, 0x30050);
+	mdp_writel(mdp, 0x02222, 0x004c);	/* 3 pending requests */
 
 #ifndef CONFIG_FB_MSM_OVERLAY
 	/* both REFRESH_MODE and DIRECT_OUT are ignored at BLT mode */
-	mdp4_overlay_cfg(MDP4_MIXER0, OVERLAY_MODE_BLT, 0, 0);
-	mdp4_overlay_cfg(MDP4_MIXER1, OVERLAY_MODE_BLT, 0, 0);
+	mdp4_overlay_cfg(mdp, MDP4_MIXER0, OVERLAY_MODE_BLT, 0, 0);
+	mdp4_overlay_cfg(mdp, MDP4_MIXER1, OVERLAY_MODE_BLT, 0, 0);
 #endif
 
-	clk_rate = mdp_get_core_clk();
-	mdp4_fetch_cfg(clk_rate);
-
-	if (mdp_rev >= MDP_REV_42) {
-		/* MDP_LAYERMIXER_IN_CFG_UPDATE_METHOD */
-		outpdw(MDP_BASE + 0x100fc, 0x01);
-	}
-
-	/* Mark hardware as initialized. Only revisions > v2.1 have a register
-	 * for tracking core reset status. */
-	if (mdp_hw_revision > MDP4_REVISION_V2_1)
-		outpdw(MDP_BASE + 0x003c, 1);
-
-	/* MDP cmd block disable */
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
-	mdp_clk_ctrl(0);
 }
 
 
-void mdp4_clear_lcdc(void)
+void mdp4_clear_lcdc(struct mdp_info *mdp)
 {
-	uint32 bits;
+	uint32_t bits;
 
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-
-	bits = inpdw(MDP_BASE + 0xc0000);
-	if (bits & 0x01) { /* enabled already */
-		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+	bits = mdp_readl(mdp, 0xc0000);
+	if (bits & 0x01) /* enabled already */
 		return;
-	}
 
-	outpdw(MDP_BASE + 0xc0004, 0);	/* vsync ctrl out */
-	outpdw(MDP_BASE + 0xc0008, 0);	/* vsync period */
-	outpdw(MDP_BASE + 0xc000c, 0);	/* vsync pusle width */
-	outpdw(MDP_BASE + 0xc0010, 0);	/* lcdc display HCTL */
-	outpdw(MDP_BASE + 0xc0014, 0);	/* lcdc display v start */
-	outpdw(MDP_BASE + 0xc0018, 0);	/* lcdc display v end */
-	outpdw(MDP_BASE + 0xc001c, 0);	/* lcdc active hctl */
-	outpdw(MDP_BASE + 0xc0020, 0);	/* lcdc active v start */
-	outpdw(MDP_BASE + 0xc0024, 0);	/* lcdc active v end */
-	outpdw(MDP_BASE + 0xc0028, 0);	/* lcdc board color */
-	outpdw(MDP_BASE + 0xc002c, 0);	/* lcdc underflow ctrl */
-	outpdw(MDP_BASE + 0xc0030, 0);	/* lcdc hsync skew */
-	outpdw(MDP_BASE + 0xc0034, 0);	/* lcdc test ctl */
-	outpdw(MDP_BASE + 0xc0038, 0);	/* lcdc ctl polarity */
-
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+	mdp_writel(mdp, 0, 0xc0004);	/* vsync ctrl out */
+	mdp_writel(mdp, 0, 0xc0008);	/* vsync period */
+	mdp_writel(mdp, 0, 0xc000c);	/* vsync pusle width */
+	mdp_writel(mdp, 0, 0xc0010);	/* lcdc display HCTL */
+	mdp_writel(mdp, 0, 0xc0014);	/* lcdc display v start */
+	mdp_writel(mdp, 0, 0xc0018);	/* lcdc display v end */
+	mdp_writel(mdp, 0, 0xc001c);	/* lcdc active hctl */
+	mdp_writel(mdp, 0, 0xc0020);	/* lcdc active v start */
+	mdp_writel(mdp, 0, 0xc0024);	/* lcdc active v end */
+	mdp_writel(mdp, 0, 0xc0028);	/* lcdc board color */
+	mdp_writel(mdp, 0, 0xc002c);	/* lcdc underflow ctrl */
+	mdp_writel(mdp, 0, 0xc0030);	/* lcdc hsync skew */
+	mdp_writel(mdp, 0, 0xc0034);	/* lcdc test ctl */
+	mdp_writel(mdp, 0, 0xc0038);	/* lcdc ctl polarity */
 }
 
-irqreturn_t mdp4_isr(int irq, void *ptr)
-{
-	uint32 isr, mask, panel;
-	struct mdp_dma_data *dma;
-	struct mdp_hist_mgmt *mgmt = NULL;
-	int i, ret;
 
-	mdp_is_in_isr = TRUE;
-
-	/* complete all the reads before reading the interrupt
-	* status register - eliminate effects of speculative
-	* reads by the cpu
-	*/
-	rmb();
-	isr = inpdw(MDP_INTR_STATUS);
-	if (isr == 0)
-		goto out;
-
-	mdp4_stat.intr_tot++;
-	mask = inpdw(MDP_INTR_ENABLE);
-	outpdw(MDP_INTR_CLEAR, isr);
-
-	if (isr & INTR_PRIMARY_INTF_UDERRUN) {
-		pr_debug("%s: UNDERRUN -- primary\n", __func__);
-		mdp4_stat.intr_underrun_p++;
-		/* When underun occurs mdp clear the histogram registers
-		that are set before in hw_init so restore them back so
-		that histogram works.*/
-		for (i = 0; i < MDP_HIST_MGMT_MAX; i++) {
-			mgmt = mdp_hist_mgmt_array[i];
-			if (!mgmt)
-				continue;
-			mgmt->mdp_is_hist_valid = FALSE;
-		}
-	}
-
-	if (isr & INTR_EXTERNAL_INTF_UDERRUN) {
-		pr_debug("%s: UNDERRUN -- external\n", __func__);
-		mdp4_stat.intr_underrun_e++;
-	}
-
-	isr &= mask;
-
-	if (isr == 0)
-		goto out;
-
-	panel = mdp4_overlay_panel_list();
-
-	if (isr & INTR_DMA_P_DONE) {
-		mdp4_stat.intr_dma_p++;
-		dma = &dma2_data;
-		if (panel & MDP4_PANEL_LCDC)
-			mdp4_dmap_done_lcdc(0);
-#ifdef CONFIG_FB_MSM_OVERLAY
-#ifdef CONFIG_FB_MSM_MIPI_DSI
-		else if (panel & MDP4_PANEL_DSI_VIDEO)
-			mdp4_dmap_done_dsi_video(0);
-		else if (panel & MDP4_PANEL_DSI_CMD)
-			mdp4_dmap_done_dsi_cmd(0);
-#else
-		else { /* MDDI */
-			mdp4_dma_p_done_mddi(dma);
-			mdp_pipe_ctrl(MDP_DMA2_BLOCK,
-				MDP_BLOCK_POWER_OFF, TRUE);
-			complete(&dma->comp);
-		}
-#endif
-#else
-		else {
-			spin_lock(&mdp_spin_lock);
-			dma->busy = FALSE;
-			spin_unlock(&mdp_spin_lock);
-			complete(&dma->comp);
-		}
-#endif
-	}
-	if (isr & INTR_DMA_S_DONE) {
-		mdp4_stat.intr_dma_s++;
-#if defined(CONFIG_FB_MSM_OVERLAY) && defined(CONFIG_FB_MSM_MDDI)
-		dma = &dma2_data;
-#else
-		dma = &dma_s_data;
-#endif
-
-		dma->busy = FALSE;
-		mdp_pipe_ctrl(MDP_DMA_S_BLOCK,
-				MDP_BLOCK_POWER_OFF, TRUE);
-		complete(&dma->comp);
-	}
-	if (isr & INTR_DMA_E_DONE) {
-		mdp4_stat.intr_dma_e++;
-		if (panel & MDP4_PANEL_DTV)
-			mdp4_dmae_done_dtv();
-	}
-#ifdef CONFIG_FB_MSM_OVERLAY
-	if (isr & INTR_OVERLAY0_DONE) {
-		mdp4_stat.intr_overlay0++;
-		dma = &dma2_data;
-		if (panel & (MDP4_PANEL_LCDC | MDP4_PANEL_DSI_VIDEO)) {
-			/* disable LCDC interrupt */
-			if (panel & MDP4_PANEL_LCDC)
-				mdp4_overlay0_done_lcdc(0);
-#ifdef CONFIG_FB_MSM_MIPI_DSI
-			else if (panel & MDP4_PANEL_DSI_VIDEO)
-				mdp4_overlay0_done_dsi_video(0);
-#endif
-		} else {        /* MDDI, DSI_CMD  */
-#ifdef CONFIG_FB_MSM_MIPI_DSI
-			if (panel & MDP4_PANEL_DSI_CMD)
-				mdp4_overlay0_done_dsi_cmd(0);
-#else
-			if (panel & MDP4_PANEL_MDDI)
-				mdp4_overlay0_done_mddi(dma);
-#endif
-		}
-		mdp_hw_cursor_done();
-	}
-	if (isr & INTR_OVERLAY1_DONE) {
-		mdp4_stat.intr_overlay1++;
-		/* disable DTV interrupt */
-		dma = &dma_e_data;
-		spin_lock(&mdp_spin_lock);
-		mdp_intr_mask &= ~INTR_OVERLAY1_DONE;
-		outp32(MDP_INTR_ENABLE, mdp_intr_mask);
-		dma->waiting = FALSE;
-		spin_unlock(&mdp_spin_lock);
-#if defined(CONFIG_FB_MSM_DTV)
-		if (panel & MDP4_PANEL_DTV)
-			mdp4_overlay1_done_dtv();
-#endif
-#if defined(CONFIG_FB_MSM_TVOUT)
-		if (panel & MDP4_PANEL_ATV)
-			mdp4_overlay1_done_atv();
-#endif
-	}
-#if defined(CONFIG_FB_MSM_WRITEBACK_MSM_PANEL)
-	if (isr & INTR_OVERLAY2_DONE) {
-		mdp4_stat.intr_overlay2++;
-		/* disable DTV interrupt */
-		if (panel & MDP4_PANEL_WRITEBACK)
-			mdp4_overlay2_done_wfd(&dma_wb_data);
-	}
-#endif
-#endif	/* OVERLAY */
-
-	if (isr & INTR_PRIMARY_VSYNC) {
-		mdp4_stat.intr_vsync_p++;
-		if (panel & MDP4_PANEL_LCDC)
-			mdp4_primary_vsync_lcdc();
-		else if (panel & MDP4_PANEL_DSI_VIDEO)
-			mdp4_primary_vsync_dsi_video();
-	}
-#ifdef CONFIG_FB_MSM_DTV
-	if (isr & INTR_EXTERNAL_VSYNC) {
-		mdp4_stat.intr_vsync_e++;
-		if (panel & MDP4_PANEL_DTV)
-			mdp4_external_vsync_dtv();
-	}
-#endif
-	if (isr & INTR_DMA_P_HISTOGRAM) {
-		mdp4_stat.intr_histogram++;
-		ret = mdp_histogram_block2mgmt(MDP_BLOCK_DMA_P, &mgmt);
-		if (!ret)
-			mdp_histogram_handle_isr(mgmt);
-	}
-	if (isr & INTR_DMA_S_HISTOGRAM) {
-		mdp4_stat.intr_histogram++;
-		ret = mdp_histogram_block2mgmt(MDP_BLOCK_DMA_S, &mgmt);
-		if (!ret)
-			mdp_histogram_handle_isr(mgmt);
-	}
-	if (isr & INTR_VG1_HISTOGRAM) {
-		mdp4_stat.intr_histogram++;
-		ret = mdp_histogram_block2mgmt(MDP_BLOCK_VG_1, &mgmt);
-		if (!ret)
-			mdp_histogram_handle_isr(mgmt);
-	}
-	if (isr & INTR_VG2_HISTOGRAM) {
-		mdp4_stat.intr_histogram++;
-		ret = mdp_histogram_block2mgmt(MDP_BLOCK_VG_2, &mgmt);
-		if (!ret)
-			mdp_histogram_handle_isr(mgmt);
-	}
-	if (isr & INTR_PRIMARY_RDPTR) {
-		mdp4_stat.intr_rdptr++;
-		mdp4_primary_rdptr();
-	}
-
-out:
-	mdp_is_in_isr = FALSE;
-
-	return IRQ_HANDLED;
-}
 
 
 /*
  * QSEED tables
  */
 
-static uint32 vg_qseed_table0[] = {
+static uint32_t vg_qseed_table0[] = {
 	0x5556aaff, 0x00000000, 0x00000000, 0x00000000
 };
 
-static uint32 vg_qseed_table1[] = {
-	0x00000000, 0x20000000,
+static uint32_t vg_qseed_table1[] = {
+	0x76543210, 0xfedcba98
 };
 
-static uint32 vg_qseed_table2[] = {
+static uint32_t vg_qseed_table2[] = {
+	0x02000000, 0x00000000, 0x02060ff2, 0x00000008,
+	0x02090fe4, 0x00000013, 0x020a0fd9, 0x0ffc0021,
+	0x02080fce, 0x0ffa0030, 0x02030fc5, 0x0ff60042,
+	0x01fd0fbe, 0x0ff10054, 0x01f50fb6, 0x0fed0068,
+	0x01e90fb1, 0x0fe60080, 0x01dc0fae, 0x0fe10095,
+	0x01ca0fae, 0x0fda00ae, 0x01b70fad, 0x0fd600c6,
+	0x01a40fad, 0x0fcf00e0, 0x018f0faf, 0x0fc800fa,
+	0x01780fb1, 0x0fc30114, 0x015f0fb5, 0x0fbf012d,
+	0x01490fb7, 0x0fb70149, 0x012d0fbf, 0x0fb5015f,
+	0x01140fc3, 0x0fb10178, 0x00fa0fc8, 0x0faf018f,
+	0x00e00fcf, 0x0fad01a4, 0x00c60fd6, 0x0fad01b7,
+	0x00ae0fda, 0x0fae01ca, 0x00950fe1, 0x0fae01dc,
+	0x00800fe6, 0x0fb101e9, 0x00680fed, 0x0fb601f5,
+	0x00540ff1, 0x0fbe01fd, 0x00420ff6, 0x0fc50203,
+	0x00300ffa, 0x0fce0208, 0x00210ffc, 0x0fd9020a,
+	0x00130000, 0x0fe40209, 0x00080000, 0x0ff20206,
+	0x02000000, 0x00000000, 0x02040ff2, 0x0000000a,
+	0x02040fe4, 0x00000018, 0x02010fda, 0x0ffc0029,
+	0x01fc0fcf, 0x0ffa003b, 0x01f30fc7, 0x0ff60050,
+	0x01e90fc0, 0x0ff20065, 0x01dc0fba, 0x0fee007c,
+	0x01cc0fb6, 0x0fe80096, 0x01ba0fb4, 0x0fe400ae,
+	0x01a70fb4, 0x0fdd00c8, 0x018f0fb5, 0x0fda00e2,
+	0x017a0fb5, 0x0fd400fd, 0x01630fb8, 0x0fce0117,
+	0x014c0fba, 0x0fca0130, 0x01320fbf, 0x0fc70148,
+	0x011b0fc1, 0x0fc10163, 0x01010fc8, 0x0fc00177,
+	0x00e90fcd, 0x0fbd018d, 0x00d10fd1, 0x0fbc01a2,
+	0x00ba0fd7, 0x0fbb01b4, 0x00a30fdd, 0x0fbc01c4,
+	0x008e0fe1, 0x0fbd01d4, 0x00790fe7, 0x0fbe01e2,
+	0x00670feb, 0x0fc001ee, 0x00540ff1, 0x0fc501f6,
+	0x00430ff4, 0x0fcb01fe, 0x00340ff8, 0x0fd10203,
+	0x00260ffb, 0x0fd80207, 0x001a0ffd, 0x0fe10208,
+	0x000f0000, 0x0fea0207, 0x00060000, 0x0ff50205,
+	0x02000000, 0x00000000, 0x02020ff2, 0x0000000c,
+	0x02000fe4, 0x0000001c, 0x01fa0fda, 0x0ffc0030,
+	0x01f10fd0, 0x0ffa0045, 0x01e50fc8, 0x0ff6005d,
+	0x01d60fc3, 0x0ff30074, 0x01c60fbd, 0x0fef008e,
+	0x01b30fba, 0x0fe900aa, 0x019e0fb9, 0x0fe500c4,
+	0x01870fba, 0x0fe000df, 0x016f0fbb, 0x0fdd00f9,
+	0x01580fbc, 0x0fd80114, 0x01400fbf, 0x0fd3012e,
+	0x01280fc2, 0x0fd00146, 0x010f0fc6, 0x0fce015d,
+	0x00f90fc9, 0x0fc90175, 0x00e00fcf, 0x0fc90188,
+	0x00ca0fd4, 0x0fc6019c, 0x00b40fd8, 0x0fc601ae,
+	0x009f0fdd, 0x0fc501bf, 0x008b0fe3, 0x0fc601cc,
+	0x00780fe6, 0x0fc701db, 0x00660feb, 0x0fc801e7,
+	0x00560fef, 0x0fcb01f0, 0x00460ff3, 0x0fcf01f8,
+	0x00380ff6, 0x0fd401fe, 0x002c0ff9, 0x0fd90202,
+	0x00200ffc, 0x0fdf0205, 0x00160ffe, 0x0fe60206,
+	0x000c0000, 0x0fed0207, 0x00050000, 0x0ff70204,
+	0x02000000, 0x00000000, 0x01fe0ff3, 0x0000000f,
+	0x01f60fe5, 0x00000025, 0x01ea0fdb, 0x0ffd003e,
+	0x01db0fd2, 0x0ffb0058, 0x01c80fcc, 0x0ff70075,
+	0x01b50fc7, 0x0ff40090, 0x01a00fc3, 0x0ff000ad,
+	0x01880fc1, 0x0feb00cc, 0x01700fc1, 0x0fe800e7,
+	0x01550fc3, 0x0fe40104, 0x013b0fc5, 0x0fe2011e,
+	0x01240fc6, 0x0fde0138, 0x010c0fca, 0x0fda0150,
+	0x00f40fcd, 0x0fd90166, 0x00dd0fd1, 0x0fd7017b,
+	0x00c80fd4, 0x0fd40190, 0x00b20fd9, 0x0fd401a1,
+	0x009f0fdd, 0x0fd301b1, 0x008c0fe1, 0x0fd301c0,
+	0x007b0fe5, 0x0fd301cd, 0x006a0fea, 0x0fd401d8,
+	0x005c0fec, 0x0fd501e3, 0x004d0ff0, 0x0fd601ed,
+	0x00410ff3, 0x0fd801f4, 0x00340ff7, 0x0fdb01fa,
+	0x002a0ff9, 0x0fdf01fe, 0x00200ffb, 0x0fe30202,
+	0x00180ffd, 0x0fe70204, 0x00100ffe, 0x0fed0205,
+	0x00090000, 0x0ff20205, 0x00040000, 0x0ff90203,
+	0x02000000, 0x00000000, 0x02050ff5, 0x00000006,
+	0x02070fea, 0x0000000f, 0x02080fe1, 0x0ffd001a,
+	0x02070fd8, 0x0ffb0026, 0x02030fd1, 0x0ff80034,
+	0x01fe0fcb, 0x0ff40043, 0x01f60fc5, 0x0ff10054,
+	0x01ee0fc0, 0x0feb0067, 0x01e20fbe, 0x0fe70079,
+	0x01d40fbd, 0x0fe1008e, 0x01c40fbc, 0x0fdd00a3,
+	0x01b40fbb, 0x0fd700ba, 0x01a20fbc, 0x0fd100d1,
+	0x018d0fbd, 0x0fcd00e9, 0x01770fc0, 0x0fc80101,
+	0x01630fc1, 0x0fc1011b, 0x01480fc7, 0x0fbf0132,
+	0x01300fca, 0x0fba014c, 0x01170fce, 0x0fb80163,
+	0x00fd0fd4, 0x0fb5017a, 0x00e20fda, 0x0fb5018f,
+	0x00c80fdd, 0x0fb401a7, 0x00ae0fe4, 0x0fb401ba,
+	0x00960fe8, 0x0fb601cc, 0x007c0fee, 0x0fba01dc,
+	0x00650ff2, 0x0fc001e9, 0x00500ff6, 0x0fc701f3,
+	0x003b0ffa, 0x0fcf01fc, 0x00290ffc, 0x0fda0201,
+	0x00180000, 0x0fe40204, 0x000a0000, 0x0ff20204,
+	0x02000000, 0x00000000, 0x02030ff5, 0x00000008,
+	0x02030fea, 0x00000013, 0x02020fe1, 0x0ffd0020,
+	0x01fc0fd9, 0x0ffc002f, 0x01f60fd2, 0x0ff80040,
+	0x01ed0fcd, 0x0ff50051, 0x01e30fc7, 0x0ff10065,
+	0x01d70fc3, 0x0fec007a, 0x01c60fc2, 0x0fe9008f,
+	0x01b60fc1, 0x0fe300a6, 0x01a20fc1, 0x0fe000bd,
+	0x018f0fc1, 0x0fdb00d5, 0x017b0fc2, 0x0fd500ee,
+	0x01640fc4, 0x0fd20106, 0x014d0fc8, 0x0fce011d,
+	0x01370fc9, 0x0fc90137, 0x011d0fce, 0x0fc8014d,
+	0x01060fd2, 0x0fc40164, 0x00ee0fd5, 0x0fc2017b,
+	0x00d50fdb, 0x0fc1018f, 0x00bd0fe0, 0x0fc101a2,
+	0x00a60fe3, 0x0fc101b6, 0x008f0fe9, 0x0fc201c6,
+	0x007a0fec, 0x0fc301d7, 0x00650ff1, 0x0fc701e3,
+	0x00510ff5, 0x0fcd01ed, 0x00400ff8, 0x0fd201f6,
+	0x002f0ffc, 0x0fd901fc, 0x00200ffd, 0x0fe10202,
+	0x00130000, 0x0fea0203, 0x00080000, 0x0ff50203,
+	0x02000000, 0x00000000, 0x02020ff5, 0x00000009,
+	0x01ff0fea, 0x00000017, 0x01fb0fe2, 0x0ffd0026,
+	0x01f30fda, 0x0ffc0037, 0x01ea0fd3, 0x0ff8004b,
+	0x01df0fce, 0x0ff5005e, 0x01d10fc9, 0x0ff20074,
+	0x01c10fc6, 0x0fed008c, 0x01ae0fc5, 0x0fea00a3,
+	0x019b0fc5, 0x0fe500bb, 0x01850fc6, 0x0fe200d3,
+	0x01700fc6, 0x0fde00ec, 0x015a0fc8, 0x0fd90105,
+	0x01430fca, 0x0fd6011d, 0x012b0fcd, 0x0fd30135,
+	0x01150fcf, 0x0fcf014d, 0x00fc0fd4, 0x0fce0162,
+	0x00e50fd8, 0x0fcc0177, 0x00cf0fdb, 0x0fca018c,
+	0x00b80fe0, 0x0fc9019f, 0x00a20fe5, 0x0fca01af,
+	0x008e0fe8, 0x0fcb01bf, 0x00790fec, 0x0fcb01d0,
+	0x00670fef, 0x0fcd01dd, 0x00550ff4, 0x0fd001e7,
+	0x00440ff7, 0x0fd501f0, 0x00350ffa, 0x0fda01f7,
+	0x00270ffc, 0x0fdf01fe, 0x001b0ffe, 0x0fe70200,
+	0x00100000, 0x0fee0202, 0x00060000, 0x0ff70203,
+	0x02000000, 0x00000000, 0x01ff0ff5, 0x0000000c,
+	0x01f80fea, 0x0000001e, 0x01ef0fe2, 0x0ffd0032,
+	0x01e20fdb, 0x0ffc0047, 0x01d30fd5, 0x0ff9005f,
+	0x01c20fd1, 0x0ff60077, 0x01b00fcd, 0x0ff30090,
+	0x019b0fcb, 0x0fef00ab, 0x01850fcb, 0x0fec00c4,
+	0x016e0fcc, 0x0fe800de, 0x01550fcd, 0x0fe600f8,
+	0x013f0fce, 0x0fe20111, 0x01280fd0, 0x0fdf0129,
+	0x01110fd2, 0x0fdd0140, 0x00f90fd6, 0x0fdb0156,
+	0x00e40fd8, 0x0fd8016c, 0x00cd0fdd, 0x0fd8017e,
+	0x00b80fe0, 0x0fd60192, 0x00a40fe3, 0x0fd601a3,
+	0x00910fe7, 0x0fd501b3, 0x007f0feb, 0x0fd601c0,
+	0x006e0fed, 0x0fd701ce, 0x005d0ff1, 0x0fd701db,
+	0x004f0ff3, 0x0fd901e5, 0x00400ff7, 0x0fdc01ed,
+	0x00330ff9, 0x0fe001f4, 0x00280ffb, 0x0fe301fa,
+	0x001d0ffd, 0x0fe801fe, 0x00140ffe, 0x0fed0201,
+	0x000c0000, 0x0ff20202, 0x00050000, 0x0ff90202,
+	0x02000000, 0x00000000, 0x02040ff7, 0x00000005,
+	0x02070fed, 0x0000000c, 0x02060fe6, 0x0ffe0016,
+	0x02050fdf, 0x0ffc0020, 0x02020fd9, 0x0ff9002c,
+	0x01fe0fd4, 0x0ff60038, 0x01f80fcf, 0x0ff30046,
+	0x01f00fcb, 0x0fef0056, 0x01e70fc8, 0x0feb0066,
+	0x01db0fc7, 0x0fe60078, 0x01cc0fc6, 0x0fe3008b,
+	0x01bf0fc5, 0x0fdd009f, 0x01ae0fc6, 0x0fd800b4,
+	0x019c0fc6, 0x0fd400ca, 0x01880fc9, 0x0fcf00e0,
+	0x01750fc9, 0x0fc900f9, 0x015d0fce, 0x0fc6010f,
+	0x01460fd0, 0x0fc20128, 0x012e0fd3, 0x0fbf0140,
+	0x01140fd8, 0x0fbc0158, 0x00f90fdd, 0x0fbb016f,
+	0x00df0fe0, 0x0fba0187, 0x00c40fe5, 0x0fb9019e,
+	0x00aa0fe9, 0x0fba01b3, 0x008e0fef, 0x0fbd01c6,
+	0x00740ff3, 0x0fc301d6, 0x005d0ff6, 0x0fc801e5,
+	0x00450ffa, 0x0fd001f1, 0x00300ffc, 0x0fda01fa,
+	0x001c0000, 0x0fe40200, 0x000c0000, 0x0ff20202,
+	0x02000000, 0x00000000, 0x02030ff7, 0x00000006,
+	0x02020fee, 0x00000010, 0x02000fe7, 0x0ffe001b,
+	0x01fe0fdf, 0x0ffc0027, 0x01f70fda, 0x0ffa0035,
+	0x01f00fd5, 0x0ff70044, 0x01e70fd0, 0x0ff40055,
+	0x01dd0fcd, 0x0fef0067, 0x01d00fcb, 0x0fec0079,
+	0x01bf0fcb, 0x0fe8008e, 0x01af0fca, 0x0fe500a2,
+	0x019f0fc9, 0x0fe000b8, 0x018c0fca, 0x0fdb00cf,
+	0x01770fcc, 0x0fd800e5, 0x01620fce, 0x0fd400fc,
+	0x014d0fcf, 0x0fcf0115, 0x01350fd3, 0x0fcd012b,
+	0x011d0fd6, 0x0fca0143, 0x01050fd9, 0x0fc8015a,
+	0x00ec0fde, 0x0fc60170, 0x00d30fe2, 0x0fc60185,
+	0x00bb0fe5, 0x0fc5019b, 0x00a30fea, 0x0fc501ae,
+	0x008c0fed, 0x0fc601c1, 0x00740ff2, 0x0fc901d1,
+	0x005e0ff5, 0x0fce01df, 0x004b0ff8, 0x0fd301ea,
+	0x00370ffc, 0x0fda01f3, 0x00260ffd, 0x0fe201fb,
+	0x00170000, 0x0fea01ff, 0x00090000, 0x0ff50202,
+	0x02000000, 0x00000000, 0x02010ff7, 0x00000008,
+	0x01ff0fee, 0x00000013, 0x01fb0fe7, 0x0ffe0020,
+	0x01f60fe0, 0x0ffc002e, 0x01ed0fda, 0x0ffa003f,
+	0x01e40fd6, 0x0ff7004f, 0x01d80fd2, 0x0ff40062,
+	0x01ca0fcf, 0x0ff00077, 0x01bb0fcd, 0x0fed008b,
+	0x01a90fcd, 0x0fe900a1, 0x01960fcd, 0x0fe600b7,
+	0x01830fcd, 0x0fe200ce, 0x016d0fcf, 0x0fde00e6,
+	0x01580fd0, 0x0fdb00fd, 0x01410fd3, 0x0fd80114,
+	0x012c0fd4, 0x0fd4012c, 0x01140fd8, 0x0fd30141,
+	0x00fd0fdb, 0x0fd00158, 0x00e60fde, 0x0fcf016d,
+	0x00ce0fe2, 0x0fcd0183, 0x00b70fe6, 0x0fcd0196,
+	0x00a10fe9, 0x0fcd01a9, 0x008b0fed, 0x0fcd01bb,
+	0x00770ff0, 0x0fcf01ca, 0x00620ff4, 0x0fd201d8,
+	0x004f0ff7, 0x0fd601e4, 0x003f0ffa, 0x0fda01ed,
+	0x002e0ffc, 0x0fe001f6, 0x00200ffe, 0x0fe701fb,
+	0x00130000, 0x0fee01ff, 0x00080000, 0x0ff70201,
+	0x02000000, 0x00000000, 0x01ff0ff7, 0x0000000a,
+	0x01f90fee, 0x00000019, 0x01f10fe7, 0x0ffe002a,
+	0x01e60fe1, 0x0ffd003c, 0x01d90fdc, 0x0ffa0051,
+	0x01cc0fd8, 0x0ff70065, 0x01bb0fd5, 0x0ff5007b,
+	0x01a80fd3, 0x0ff10094, 0x01950fd2, 0x0fef00aa,
+	0x01800fd2, 0x0feb00c3, 0x016a0fd3, 0x0fe900da,
+	0x01540fd3, 0x0fe600f3, 0x013f0fd5, 0x0fe2010a,
+	0x01280fd7, 0x0fe00121, 0x01100fda, 0x0fde0138,
+	0x00fb0fdb, 0x0fdb014f, 0x00e40fdf, 0x0fdb0162,
+	0x00ce0fe2, 0x0fd90177, 0x00b90fe4, 0x0fd8018b,
+	0x00a50fe8, 0x0fd8019b, 0x00910fec, 0x0fd801ab,
+	0x007e0fee, 0x0fd801bc, 0x006c0ff2, 0x0fd901c9,
+	0x005c0ff4, 0x0fda01d6, 0x004b0ff7, 0x0fdd01e1,
+	0x003c0ff9, 0x0fe001eb, 0x002f0ffb, 0x0fe401f2,
+	0x00230ffd, 0x0fe801f8, 0x00180ffe, 0x0fed01fd,
+	0x000e0000, 0x0ff20200, 0x00060000, 0x0ff90201,
+	0x02000000, 0x00000000, 0x02030ff9, 0x00000004,
+	0x02050ff2, 0x00000009, 0x02050fed, 0x0ffe0010,
+	0x02040fe7, 0x0ffd0018, 0x02020fe3, 0x0ffb0020,
+	0x01fe0fdf, 0x0ff9002a, 0x01fa0fdb, 0x0ff70034,
+	0x01f40fd8, 0x0ff30041, 0x01ed0fd6, 0x0ff0004d,
+	0x01e30fd5, 0x0fec005c, 0x01d80fd4, 0x0fea006a,
+	0x01cd0fd3, 0x0fe5007b, 0x01c00fd3, 0x0fe1008c,
+	0x01b10fd3, 0x0fdd009f, 0x01a10fd4, 0x0fd900b2,
+	0x01900fd4, 0x0fd400c8, 0x017b0fd7, 0x0fd100dd,
+	0x01660fd9, 0x0fcd00f4, 0x01500fda, 0x0fca010c,
+	0x01380fde, 0x0fc60124, 0x011e0fe2, 0x0fc5013b,
+	0x01040fe4, 0x0fc30155, 0x00e70fe8, 0x0fc10170,
+	0x00cc0feb, 0x0fc10188, 0x00ad0ff0, 0x0fc301a0,
+	0x00900ff4, 0x0fc701b5, 0x00750ff7, 0x0fcc01c8,
+	0x00580ffb, 0x0fd201db, 0x003e0ffd, 0x0fdb01ea,
+	0x00250000, 0x0fe501f6, 0x000f0000, 0x0ff301fe,
+	0x02000000, 0x00000000, 0x02020ff9, 0x00000005,
+	0x02020ff2, 0x0000000c, 0x02010fed, 0x0ffe0014,
+	0x01fe0fe8, 0x0ffd001d, 0x01fa0fe3, 0x0ffb0028,
+	0x01f40fe0, 0x0ff90033, 0x01ed0fdc, 0x0ff70040,
+	0x01e50fd9, 0x0ff3004f, 0x01db0fd7, 0x0ff1005d,
+	0x01ce0fd7, 0x0fed006e, 0x01c00fd6, 0x0feb007f,
+	0x01b30fd5, 0x0fe70091, 0x01a30fd6, 0x0fe300a4,
+	0x01920fd6, 0x0fe000b8, 0x017e0fd8, 0x0fdd00cd,
+	0x016c0fd8, 0x0fd800e4, 0x01560fdb, 0x0fd600f9,
+	0x01400fdd, 0x0fd20111, 0x01290fdf, 0x0fd00128,
+	0x01110fe2, 0x0fce013f, 0x00f80fe6, 0x0fcd0155,
+	0x00de0fe8, 0x0fcc016e, 0x00c40fec, 0x0fcb0185,
+	0x00ab0fef, 0x0fcb019b, 0x00900ff3, 0x0fcd01b0,
+	0x00770ff6, 0x0fd101c2, 0x005f0ff9, 0x0fd501d3,
+	0x00470ffc, 0x0fdb01e2, 0x00320ffd, 0x0fe201ef,
+	0x001e0000, 0x0fea01f8, 0x000c0000, 0x0ff501ff,
+	0x02000000, 0x00000000, 0x02010ff9, 0x00000006,
+	0x02000ff2, 0x0000000e, 0x01fd0fed, 0x0ffe0018,
+	0x01f80fe8, 0x0ffd0023, 0x01f20fe4, 0x0ffb002f,
+	0x01eb0fe0, 0x0ff9003c, 0x01e10fdd, 0x0ff7004b,
+	0x01d60fda, 0x0ff4005c, 0x01c90fd9, 0x0ff2006c,
+	0x01bc0fd8, 0x0fee007e, 0x01ab0fd8, 0x0fec0091,
+	0x019b0fd8, 0x0fe800a5, 0x018b0fd8, 0x0fe400b9,
+	0x01770fd9, 0x0fe200ce, 0x01620fdb, 0x0fdf00e4,
+	0x014f0fdb, 0x0fdb00fb, 0x01380fde, 0x0fda0110,
+	0x01210fe0, 0x0fd70128, 0x010a0fe2, 0x0fd5013f,
+	0x00f30fe6, 0x0fd30154, 0x00da0fe9, 0x0fd3016a,
+	0x00c30feb, 0x0fd20180, 0x00aa0fef, 0x0fd20195,
+	0x00940ff1, 0x0fd301a8, 0x007b0ff5, 0x0fd501bb,
+	0x00650ff7, 0x0fd801cc, 0x00510ffa, 0x0fdc01d9,
+	0x003c0ffd, 0x0fe101e6, 0x002a0ffe, 0x0fe701f1,
+	0x00190000, 0x0fee01f9, 0x000a0000, 0x0ff701ff,
 	0x02000000, 0x00000000, 0x01ff0ff9, 0x00000008,
 	0x01fb0ff2, 0x00000013, 0x01f50fed, 0x0ffe0020,
 	0x01ed0fe8, 0x0ffd002e, 0x01e30fe4, 0x0ffb003e,
@@ -727,262 +615,246 @@ static uint32 vg_qseed_table2[] = {
 	0x004e0ff9, 0x0fe101d8, 0x003e0ffb, 0x0fe401e3,
 	0x002e0ffd, 0x0fe801ed, 0x00200ffe, 0x0fed01f5,
 	0x00130000, 0x0ff201fb, 0x00080000, 0x0ff901ff,
-
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-
-	0x02000000, 0x00000000, 0x01fc0ff9, 0x0ffe000d,
-	0x01f60ff3, 0x0ffb001c, 0x01ef0fed, 0x0ff9002b,
-	0x01e60fe8, 0x0ff6003c, 0x01dc0fe4, 0x0ff3004d,
-	0x01d00fe0, 0x0ff1005f, 0x01c30fde, 0x0fee0071,
-	0x01b50fdb, 0x0feb0085, 0x01a70fd9, 0x0fe80098,
-	0x01960fd8, 0x0fe600ac, 0x01850fd7, 0x0fe300c1,
-	0x01730fd7, 0x0fe100d5, 0x01610fd7, 0x0fdf00e9,
-	0x014e0fd8, 0x0fdd00fd, 0x013b0fd8, 0x0fdb0112,
-	0x01250fda, 0x0fda0127, 0x01120fdb, 0x0fd8013b,
-	0x00fd0fdd, 0x0fd8014e, 0x00e90fdf, 0x0fd70161,
-	0x00d50fe1, 0x0fd70173, 0x00c10fe3, 0x0fd70185,
-	0x00ac0fe6, 0x0fd80196, 0x00980fe8, 0x0fd901a7,
-	0x00850feb, 0x0fdb01b5, 0x00710fee, 0x0fde01c3,
-	0x005f0ff1, 0x0fe001d0, 0x004d0ff3, 0x0fe401dc,
-	0x003c0ff6, 0x0fe801e6, 0x002b0ff9, 0x0fed01ef,
-	0x001c0ffb, 0x0ff301f6, 0x000d0ffe, 0x0ff901fc,
-
-	0x020f0034, 0x0f7a0043, 0x01e80023, 0x0fa8004d,
-	0x01d30016, 0x0fbe0059, 0x01c6000a, 0x0fc90067,
-	0x01bd0000, 0x0fce0075, 0x01b50ff7, 0x0fcf0085,
-	0x01ae0fee, 0x0fcf0095, 0x01a70fe6, 0x0fcd00a6,
-	0x019d0fe0, 0x0fcb00b8, 0x01940fd9, 0x0fc900ca,
-	0x01890fd4, 0x0fc700dc, 0x017d0fcf, 0x0fc600ee,
-	0x01700fcc, 0x0fc40100, 0x01620fc9, 0x0fc40111,
-	0x01540fc6, 0x0fc30123, 0x01430fc5, 0x0fc40134,
-	0x01340fc4, 0x0fc50143, 0x01230fc3, 0x0fc60154,
-	0x01110fc4, 0x0fc90162, 0x01000fc4, 0x0fcc0170,
-	0x00ee0fc6, 0x0fcf017d, 0x00dc0fc7, 0x0fd40189,
-	0x00ca0fc9, 0x0fd90194, 0x00b80fcb, 0x0fe0019d,
-	0x00a60fcd, 0x0fe601a7, 0x00950fcf, 0x0fee01ae,
-	0x00850fcf, 0x0ff701b5, 0x00750fce, 0x000001bd,
-	0x00670fc9, 0x000a01c6, 0x00590fbe, 0x001601d3,
-	0x004d0fa8, 0x002301e8, 0x00430f7a, 0x0034020f,
-
-	0x015c005e, 0x0fde0068, 0x015c0054, 0x0fdd0073,
-	0x015b004b, 0x0fdc007e, 0x015a0042, 0x0fdb0089,
-	0x01590039, 0x0fda0094, 0x01560030, 0x0fda00a0,
-	0x01530028, 0x0fda00ab, 0x014f0020, 0x0fda00b7,
-	0x014a0019, 0x0fdb00c2, 0x01450011, 0x0fdc00ce,
-	0x013e000b, 0x0fde00d9, 0x01390004, 0x0fdf00e4,
-	0x01310ffe, 0x0fe200ef, 0x01290ff9, 0x0fe400fa,
-	0x01200ff4, 0x0fe80104, 0x01180fef, 0x0feb010e,
-	0x010e0feb, 0x0fef0118, 0x01040fe8, 0x0ff40120,
-	0x00fa0fe4, 0x0ff90129, 0x00ef0fe2, 0x0ffe0131,
-	0x00e40fdf, 0x00040139, 0x00d90fde, 0x000b013e,
-	0x00ce0fdc, 0x00110145, 0x00c20fdb, 0x0019014a,
-	0x00b70fda, 0x0020014f, 0x00ab0fda, 0x00280153,
-	0x00a00fda, 0x00300156, 0x00940fda, 0x00390159,
-	0x00890fdb, 0x0042015a, 0x007e0fdc, 0x004b015b,
-	0x00730fdd, 0x0054015c, 0x00680fde, 0x005e015c,
-
-	0x01300068, 0x0ff80070, 0x01300060, 0x0ff80078,
-	0x012f0059, 0x0ff80080, 0x012d0052, 0x0ff80089,
-	0x012b004b, 0x0ff90091, 0x01290044, 0x0ff9009a,
-	0x0126003d, 0x0ffa00a3, 0x01220037, 0x0ffb00ac,
-	0x011f0031, 0x0ffc00b4, 0x011a002b, 0x0ffe00bd,
-	0x01150026, 0x000000c5, 0x010f0021, 0x000200ce,
-	0x010a001c, 0x000400d6, 0x01030018, 0x000600df,
-	0x00fd0014, 0x000900e6, 0x00f60010, 0x000c00ee,
-	0x00ee000c, 0x001000f6, 0x00e60009, 0x001400fd,
-	0x00df0006, 0x00180103, 0x00d60004, 0x001c010a,
-	0x00ce0002, 0x0021010f, 0x00c50000, 0x00260115,
-	0x00bd0ffe, 0x002b011a, 0x00b40ffc, 0x0031011f,
-	0x00ac0ffb, 0x00370122, 0x00a30ffa, 0x003d0126,
-	0x009a0ff9, 0x00440129, 0x00910ff9, 0x004b012b,
-	0x00890ff8, 0x0052012d, 0x00800ff8, 0x0059012f,
-	0x00780ff8, 0x00600130, 0x00700ff8, 0x00680130,
-
-	0x01050079, 0x0003007f, 0x01040073, 0x00030086,
-	0x0103006d, 0x0004008c, 0x01030066, 0x00050092,
-	0x01010060, 0x00060099, 0x0100005a, 0x0007009f,
-	0x00fe0054, 0x000900a5, 0x00fa004f, 0x000b00ac,
-	0x00f80049, 0x000d00b2, 0x00f50044, 0x000f00b8,
-	0x00f2003f, 0x001200bd, 0x00ef0039, 0x001500c3,
-	0x00ea0035, 0x001800c9, 0x00e60030, 0x001c00ce,
-	0x00e3002b, 0x001f00d3, 0x00dd0027, 0x002300d9,
-	0x00d90023, 0x002700dd, 0x00d3001f, 0x002b00e3,
-	0x00ce001c, 0x003000e6, 0x00c90018, 0x003500ea,
-	0x00c30015, 0x003900ef, 0x00bd0012, 0x003f00f2,
-	0x00b8000f, 0x004400f5, 0x00b2000d, 0x004900f8,
-	0x00ac000b, 0x004f00fa, 0x00a50009, 0x005400fe,
-	0x009f0007, 0x005a0100, 0x00990006, 0x00600101,
-	0x00920005, 0x00660103, 0x008c0004, 0x006d0103,
-	0x00860003, 0x00730104, 0x007f0003, 0x00790105,
-
-	0x00cf0088, 0x001d008c, 0x00ce0084, 0x0020008e,
-	0x00cd0080, 0x00210092, 0x00cd007b, 0x00240094,
-	0x00ca0077, 0x00270098, 0x00c90073, 0x0029009b,
-	0x00c8006f, 0x002c009d, 0x00c6006b, 0x002f00a0,
-	0x00c50067, 0x003200a2, 0x00c30062, 0x003600a5,
-	0x00c0005f, 0x003900a8, 0x00c0005b, 0x003b00aa,
-	0x00be0057, 0x003e00ad, 0x00ba0054, 0x004200b0,
-	0x00b90050, 0x004500b2, 0x00b7004c, 0x004900b4,
-	0x00b40049, 0x004c00b7, 0x00b20045, 0x005000b9,
-	0x00b00042, 0x005400ba, 0x00ad003e, 0x005700be,
-	0x00aa003b, 0x005b00c0, 0x00a80039, 0x005f00c0,
-	0x00a50036, 0x006200c3, 0x00a20032, 0x006700c5,
-	0x00a0002f, 0x006b00c6, 0x009d002c, 0x006f00c8,
-	0x009b0029, 0x007300c9, 0x00980027, 0x007700ca,
-	0x00940024, 0x007b00cd, 0x00920021, 0x008000cd,
-	0x008e0020, 0x008400ce, 0x008c001d, 0x008800cf,
-
-	0x008e0083, 0x006b0084, 0x008d0083, 0x006c0084,
-	0x008d0082, 0x006d0084, 0x008d0081, 0x006d0085,
-	0x008d0080, 0x006e0085, 0x008c007f, 0x006f0086,
-	0x008b007f, 0x00700086, 0x008b007e, 0x00710086,
-	0x008b007d, 0x00720086, 0x008a007d, 0x00730086,
-	0x008a007c, 0x00730087, 0x008a007b, 0x00740087,
-	0x0089007b, 0x00750087, 0x008a0079, 0x00750088,
-	0x008a0078, 0x00760088, 0x008a0077, 0x00770088,
-	0x00880077, 0x0077008a, 0x00880076, 0x0078008a,
-	0x00880075, 0x0079008a, 0x00870075, 0x007b0089,
-	0x00870074, 0x007b008a, 0x00870073, 0x007c008a,
-	0x00860073, 0x007d008a, 0x00860072, 0x007d008b,
-	0x00860071, 0x007e008b, 0x00860070, 0x007f008b,
-	0x0086006f, 0x007f008c, 0x0085006e, 0x0080008d,
-	0x0085006d, 0x0081008d, 0x0084006d, 0x0082008d,
-	0x0084006c, 0x0083008d, 0x0084006b, 0x0083008e,
-
-	0x023c0fe2, 0x00000fe2, 0x023a0fdb, 0x00000feb,
-	0x02360fd3, 0x0fff0ff8, 0x022e0fcf, 0x0ffc0007,
-	0x02250fca, 0x0ffa0017, 0x021a0fc6, 0x0ff70029,
-	0x020c0fc4, 0x0ff4003c, 0x01fd0fc1, 0x0ff10051,
-	0x01eb0fc0, 0x0fed0068, 0x01d80fc0, 0x0fe9007f,
-	0x01c30fc1, 0x0fe50097, 0x01ac0fc2, 0x0fe200b0,
-	0x01960fc3, 0x0fdd00ca, 0x017e0fc5, 0x0fd900e4,
-	0x01650fc8, 0x0fd500fe, 0x014b0fcb, 0x0fd20118,
-	0x01330fcd, 0x0fcd0133, 0x01180fd2, 0x0fcb014b,
-	0x00fe0fd5, 0x0fc80165, 0x00e40fd9, 0x0fc5017e,
-	0x00ca0fdd, 0x0fc30196, 0x00b00fe2, 0x0fc201ac,
-	0x00970fe5, 0x0fc101c3, 0x007f0fe9, 0x0fc001d8,
-	0x00680fed, 0x0fc001eb, 0x00510ff1, 0x0fc101fd,
-	0x003c0ff4, 0x0fc4020c, 0x00290ff7, 0x0fc6021a,
-	0x00170ffa, 0x0fca0225, 0x00070ffc, 0x0fcf022e,
-	0x0ff80fff, 0x0fd30236, 0x0feb0000, 0x0fdb023a,
-
-	0x02780fc4, 0x00000fc4, 0x02770fbc, 0x0fff0fce,
-	0x02710fb5, 0x0ffe0fdc, 0x02690fb0, 0x0ffa0fed,
-	0x025f0fab, 0x0ff70fff, 0x02500fa8, 0x0ff30015,
-	0x02410fa6, 0x0fef002a, 0x022f0fa4, 0x0feb0042,
-	0x021a0fa4, 0x0fe5005d, 0x02040fa5, 0x0fe10076,
-	0x01eb0fa7, 0x0fdb0093, 0x01d20fa9, 0x0fd600af,
-	0x01b80fab, 0x0fd000cd, 0x019d0faf, 0x0fca00ea,
-	0x01810fb2, 0x0fc50108, 0x01620fb7, 0x0fc10126,
-	0x01440fbb, 0x0fbb0146, 0x01260fc1, 0x0fb70162,
-	0x01080fc5, 0x0fb20181, 0x00ea0fca, 0x0faf019d,
-	0x00cd0fd0, 0x0fab01b8, 0x00af0fd6, 0x0fa901d2,
-	0x00930fdb, 0x0fa701eb, 0x00760fe1, 0x0fa50204,
-	0x005d0fe5, 0x0fa4021a, 0x00420feb, 0x0fa4022f,
-	0x002a0fef, 0x0fa60241, 0x00150ff3, 0x0fa80250,
-	0x0fff0ff7, 0x0fab025f, 0x0fed0ffa, 0x0fb00269,
-	0x0fdc0ffe, 0x0fb50271, 0x0fce0fff, 0x0fbc0277,
-
-	0x02a00fb0, 0x00000fb0, 0x029e0fa8, 0x0fff0fbb,
-	0x02980fa1, 0x0ffd0fca, 0x028f0f9c, 0x0ff90fdc,
-	0x02840f97, 0x0ff50ff0, 0x02740f94, 0x0ff10007,
-	0x02640f92, 0x0fec001e, 0x02500f91, 0x0fe70038,
-	0x023a0f91, 0x0fe00055, 0x02220f92, 0x0fdb0071,
-	0x02080f95, 0x0fd4008f, 0x01ec0f98, 0x0fce00ae,
-	0x01cf0f9b, 0x0fc700cf, 0x01b10f9f, 0x0fc100ef,
-	0x01920fa4, 0x0fbb010f, 0x01710faa, 0x0fb50130,
-	0x01520fae, 0x0fae0152, 0x01300fb5, 0x0faa0171,
-	0x010f0fbb, 0x0fa40192, 0x00ef0fc1, 0x0f9f01b1,
-	0x00cf0fc7, 0x0f9b01cf, 0x00ae0fce, 0x0f9801ec,
-	0x008f0fd4, 0x0f950208, 0x00710fdb, 0x0f920222,
-	0x00550fe0, 0x0f91023a, 0x00380fe7, 0x0f910250,
-	0x001e0fec, 0x0f920264, 0x00070ff1, 0x0f940274,
-	0x0ff00ff5, 0x0f970284, 0x0fdc0ff9, 0x0f9c028f,
-	0x0fca0ffd, 0x0fa10298, 0x0fbb0fff, 0x0fa8029e,
-
-	0x02c80f9c, 0x00000f9c, 0x02c70f94, 0x0ffe0fa7,
-	0x02c10f8c, 0x0ffc0fb7, 0x02b70f87, 0x0ff70fcb,
-	0x02aa0f83, 0x0ff30fe0, 0x02990f80, 0x0fee0ff9,
-	0x02870f7f, 0x0fe80012, 0x02720f7e, 0x0fe2002e,
-	0x025a0f7e, 0x0fdb004d, 0x02400f80, 0x0fd5006b,
-	0x02230f84, 0x0fcd008c, 0x02050f87, 0x0fc700ad,
-	0x01e60f8b, 0x0fbf00d0, 0x01c60f90, 0x0fb700f3,
-	0x01a30f96, 0x0fb00117, 0x01800f9c, 0x0faa013a,
-	0x015d0fa2, 0x0fa2015f, 0x013a0faa, 0x0f9c0180,
-	0x01170fb0, 0x0f9601a3, 0x00f30fb7, 0x0f9001c6,
-	0x00d00fbf, 0x0f8b01e6, 0x00ad0fc7, 0x0f870205,
-	0x008c0fcd, 0x0f840223, 0x006b0fd5, 0x0f800240,
-	0x004d0fdb, 0x0f7e025a, 0x002e0fe2, 0x0f7e0272,
-	0x00120fe8, 0x0f7f0287, 0x0ff90fee, 0x0f800299,
-	0x0fe00ff3, 0x0f8302aa, 0x0fcb0ff7, 0x0f8702b7,
-	0x0fb70ffc, 0x0f8c02c1, 0x0fa70ffe, 0x0f9402c7,
-
-	0x02f00f88, 0x00000f88, 0x02ee0f80, 0x0ffe0f94,
-	0x02e70f78, 0x0ffc0fa5, 0x02dd0f73, 0x0ff60fba,
-	0x02ce0f6f, 0x0ff20fd1, 0x02be0f6c, 0x0feb0feb,
-	0x02aa0f6b, 0x0fe50006, 0x02940f6a, 0x0fde0024,
-	0x02790f6c, 0x0fd60045, 0x025e0f6e, 0x0fcf0065,
-	0x023f0f72, 0x0fc60089, 0x021d0f77, 0x0fbf00ad,
-	0x01fd0f7b, 0x0fb600d2, 0x01da0f81, 0x0fad00f8,
-	0x01b50f87, 0x0fa6011e, 0x018f0f8f, 0x0f9e0144,
-	0x016b0f95, 0x0f95016b, 0x01440f9e, 0x0f8f018f,
-	0x011e0fa6, 0x0f8701b5, 0x00f80fad, 0x0f8101da,
-	0x00d20fb6, 0x0f7b01fd, 0x00ad0fbf, 0x0f77021d,
-	0x00890fc6, 0x0f72023f, 0x00650fcf, 0x0f6e025e,
-	0x00450fd6, 0x0f6c0279, 0x00240fde, 0x0f6a0294,
-	0x00060fe5, 0x0f6b02aa, 0x0feb0feb, 0x0f6c02be,
-	0x0fd10ff2, 0x0f6f02ce, 0x0fba0ff6, 0x0f7302dd,
-	0x0fa50ffc, 0x0f7802e7, 0x0f940ffe, 0x0f8002ee,
-
-	0x03180f74, 0x00000f74, 0x03160f6b, 0x0ffe0f81,
-	0x030e0f64, 0x0ffb0f93, 0x03030f5f, 0x0ff50fa9,
-	0x02f40f5b, 0x0ff00fc1, 0x02e20f58, 0x0fe90fdd,
-	0x02cd0f57, 0x0fe20ffa, 0x02b60f57, 0x0fda0019,
-	0x02990f59, 0x0fd1003d, 0x027b0f5c, 0x0fc90060,
-	0x02590f61, 0x0fc00086, 0x02370f66, 0x0fb700ac,
-	0x02130f6b, 0x0fae00d4, 0x01ee0f72, 0x0fa400fc,
-	0x01c70f79, 0x0f9b0125, 0x019f0f81, 0x0f93014d,
-	0x01760f89, 0x0f890178, 0x014d0f93, 0x0f81019f,
-	0x01250f9b, 0x0f7901c7, 0x00fc0fa4, 0x0f7201ee,
-	0x00d40fae, 0x0f6b0213, 0x00ac0fb7, 0x0f660237,
-	0x00860fc0, 0x0f610259, 0x00600fc9, 0x0f5c027b,
-	0x003d0fd1, 0x0f590299, 0x00190fda, 0x0f5702b6,
-	0x0ffa0fe2, 0x0f5702cd, 0x0fdd0fe9, 0x0f5802e2,
-	0x0fc10ff0, 0x0f5b02f4, 0x0fa90ff5, 0x0f5f0303,
-	0x0f930ffb, 0x0f64030e, 0x0f810ffe, 0x0f6b0316,
-
-	0x03400f60, 0x00000f60, 0x033e0f57, 0x0ffe0f6d,
-	0x03370f4f, 0x0ffa0f80, 0x032a0f4b, 0x0ff30f98,
-	0x031a0f46, 0x0fee0fb2, 0x03070f44, 0x0fe60fcf,
-	0x02f10f44, 0x0fde0fed, 0x02d70f44, 0x0fd6000f,
-	0x02b80f46, 0x0fcc0036, 0x02990f4a, 0x0fc3005a,
-	0x02750f4f, 0x0fb90083, 0x02500f55, 0x0fb000ab,
-	0x022a0f5b, 0x0fa500d6, 0x02020f63, 0x0f9a0101,
-	0x01d80f6b, 0x0f91012c, 0x01ae0f74, 0x0f870157,
-	0x01840f7c, 0x0f7c0184, 0x01570f87, 0x0f7401ae,
-	0x012c0f91, 0x0f6b01d8, 0x01010f9a, 0x0f630202,
-	0x00d60fa5, 0x0f5b022a, 0x00ab0fb0, 0x0f550250,
-	0x00830fb9, 0x0f4f0275, 0x005a0fc3, 0x0f4a0299,
-	0x00360fcc, 0x0f4602b8, 0x000f0fd6, 0x0f4402d7,
-	0x0fed0fde, 0x0f4402f1, 0x0fcf0fe6, 0x0f440307,
-	0x0fb20fee, 0x0f46031a, 0x0f980ff3, 0x0f4b032a,
-	0x0f800ffa, 0x0f4f0337, 0x0f6d0ffe, 0x0f57033e,
-
+	0x02000000, 0x00000000, 0x02060ff2, 0x00000008,
+	0x02090fe4, 0x00000013, 0x020a0fd9, 0x0ffc0021,
+	0x02080fce, 0x0ffa0030, 0x02030fc5, 0x0ff60042,
+	0x01fd0fbe, 0x0ff10054, 0x01f50fb6, 0x0fed0068,
+	0x01e90fb1, 0x0fe60080, 0x01dc0fae, 0x0fe10095,
+	0x01ca0fae, 0x0fda00ae, 0x01b70fad, 0x0fd600c6,
+	0x01a40fad, 0x0fcf00e0, 0x018f0faf, 0x0fc800fa,
+	0x01780fb1, 0x0fc30114, 0x015f0fb5, 0x0fbf012d,
+	0x01490fb7, 0x0fb70149, 0x012d0fbf, 0x0fb5015f,
+	0x01140fc3, 0x0fb10178, 0x00fa0fc8, 0x0faf018f,
+	0x00e00fcf, 0x0fad01a4, 0x00c60fd6, 0x0fad01b7,
+	0x00ae0fda, 0x0fae01ca, 0x00950fe1, 0x0fae01dc,
+	0x00800fe6, 0x0fb101e9, 0x00680fed, 0x0fb601f5,
+	0x00540ff1, 0x0fbe01fd, 0x00420ff6, 0x0fc50203,
+	0x00300ffa, 0x0fce0208, 0x00210ffc, 0x0fd9020a,
+	0x00130000, 0x0fe40209, 0x00080000, 0x0ff20206,
+	0x02000000, 0x00000000, 0x02040ff2, 0x0000000a,
+	0x02040fe4, 0x00000018, 0x02010fda, 0x0ffc0029,
+	0x01fc0fcf, 0x0ffa003b, 0x01f30fc7, 0x0ff60050,
+	0x01e90fc0, 0x0ff20065, 0x01dc0fba, 0x0fee007c,
+	0x01cc0fb6, 0x0fe80096, 0x01ba0fb4, 0x0fe400ae,
+	0x01a70fb4, 0x0fdd00c8, 0x018f0fb5, 0x0fda00e2,
+	0x017a0fb5, 0x0fd400fd, 0x01630fb8, 0x0fce0117,
+	0x014c0fba, 0x0fca0130, 0x01320fbf, 0x0fc70148,
+	0x011b0fc1, 0x0fc10163, 0x01010fc8, 0x0fc00177,
+	0x00e90fcd, 0x0fbd018d, 0x00d10fd1, 0x0fbc01a2,
+	0x00ba0fd7, 0x0fbb01b4, 0x00a30fdd, 0x0fbc01c4,
+	0x008e0fe1, 0x0fbd01d4, 0x00790fe7, 0x0fbe01e2,
+	0x00670feb, 0x0fc001ee, 0x00540ff1, 0x0fc501f6,
+	0x00430ff4, 0x0fcb01fe, 0x00340ff8, 0x0fd10203,
+	0x00260ffb, 0x0fd80207, 0x001a0ffd, 0x0fe10208,
+	0x000f0000, 0x0fea0207, 0x00060000, 0x0ff50205,
+	0x02000000, 0x00000000, 0x02020ff2, 0x0000000c,
+	0x02000fe4, 0x0000001c, 0x01fa0fda, 0x0ffc0030,
+	0x01f10fd0, 0x0ffa0045, 0x01e50fc8, 0x0ff6005d,
+	0x01d60fc3, 0x0ff30074, 0x01c60fbd, 0x0fef008e,
+	0x01b30fba, 0x0fe900aa, 0x019e0fb9, 0x0fe500c4,
+	0x01870fba, 0x0fe000df, 0x016f0fbb, 0x0fdd00f9,
+	0x01580fbc, 0x0fd80114, 0x01400fbf, 0x0fd3012e,
+	0x01280fc2, 0x0fd00146, 0x010f0fc6, 0x0fce015d,
+	0x00f90fc9, 0x0fc90175, 0x00e00fcf, 0x0fc90188,
+	0x00ca0fd4, 0x0fc6019c, 0x00b40fd8, 0x0fc601ae,
+	0x009f0fdd, 0x0fc501bf, 0x008b0fe3, 0x0fc601cc,
+	0x00780fe6, 0x0fc701db, 0x00660feb, 0x0fc801e7,
+	0x00560fef, 0x0fcb01f0, 0x00460ff3, 0x0fcf01f8,
+	0x00380ff6, 0x0fd401fe, 0x002c0ff9, 0x0fd90202,
+	0x00200ffc, 0x0fdf0205, 0x00160ffe, 0x0fe60206,
+	0x000c0000, 0x0fed0207, 0x00050000, 0x0ff70204,
+	0x02000000, 0x00000000, 0x01fe0ff3, 0x0000000f,
+	0x01f60fe5, 0x00000025, 0x01ea0fdb, 0x0ffd003e,
+	0x01db0fd2, 0x0ffb0058, 0x01c80fcc, 0x0ff70075,
+	0x01b50fc7, 0x0ff40090, 0x01a00fc3, 0x0ff000ad,
+	0x01880fc1, 0x0feb00cc, 0x01700fc1, 0x0fe800e7,
+	0x01550fc3, 0x0fe40104, 0x013b0fc5, 0x0fe2011e,
+	0x01240fc6, 0x0fde0138, 0x010c0fca, 0x0fda0150,
+	0x00f40fcd, 0x0fd90166, 0x00dd0fd1, 0x0fd7017b,
+	0x00c80fd4, 0x0fd40190, 0x00b20fd9, 0x0fd401a1,
+	0x009f0fdd, 0x0fd301b1, 0x008c0fe1, 0x0fd301c0,
+	0x007b0fe5, 0x0fd301cd, 0x006a0fea, 0x0fd401d8,
+	0x005c0fec, 0x0fd501e3, 0x004d0ff0, 0x0fd601ed,
+	0x00410ff3, 0x0fd801f4, 0x00340ff7, 0x0fdb01fa,
+	0x002a0ff9, 0x0fdf01fe, 0x00200ffb, 0x0fe30202,
+	0x00180ffd, 0x0fe70204, 0x00100ffe, 0x0fed0205,
+	0x00090000, 0x0ff20205, 0x00040000, 0x0ff90203,
+	0x02000000, 0x00000000, 0x02050ff5, 0x00000006,
+	0x02070fea, 0x0000000f, 0x02080fe1, 0x0ffd001a,
+	0x02070fd8, 0x0ffb0026, 0x02030fd1, 0x0ff80034,
+	0x01fe0fcb, 0x0ff40043, 0x01f60fc5, 0x0ff10054,
+	0x01ee0fc0, 0x0feb0067, 0x01e20fbe, 0x0fe70079,
+	0x01d40fbd, 0x0fe1008e, 0x01c40fbc, 0x0fdd00a3,
+	0x01b40fbb, 0x0fd700ba, 0x01a20fbc, 0x0fd100d1,
+	0x018d0fbd, 0x0fcd00e9, 0x01770fc0, 0x0fc80101,
+	0x01630fc1, 0x0fc1011b, 0x01480fc7, 0x0fbf0132,
+	0x01300fca, 0x0fba014c, 0x01170fce, 0x0fb80163,
+	0x00fd0fd4, 0x0fb5017a, 0x00e20fda, 0x0fb5018f,
+	0x00c80fdd, 0x0fb401a7, 0x00ae0fe4, 0x0fb401ba,
+	0x00960fe8, 0x0fb601cc, 0x007c0fee, 0x0fba01dc,
+	0x00650ff2, 0x0fc001e9, 0x00500ff6, 0x0fc701f3,
+	0x003b0ffa, 0x0fcf01fc, 0x00290ffc, 0x0fda0201,
+	0x00180000, 0x0fe40204, 0x000a0000, 0x0ff20204,
+	0x02000000, 0x00000000, 0x02030ff5, 0x00000008,
+	0x02030fea, 0x00000013, 0x02020fe1, 0x0ffd0020,
+	0x01fc0fd9, 0x0ffc002f, 0x01f60fd2, 0x0ff80040,
+	0x01ed0fcd, 0x0ff50051, 0x01e30fc7, 0x0ff10065,
+	0x01d70fc3, 0x0fec007a, 0x01c60fc2, 0x0fe9008f,
+	0x01b60fc1, 0x0fe300a6, 0x01a20fc1, 0x0fe000bd,
+	0x018f0fc1, 0x0fdb00d5, 0x017b0fc2, 0x0fd500ee,
+	0x01640fc4, 0x0fd20106, 0x014d0fc8, 0x0fce011d,
+	0x01370fc9, 0x0fc90137, 0x011d0fce, 0x0fc8014d,
+	0x01060fd2, 0x0fc40164, 0x00ee0fd5, 0x0fc2017b,
+	0x00d50fdb, 0x0fc1018f, 0x00bd0fe0, 0x0fc101a2,
+	0x00a60fe3, 0x0fc101b6, 0x008f0fe9, 0x0fc201c6,
+	0x007a0fec, 0x0fc301d7, 0x00650ff1, 0x0fc701e3,
+	0x00510ff5, 0x0fcd01ed, 0x00400ff8, 0x0fd201f6,
+	0x002f0ffc, 0x0fd901fc, 0x00200ffd, 0x0fe10202,
+	0x00130000, 0x0fea0203, 0x00080000, 0x0ff50203,
+	0x02000000, 0x00000000, 0x02020ff5, 0x00000009,
+	0x01ff0fea, 0x00000017, 0x01fb0fe2, 0x0ffd0026,
+	0x01f30fda, 0x0ffc0037, 0x01ea0fd3, 0x0ff8004b,
+	0x01df0fce, 0x0ff5005e, 0x01d10fc9, 0x0ff20074,
+	0x01c10fc6, 0x0fed008c, 0x01ae0fc5, 0x0fea00a3,
+	0x019b0fc5, 0x0fe500bb, 0x01850fc6, 0x0fe200d3,
+	0x01700fc6, 0x0fde00ec, 0x015a0fc8, 0x0fd90105,
+	0x01430fca, 0x0fd6011d, 0x012b0fcd, 0x0fd30135,
+	0x01150fcf, 0x0fcf014d, 0x00fc0fd4, 0x0fce0162,
+	0x00e50fd8, 0x0fcc0177, 0x00cf0fdb, 0x0fca018c,
+	0x00b80fe0, 0x0fc9019f, 0x00a20fe5, 0x0fca01af,
+	0x008e0fe8, 0x0fcb01bf, 0x00790fec, 0x0fcb01d0,
+	0x00670fef, 0x0fcd01dd, 0x00550ff4, 0x0fd001e7,
+	0x00440ff7, 0x0fd501f0, 0x00350ffa, 0x0fda01f7,
+	0x00270ffc, 0x0fdf01fe, 0x001b0ffe, 0x0fe70200,
+	0x00100000, 0x0fee0202, 0x00060000, 0x0ff70203,
+	0x02000000, 0x00000000, 0x01ff0ff5, 0x0000000c,
+	0x01f80fea, 0x0000001e, 0x01ef0fe2, 0x0ffd0032,
+	0x01e20fdb, 0x0ffc0047, 0x01d30fd5, 0x0ff9005f,
+	0x01c20fd1, 0x0ff60077, 0x01b00fcd, 0x0ff30090,
+	0x019b0fcb, 0x0fef00ab, 0x01850fcb, 0x0fec00c4,
+	0x016e0fcc, 0x0fe800de, 0x01550fcd, 0x0fe600f8,
+	0x013f0fce, 0x0fe20111, 0x01280fd0, 0x0fdf0129,
+	0x01110fd2, 0x0fdd0140, 0x00f90fd6, 0x0fdb0156,
+	0x00e40fd8, 0x0fd8016c, 0x00cd0fdd, 0x0fd8017e,
+	0x00b80fe0, 0x0fd60192, 0x00a40fe3, 0x0fd601a3,
+	0x00910fe7, 0x0fd501b3, 0x007f0feb, 0x0fd601c0,
+	0x006e0fed, 0x0fd701ce, 0x005d0ff1, 0x0fd701db,
+	0x004f0ff3, 0x0fd901e5, 0x00400ff7, 0x0fdc01ed,
+	0x00330ff9, 0x0fe001f4, 0x00280ffb, 0x0fe301fa,
+	0x001d0ffd, 0x0fe801fe, 0x00140ffe, 0x0fed0201,
+	0x000c0000, 0x0ff20202, 0x00050000, 0x0ff90202,
+	0x02000000, 0x00000000, 0x02040ff7, 0x00000005,
+	0x02070fed, 0x0000000c, 0x02060fe6, 0x0ffe0016,
+	0x02050fdf, 0x0ffc0020, 0x02020fd9, 0x0ff9002c,
+	0x01fe0fd4, 0x0ff60038, 0x01f80fcf, 0x0ff30046,
+	0x01f00fcb, 0x0fef0056, 0x01e70fc8, 0x0feb0066,
+	0x01db0fc7, 0x0fe60078, 0x01cc0fc6, 0x0fe3008b,
+	0x01bf0fc5, 0x0fdd009f, 0x01ae0fc6, 0x0fd800b4,
+	0x019c0fc6, 0x0fd400ca, 0x01880fc9, 0x0fcf00e0,
+	0x01750fc9, 0x0fc900f9, 0x015d0fce, 0x0fc6010f,
+	0x01460fd0, 0x0fc20128, 0x012e0fd3, 0x0fbf0140,
+	0x01140fd8, 0x0fbc0158, 0x00f90fdd, 0x0fbb016f,
+	0x00df0fe0, 0x0fba0187, 0x00c40fe5, 0x0fb9019e,
+	0x00aa0fe9, 0x0fba01b3, 0x008e0fef, 0x0fbd01c6,
+	0x00740ff3, 0x0fc301d6, 0x005d0ff6, 0x0fc801e5,
+	0x00450ffa, 0x0fd001f1, 0x00300ffc, 0x0fda01fa,
+	0x001c0000, 0x0fe40200, 0x000c0000, 0x0ff20202,
+	0x02000000, 0x00000000, 0x02030ff7, 0x00000006,
+	0x02020fee, 0x00000010, 0x02000fe7, 0x0ffe001b,
+	0x01fe0fdf, 0x0ffc0027, 0x01f70fda, 0x0ffa0035,
+	0x01f00fd5, 0x0ff70044, 0x01e70fd0, 0x0ff40055,
+	0x01dd0fcd, 0x0fef0067, 0x01d00fcb, 0x0fec0079,
+	0x01bf0fcb, 0x0fe8008e, 0x01af0fca, 0x0fe500a2,
+	0x019f0fc9, 0x0fe000b8, 0x018c0fca, 0x0fdb00cf,
+	0x01770fcc, 0x0fd800e5, 0x01620fce, 0x0fd400fc,
+	0x014d0fcf, 0x0fcf0115, 0x01350fd3, 0x0fcd012b,
+	0x011d0fd6, 0x0fca0143, 0x01050fd9, 0x0fc8015a,
+	0x00ec0fde, 0x0fc60170, 0x00d30fe2, 0x0fc60185,
+	0x00bb0fe5, 0x0fc5019b, 0x00a30fea, 0x0fc501ae,
+	0x008c0fed, 0x0fc601c1, 0x00740ff2, 0x0fc901d1,
+	0x005e0ff5, 0x0fce01df, 0x004b0ff8, 0x0fd301ea,
+	0x00370ffc, 0x0fda01f3, 0x00260ffd, 0x0fe201fb,
+	0x00170000, 0x0fea01ff, 0x00090000, 0x0ff50202,
+	0x02000000, 0x00000000, 0x02010ff7, 0x00000008,
+	0x01ff0fee, 0x00000013, 0x01fb0fe7, 0x0ffe0020,
+	0x01f60fe0, 0x0ffc002e, 0x01ed0fda, 0x0ffa003f,
+	0x01e40fd6, 0x0ff7004f, 0x01d80fd2, 0x0ff40062,
+	0x01ca0fcf, 0x0ff00077, 0x01bb0fcd, 0x0fed008b,
+	0x01a90fcd, 0x0fe900a1, 0x01960fcd, 0x0fe600b7,
+	0x01830fcd, 0x0fe200ce, 0x016d0fcf, 0x0fde00e6,
+	0x01580fd0, 0x0fdb00fd, 0x01410fd3, 0x0fd80114,
+	0x012c0fd4, 0x0fd4012c, 0x01140fd8, 0x0fd30141,
+	0x00fd0fdb, 0x0fd00158, 0x00e60fde, 0x0fcf016d,
+	0x00ce0fe2, 0x0fcd0183, 0x00b70fe6, 0x0fcd0196,
+	0x00a10fe9, 0x0fcd01a9, 0x008b0fed, 0x0fcd01bb,
+	0x00770ff0, 0x0fcf01ca, 0x00620ff4, 0x0fd201d8,
+	0x004f0ff7, 0x0fd601e4, 0x003f0ffa, 0x0fda01ed,
+	0x002e0ffc, 0x0fe001f6, 0x00200ffe, 0x0fe701fb,
+	0x00130000, 0x0fee01ff, 0x00080000, 0x0ff70201,
+	0x02000000, 0x00000000, 0x01ff0ff7, 0x0000000a,
+	0x01f90fee, 0x00000019, 0x01f10fe7, 0x0ffe002a,
+	0x01e60fe1, 0x0ffd003c, 0x01d90fdc, 0x0ffa0051,
+	0x01cc0fd8, 0x0ff70065, 0x01bb0fd5, 0x0ff5007b,
+	0x01a80fd3, 0x0ff10094, 0x01950fd2, 0x0fef00aa,
+	0x01800fd2, 0x0feb00c3, 0x016a0fd3, 0x0fe900da,
+	0x01540fd3, 0x0fe600f3, 0x013f0fd5, 0x0fe2010a,
+	0x01280fd7, 0x0fe00121, 0x01100fda, 0x0fde0138,
+	0x00fb0fdb, 0x0fdb014f, 0x00e40fdf, 0x0fdb0162,
+	0x00ce0fe2, 0x0fd90177, 0x00b90fe4, 0x0fd8018b,
+	0x00a50fe8, 0x0fd8019b, 0x00910fec, 0x0fd801ab,
+	0x007e0fee, 0x0fd801bc, 0x006c0ff2, 0x0fd901c9,
+	0x005c0ff4, 0x0fda01d6, 0x004b0ff7, 0x0fdd01e1,
+	0x003c0ff9, 0x0fe001eb, 0x002f0ffb, 0x0fe401f2,
+	0x00230ffd, 0x0fe801f8, 0x00180ffe, 0x0fed01fd,
+	0x000e0000, 0x0ff20200, 0x00060000, 0x0ff90201,
+	0x02000000, 0x00000000, 0x02030ff9, 0x00000004,
+	0x02050ff2, 0x00000009, 0x02050fed, 0x0ffe0010,
+	0x02040fe7, 0x0ffd0018, 0x02020fe3, 0x0ffb0020,
+	0x01fe0fdf, 0x0ff9002a, 0x01fa0fdb, 0x0ff70034,
+	0x01f40fd8, 0x0ff30041, 0x01ed0fd6, 0x0ff0004d,
+	0x01e30fd5, 0x0fec005c, 0x01d80fd4, 0x0fea006a,
+	0x01cd0fd3, 0x0fe5007b, 0x01c00fd3, 0x0fe1008c,
+	0x01b10fd3, 0x0fdd009f, 0x01a10fd4, 0x0fd900b2,
+	0x01900fd4, 0x0fd400c8, 0x017b0fd7, 0x0fd100dd,
+	0x01660fd9, 0x0fcd00f4, 0x01500fda, 0x0fca010c,
+	0x01380fde, 0x0fc60124, 0x011e0fe2, 0x0fc5013b,
+	0x01040fe4, 0x0fc30155, 0x00e70fe8, 0x0fc10170,
+	0x00cc0feb, 0x0fc10188, 0x00ad0ff0, 0x0fc301a0,
+	0x00900ff4, 0x0fc701b5, 0x00750ff7, 0x0fcc01c8,
+	0x00580ffb, 0x0fd201db, 0x003e0ffd, 0x0fdb01ea,
+	0x00250000, 0x0fe501f6, 0x000f0000, 0x0ff301fe,
+	0x02000000, 0x00000000, 0x02020ff9, 0x00000005,
+	0x02020ff2, 0x0000000c, 0x02010fed, 0x0ffe0014,
+	0x01fe0fe8, 0x0ffd001d, 0x01fa0fe3, 0x0ffb0028,
+	0x01f40fe0, 0x0ff90033, 0x01ed0fdc, 0x0ff70040,
+	0x01e50fd9, 0x0ff3004f, 0x01db0fd7, 0x0ff1005d,
+	0x01ce0fd7, 0x0fed006e, 0x01c00fd6, 0x0feb007f,
+	0x01b30fd5, 0x0fe70091, 0x01a30fd6, 0x0fe300a4,
+	0x01920fd6, 0x0fe000b8, 0x017e0fd8, 0x0fdd00cd,
+	0x016c0fd8, 0x0fd800e4, 0x01560fdb, 0x0fd600f9,
+	0x01400fdd, 0x0fd20111, 0x01290fdf, 0x0fd00128,
+	0x01110fe2, 0x0fce013f, 0x00f80fe6, 0x0fcd0155,
+	0x00de0fe8, 0x0fcc016e, 0x00c40fec, 0x0fcb0185,
+	0x00ab0fef, 0x0fcb019b, 0x00900ff3, 0x0fcd01b0,
+	0x00770ff6, 0x0fd101c2, 0x005f0ff9, 0x0fd501d3,
+	0x00470ffc, 0x0fdb01e2, 0x00320ffd, 0x0fe201ef,
+	0x001e0000, 0x0fea01f8, 0x000c0000, 0x0ff501ff,
+	0x02000000, 0x00000000, 0x02010ff9, 0x00000006,
+	0x02000ff2, 0x0000000e, 0x01fd0fed, 0x0ffe0018,
+	0x01f80fe8, 0x0ffd0023, 0x01f20fe4, 0x0ffb002f,
+	0x01eb0fe0, 0x0ff9003c, 0x01e10fdd, 0x0ff7004b,
+	0x01d60fda, 0x0ff4005c, 0x01c90fd9, 0x0ff2006c,
+	0x01bc0fd8, 0x0fee007e, 0x01ab0fd8, 0x0fec0091,
+	0x019b0fd8, 0x0fe800a5, 0x018b0fd8, 0x0fe400b9,
+	0x01770fd9, 0x0fe200ce, 0x01620fdb, 0x0fdf00e4,
+	0x014f0fdb, 0x0fdb00fb, 0x01380fde, 0x0fda0110,
+	0x01210fe0, 0x0fd70128, 0x010a0fe2, 0x0fd5013f,
+	0x00f30fe6, 0x0fd30154, 0x00da0fe9, 0x0fd3016a,
+	0x00c30feb, 0x0fd20180, 0x00aa0fef, 0x0fd20195,
+	0x00940ff1, 0x0fd301a8, 0x007b0ff5, 0x0fd501bb,
+	0x00650ff7, 0x0fd801cc, 0x00510ffa, 0x0fdc01d9,
+	0x003c0ffd, 0x0fe101e6, 0x002a0ffe, 0x0fe701f1,
+	0x00190000, 0x0fee01f9, 0x000a0000, 0x0ff701ff,
 	0x02000000, 0x00000000, 0x01ff0ff9, 0x00000008,
 	0x01fb0ff2, 0x00000013, 0x01f50fed, 0x0ffe0020,
 	0x01ed0fe8, 0x0ffd002e, 0x01e30fe4, 0x0ffb003e,
@@ -998,262 +870,7 @@ static uint32 vg_qseed_table2[] = {
 	0x00740ff4, 0x0fdc01bc, 0x00600ff7, 0x0fde01cb,
 	0x004e0ff9, 0x0fe101d8, 0x003e0ffb, 0x0fe401e3,
 	0x002e0ffd, 0x0fe801ed, 0x00200ffe, 0x0fed01f5,
-	0x00130000, 0x0ff201fb, 0x00080000, 0x0ff901ff,
-
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-	0x02000000, 0x00000000, 0x02000000, 0x00000000,
-
-	0x02000000, 0x00000000, 0x01fc0ff9, 0x0ffe000d,
-	0x01f60ff3, 0x0ffb001c, 0x01ef0fed, 0x0ff9002b,
-	0x01e60fe8, 0x0ff6003c, 0x01dc0fe4, 0x0ff3004d,
-	0x01d00fe0, 0x0ff1005f, 0x01c30fde, 0x0fee0071,
-	0x01b50fdb, 0x0feb0085, 0x01a70fd9, 0x0fe80098,
-	0x01960fd8, 0x0fe600ac, 0x01850fd7, 0x0fe300c1,
-	0x01730fd7, 0x0fe100d5, 0x01610fd7, 0x0fdf00e9,
-	0x014e0fd8, 0x0fdd00fd, 0x013b0fd8, 0x0fdb0112,
-	0x01250fda, 0x0fda0127, 0x01120fdb, 0x0fd8013b,
-	0x00fd0fdd, 0x0fd8014e, 0x00e90fdf, 0x0fd70161,
-	0x00d50fe1, 0x0fd70173, 0x00c10fe3, 0x0fd70185,
-	0x00ac0fe6, 0x0fd80196, 0x00980fe8, 0x0fd901a7,
-	0x00850feb, 0x0fdb01b5, 0x00710fee, 0x0fde01c3,
-	0x005f0ff1, 0x0fe001d0, 0x004d0ff3, 0x0fe401dc,
-	0x003c0ff6, 0x0fe801e6, 0x002b0ff9, 0x0fed01ef,
-	0x001c0ffb, 0x0ff301f6, 0x000d0ffe, 0x0ff901fc,
-
-	0x020f0034, 0x0f7a0043, 0x01e80023, 0x0fa8004d,
-	0x01d30016, 0x0fbe0059, 0x01c6000a, 0x0fc90067,
-	0x01bd0000, 0x0fce0075, 0x01b50ff7, 0x0fcf0085,
-	0x01ae0fee, 0x0fcf0095, 0x01a70fe6, 0x0fcd00a6,
-	0x019d0fe0, 0x0fcb00b8, 0x01940fd9, 0x0fc900ca,
-	0x01890fd4, 0x0fc700dc, 0x017d0fcf, 0x0fc600ee,
-	0x01700fcc, 0x0fc40100, 0x01620fc9, 0x0fc40111,
-	0x01540fc6, 0x0fc30123, 0x01430fc5, 0x0fc40134,
-	0x01340fc4, 0x0fc50143, 0x01230fc3, 0x0fc60154,
-	0x01110fc4, 0x0fc90162, 0x01000fc4, 0x0fcc0170,
-	0x00ee0fc6, 0x0fcf017d, 0x00dc0fc7, 0x0fd40189,
-	0x00ca0fc9, 0x0fd90194, 0x00b80fcb, 0x0fe0019d,
-	0x00a60fcd, 0x0fe601a7, 0x00950fcf, 0x0fee01ae,
-	0x00850fcf, 0x0ff701b5, 0x00750fce, 0x000001bd,
-	0x00670fc9, 0x000a01c6, 0x00590fbe, 0x001601d3,
-	0x004d0fa8, 0x002301e8, 0x00430f7a, 0x0034020f,
-
-	0x015c005e, 0x0fde0068, 0x015c0054, 0x0fdd0073,
-	0x015b004b, 0x0fdc007e, 0x015a0042, 0x0fdb0089,
-	0x01590039, 0x0fda0094, 0x01560030, 0x0fda00a0,
-	0x01530028, 0x0fda00ab, 0x014f0020, 0x0fda00b7,
-	0x014a0019, 0x0fdb00c2, 0x01450011, 0x0fdc00ce,
-	0x013e000b, 0x0fde00d9, 0x01390004, 0x0fdf00e4,
-	0x01310ffe, 0x0fe200ef, 0x01290ff9, 0x0fe400fa,
-	0x01200ff4, 0x0fe80104, 0x01180fef, 0x0feb010e,
-	0x010e0feb, 0x0fef0118, 0x01040fe8, 0x0ff40120,
-	0x00fa0fe4, 0x0ff90129, 0x00ef0fe2, 0x0ffe0131,
-	0x00e40fdf, 0x00040139, 0x00d90fde, 0x000b013e,
-	0x00ce0fdc, 0x00110145, 0x00c20fdb, 0x0019014a,
-	0x00b70fda, 0x0020014f, 0x00ab0fda, 0x00280153,
-	0x00a00fda, 0x00300156, 0x00940fda, 0x00390159,
-	0x00890fdb, 0x0042015a, 0x007e0fdc, 0x004b015b,
-	0x00730fdd, 0x0054015c, 0x00680fde, 0x005e015c,
-
-	0x01300068, 0x0ff80070, 0x01300060, 0x0ff80078,
-	0x012f0059, 0x0ff80080, 0x012d0052, 0x0ff80089,
-	0x012b004b, 0x0ff90091, 0x01290044, 0x0ff9009a,
-	0x0126003d, 0x0ffa00a3, 0x01220037, 0x0ffb00ac,
-	0x011f0031, 0x0ffc00b4, 0x011a002b, 0x0ffe00bd,
-	0x01150026, 0x000000c5, 0x010f0021, 0x000200ce,
-	0x010a001c, 0x000400d6, 0x01030018, 0x000600df,
-	0x00fd0014, 0x000900e6, 0x00f60010, 0x000c00ee,
-	0x00ee000c, 0x001000f6, 0x00e60009, 0x001400fd,
-	0x00df0006, 0x00180103, 0x00d60004, 0x001c010a,
-	0x00ce0002, 0x0021010f, 0x00c50000, 0x00260115,
-	0x00bd0ffe, 0x002b011a, 0x00b40ffc, 0x0031011f,
-	0x00ac0ffb, 0x00370122, 0x00a30ffa, 0x003d0126,
-	0x009a0ff9, 0x00440129, 0x00910ff9, 0x004b012b,
-	0x00890ff8, 0x0052012d, 0x00800ff8, 0x0059012f,
-	0x00780ff8, 0x00600130, 0x00700ff8, 0x00680130,
-
-	0x01050079, 0x0003007f, 0x01040073, 0x00030086,
-	0x0103006d, 0x0004008c, 0x01030066, 0x00050092,
-	0x01010060, 0x00060099, 0x0100005a, 0x0007009f,
-	0x00fe0054, 0x000900a5, 0x00fa004f, 0x000b00ac,
-	0x00f80049, 0x000d00b2, 0x00f50044, 0x000f00b8,
-	0x00f2003f, 0x001200bd, 0x00ef0039, 0x001500c3,
-	0x00ea0035, 0x001800c9, 0x00e60030, 0x001c00ce,
-	0x00e3002b, 0x001f00d3, 0x00dd0027, 0x002300d9,
-	0x00d90023, 0x002700dd, 0x00d3001f, 0x002b00e3,
-	0x00ce001c, 0x003000e6, 0x00c90018, 0x003500ea,
-	0x00c30015, 0x003900ef, 0x00bd0012, 0x003f00f2,
-	0x00b8000f, 0x004400f5, 0x00b2000d, 0x004900f8,
-	0x00ac000b, 0x004f00fa, 0x00a50009, 0x005400fe,
-	0x009f0007, 0x005a0100, 0x00990006, 0x00600101,
-	0x00920005, 0x00660103, 0x008c0004, 0x006d0103,
-	0x00860003, 0x00730104, 0x007f0003, 0x00790105,
-
-	0x00cf0088, 0x001d008c, 0x00ce0084, 0x0020008e,
-	0x00cd0080, 0x00210092, 0x00cd007b, 0x00240094,
-	0x00ca0077, 0x00270098, 0x00c90073, 0x0029009b,
-	0x00c8006f, 0x002c009d, 0x00c6006b, 0x002f00a0,
-	0x00c50067, 0x003200a2, 0x00c30062, 0x003600a5,
-	0x00c0005f, 0x003900a8, 0x00c0005b, 0x003b00aa,
-	0x00be0057, 0x003e00ad, 0x00ba0054, 0x004200b0,
-	0x00b90050, 0x004500b2, 0x00b7004c, 0x004900b4,
-	0x00b40049, 0x004c00b7, 0x00b20045, 0x005000b9,
-	0x00b00042, 0x005400ba, 0x00ad003e, 0x005700be,
-	0x00aa003b, 0x005b00c0, 0x00a80039, 0x005f00c0,
-	0x00a50036, 0x006200c3, 0x00a20032, 0x006700c5,
-	0x00a0002f, 0x006b00c6, 0x009d002c, 0x006f00c8,
-	0x009b0029, 0x007300c9, 0x00980027, 0x007700ca,
-	0x00940024, 0x007b00cd, 0x00920021, 0x008000cd,
-	0x008e0020, 0x008400ce, 0x008c001d, 0x008800cf,
-
-	0x008e0083, 0x006b0084, 0x008d0083, 0x006c0084,
-	0x008d0082, 0x006d0084, 0x008d0081, 0x006d0085,
-	0x008d0080, 0x006e0085, 0x008c007f, 0x006f0086,
-	0x008b007f, 0x00700086, 0x008b007e, 0x00710086,
-	0x008b007d, 0x00720086, 0x008a007d, 0x00730086,
-	0x008a007c, 0x00730087, 0x008a007b, 0x00740087,
-	0x0089007b, 0x00750087, 0x008a0079, 0x00750088,
-	0x008a0078, 0x00760088, 0x008a0077, 0x00770088,
-	0x00880077, 0x0077008a, 0x00880076, 0x0078008a,
-	0x00880075, 0x0079008a, 0x00870075, 0x007b0089,
-	0x00870074, 0x007b008a, 0x00870073, 0x007c008a,
-	0x00860073, 0x007d008a, 0x00860072, 0x007d008b,
-	0x00860071, 0x007e008b, 0x00860070, 0x007f008b,
-	0x0086006f, 0x007f008c, 0x0085006e, 0x0080008d,
-	0x0085006d, 0x0081008d, 0x0084006d, 0x0082008d,
-	0x0084006c, 0x0083008d, 0x0084006b, 0x0083008e,
-
-	0x023c0fe2, 0x00000fe2, 0x023a0fdb, 0x00000feb,
-	0x02360fd3, 0x0fff0ff8, 0x022e0fcf, 0x0ffc0007,
-	0x02250fca, 0x0ffa0017, 0x021a0fc6, 0x0ff70029,
-	0x020c0fc4, 0x0ff4003c, 0x01fd0fc1, 0x0ff10051,
-	0x01eb0fc0, 0x0fed0068, 0x01d80fc0, 0x0fe9007f,
-	0x01c30fc1, 0x0fe50097, 0x01ac0fc2, 0x0fe200b0,
-	0x01960fc3, 0x0fdd00ca, 0x017e0fc5, 0x0fd900e4,
-	0x01650fc8, 0x0fd500fe, 0x014b0fcb, 0x0fd20118,
-	0x01330fcd, 0x0fcd0133, 0x01180fd2, 0x0fcb014b,
-	0x00fe0fd5, 0x0fc80165, 0x00e40fd9, 0x0fc5017e,
-	0x00ca0fdd, 0x0fc30196, 0x00b00fe2, 0x0fc201ac,
-	0x00970fe5, 0x0fc101c3, 0x007f0fe9, 0x0fc001d8,
-	0x00680fed, 0x0fc001eb, 0x00510ff1, 0x0fc101fd,
-	0x003c0ff4, 0x0fc4020c, 0x00290ff7, 0x0fc6021a,
-	0x00170ffa, 0x0fca0225, 0x00070ffc, 0x0fcf022e,
-	0x0ff80fff, 0x0fd30236, 0x0feb0000, 0x0fdb023a,
-
-	0x02780fc4, 0x00000fc4, 0x02770fbc, 0x0fff0fce,
-	0x02710fb5, 0x0ffe0fdc, 0x02690fb0, 0x0ffa0fed,
-	0x025f0fab, 0x0ff70fff, 0x02500fa8, 0x0ff30015,
-	0x02410fa6, 0x0fef002a, 0x022f0fa4, 0x0feb0042,
-	0x021a0fa4, 0x0fe5005d, 0x02040fa5, 0x0fe10076,
-	0x01eb0fa7, 0x0fdb0093, 0x01d20fa9, 0x0fd600af,
-	0x01b80fab, 0x0fd000cd, 0x019d0faf, 0x0fca00ea,
-	0x01810fb2, 0x0fc50108, 0x01620fb7, 0x0fc10126,
-	0x01440fbb, 0x0fbb0146, 0x01260fc1, 0x0fb70162,
-	0x01080fc5, 0x0fb20181, 0x00ea0fca, 0x0faf019d,
-	0x00cd0fd0, 0x0fab01b8, 0x00af0fd6, 0x0fa901d2,
-	0x00930fdb, 0x0fa701eb, 0x00760fe1, 0x0fa50204,
-	0x005d0fe5, 0x0fa4021a, 0x00420feb, 0x0fa4022f,
-	0x002a0fef, 0x0fa60241, 0x00150ff3, 0x0fa80250,
-	0x0fff0ff7, 0x0fab025f, 0x0fed0ffa, 0x0fb00269,
-	0x0fdc0ffe, 0x0fb50271, 0x0fce0fff, 0x0fbc0277,
-
-	0x02a00fb0, 0x00000fb0, 0x029e0fa8, 0x0fff0fbb,
-	0x02980fa1, 0x0ffd0fca, 0x028f0f9c, 0x0ff90fdc,
-	0x02840f97, 0x0ff50ff0, 0x02740f94, 0x0ff10007,
-	0x02640f92, 0x0fec001e, 0x02500f91, 0x0fe70038,
-	0x023a0f91, 0x0fe00055, 0x02220f92, 0x0fdb0071,
-	0x02080f95, 0x0fd4008f, 0x01ec0f98, 0x0fce00ae,
-	0x01cf0f9b, 0x0fc700cf, 0x01b10f9f, 0x0fc100ef,
-	0x01920fa4, 0x0fbb010f, 0x01710faa, 0x0fb50130,
-	0x01520fae, 0x0fae0152, 0x01300fb5, 0x0faa0171,
-	0x010f0fbb, 0x0fa40192, 0x00ef0fc1, 0x0f9f01b1,
-	0x00cf0fc7, 0x0f9b01cf, 0x00ae0fce, 0x0f9801ec,
-	0x008f0fd4, 0x0f950208, 0x00710fdb, 0x0f920222,
-	0x00550fe0, 0x0f91023a, 0x00380fe7, 0x0f910250,
-	0x001e0fec, 0x0f920264, 0x00070ff1, 0x0f940274,
-	0x0ff00ff5, 0x0f970284, 0x0fdc0ff9, 0x0f9c028f,
-	0x0fca0ffd, 0x0fa10298, 0x0fbb0fff, 0x0fa8029e,
-
-	0x02c80f9c, 0x00000f9c, 0x02c70f94, 0x0ffe0fa7,
-	0x02c10f8c, 0x0ffc0fb7, 0x02b70f87, 0x0ff70fcb,
-	0x02aa0f83, 0x0ff30fe0, 0x02990f80, 0x0fee0ff9,
-	0x02870f7f, 0x0fe80012, 0x02720f7e, 0x0fe2002e,
-	0x025a0f7e, 0x0fdb004d, 0x02400f80, 0x0fd5006b,
-	0x02230f84, 0x0fcd008c, 0x02050f87, 0x0fc700ad,
-	0x01e60f8b, 0x0fbf00d0, 0x01c60f90, 0x0fb700f3,
-	0x01a30f96, 0x0fb00117, 0x01800f9c, 0x0faa013a,
-	0x015d0fa2, 0x0fa2015f, 0x013a0faa, 0x0f9c0180,
-	0x01170fb0, 0x0f9601a3, 0x00f30fb7, 0x0f9001c6,
-	0x00d00fbf, 0x0f8b01e6, 0x00ad0fc7, 0x0f870205,
-	0x008c0fcd, 0x0f840223, 0x006b0fd5, 0x0f800240,
-	0x004d0fdb, 0x0f7e025a, 0x002e0fe2, 0x0f7e0272,
-	0x00120fe8, 0x0f7f0287, 0x0ff90fee, 0x0f800299,
-	0x0fe00ff3, 0x0f8302aa, 0x0fcb0ff7, 0x0f8702b7,
-	0x0fb70ffc, 0x0f8c02c1, 0x0fa70ffe, 0x0f9402c7,
-
-	0x02f00f88, 0x00000f88, 0x02ee0f80, 0x0ffe0f94,
-	0x02e70f78, 0x0ffc0fa5, 0x02dd0f73, 0x0ff60fba,
-	0x02ce0f6f, 0x0ff20fd1, 0x02be0f6c, 0x0feb0feb,
-	0x02aa0f6b, 0x0fe50006, 0x02940f6a, 0x0fde0024,
-	0x02790f6c, 0x0fd60045, 0x025e0f6e, 0x0fcf0065,
-	0x023f0f72, 0x0fc60089, 0x021d0f77, 0x0fbf00ad,
-	0x01fd0f7b, 0x0fb600d2, 0x01da0f81, 0x0fad00f8,
-	0x01b50f87, 0x0fa6011e, 0x018f0f8f, 0x0f9e0144,
-	0x016b0f95, 0x0f95016b, 0x01440f9e, 0x0f8f018f,
-	0x011e0fa6, 0x0f8701b5, 0x00f80fad, 0x0f8101da,
-	0x00d20fb6, 0x0f7b01fd, 0x00ad0fbf, 0x0f77021d,
-	0x00890fc6, 0x0f72023f, 0x00650fcf, 0x0f6e025e,
-	0x00450fd6, 0x0f6c0279, 0x00240fde, 0x0f6a0294,
-	0x00060fe5, 0x0f6b02aa, 0x0feb0feb, 0x0f6c02be,
-	0x0fd10ff2, 0x0f6f02ce, 0x0fba0ff6, 0x0f7302dd,
-	0x0fa50ffc, 0x0f7802e7, 0x0f940ffe, 0x0f8002ee,
-
-	0x03180f74, 0x00000f74, 0x03160f6b, 0x0ffe0f81,
-	0x030e0f64, 0x0ffb0f93, 0x03030f5f, 0x0ff50fa9,
-	0x02f40f5b, 0x0ff00fc1, 0x02e20f58, 0x0fe90fdd,
-	0x02cd0f57, 0x0fe20ffa, 0x02b60f57, 0x0fda0019,
-	0x02990f59, 0x0fd1003d, 0x027b0f5c, 0x0fc90060,
-	0x02590f61, 0x0fc00086, 0x02370f66, 0x0fb700ac,
-	0x02130f6b, 0x0fae00d4, 0x01ee0f72, 0x0fa400fc,
-	0x01c70f79, 0x0f9b0125, 0x019f0f81, 0x0f93014d,
-	0x01760f89, 0x0f890178, 0x014d0f93, 0x0f81019f,
-	0x01250f9b, 0x0f7901c7, 0x00fc0fa4, 0x0f7201ee,
-	0x00d40fae, 0x0f6b0213, 0x00ac0fb7, 0x0f660237,
-	0x00860fc0, 0x0f610259, 0x00600fc9, 0x0f5c027b,
-	0x003d0fd1, 0x0f590299, 0x00190fda, 0x0f5702b6,
-	0x0ffa0fe2, 0x0f5702cd, 0x0fdd0fe9, 0x0f5802e2,
-	0x0fc10ff0, 0x0f5b02f4, 0x0fa90ff5, 0x0f5f0303,
-	0x0f930ffb, 0x0f64030e, 0x0f810ffe, 0x0f6b0316,
-
-	0x03400f60, 0x00000f60, 0x033e0f57, 0x0ffe0f6d,
-	0x03370f4f, 0x0ffa0f80, 0x032a0f4b, 0x0ff30f98,
-	0x031a0f46, 0x0fee0fb2, 0x03070f44, 0x0fe60fcf,
-	0x02f10f44, 0x0fde0fed, 0x02d70f44, 0x0fd6000f,
-	0x02b80f46, 0x0fcc0036, 0x02990f4a, 0x0fc3005a,
-	0x02750f4f, 0x0fb90083, 0x02500f55, 0x0fb000ab,
-	0x022a0f5b, 0x0fa500d6, 0x02020f63, 0x0f9a0101,
-	0x01d80f6b, 0x0f91012c, 0x01ae0f74, 0x0f870157,
-	0x01840f7c, 0x0f7c0184, 0x01570f87, 0x0f7401ae,
-	0x012c0f91, 0x0f6b01d8, 0x01010f9a, 0x0f630202,
-	0x00d60fa5, 0x0f5b022a, 0x00ab0fb0, 0x0f550250,
-	0x00830fb9, 0x0f4f0275, 0x005a0fc3, 0x0f4a0299,
-	0x00360fcc, 0x0f4602b8, 0x000f0fd6, 0x0f4402d7,
-	0x0fed0fde, 0x0f4402f1, 0x0fcf0fe6, 0x0f440307,
-	0x0fb20fee, 0x0f46031a, 0x0f980ff3, 0x0f4b032a,
-	0x0f800ffa, 0x0f4f0337, 0x0f6d0ffe, 0x0f57033e
+	0x00130000, 0x0ff201fb, 0x00080000, 0x0ff901ff
 };
 
 
@@ -1261,187 +878,230 @@ static uint32 vg_qseed_table2[] = {
 #define MDP4_QSEED_TABLE1_OFF 0x8200
 #define MDP4_QSEED_TABLE2_OFF 0x9000
 
-void mdp4_vg_qseed_init(int vp_num)
+void mdp4_vg_qseed_init(struct mdp_info *mdp, int vp_num)
 {
-	uint32 *off;
+	uint32_t off;
 	int i, voff;
 
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-
 	voff = MDP4_VIDEO_OFF * vp_num;
-	off = (uint32 *)(MDP_BASE + MDP4_VIDEO_BASE + voff +
-						MDP4_QSEED_TABLE0_OFF);
-	for (i = 0; i < (sizeof(vg_qseed_table0) / sizeof(uint32)); i++) {
-		outpdw(off, vg_qseed_table0[i]);
-		off++;
-		/* This code is added to workaround the 1K Boundary AXI
-		Interleave operations from Scorpion that can potentially
-		corrupt the QSEED table. The idea is to complete the prevous
-		to the buffer before making the next write when address is
-		1KB aligned to ensure the write has been committed prior to
-		next instruction write that can go out from  the secondary AXI
-		port.This happens also because of the expected write sequence
-		from QSEED table, where LSP has to be written first then the
-		MSP to trigger both to write out to SRAM, if this has not been
-		the expectation, then corruption wouldn't have happened.*/
-
-		if (!((uint32)off & 0x3FF))
-			wmb();
+	off = MDP4_VIDEO_BASE + voff + MDP4_QSEED_TABLE0_OFF;
+	for (i = 0; i < (sizeof(vg_qseed_table0) / sizeof(uint32_t)); i++) {
+		mdp_writel(mdp, vg_qseed_table0[i], off);
+		off += 4;
 	}
 
-	off = (uint32 *)(MDP_BASE + MDP4_VIDEO_BASE + voff +
-						MDP4_QSEED_TABLE1_OFF);
-	for (i = 0; i < (sizeof(vg_qseed_table1) / sizeof(uint32)); i++) {
-		outpdw(off, vg_qseed_table1[i]);
-		off++;
-		if (!((uint32)off & 0x3FF))
-			wmb();
+	off = MDP4_VIDEO_BASE + voff +	MDP4_QSEED_TABLE1_OFF;
+	for (i = 0; i < (sizeof(vg_qseed_table1) / sizeof(uint32_t)); i++) {
+		mdp_writel(mdp, vg_qseed_table1[i], off);
+		off += 4;
 	}
 
-	off = (uint32 *)(MDP_BASE + MDP4_VIDEO_BASE + voff +
-						MDP4_QSEED_TABLE2_OFF);
-	for (i = 0; i < (sizeof(vg_qseed_table2) / sizeof(uint32)); i++) {
-		outpdw(off, vg_qseed_table2[i]);
-		off++;
-		if (!((uint32)off & 0x3FF))
-			wmb();
+	off = MDP4_VIDEO_BASE + voff + MDP4_QSEED_TABLE2_OFF;
+	for (i = 0; i < (sizeof(vg_qseed_table2) / sizeof(uint32_t)); i++) {
+		mdp_writel(mdp, vg_qseed_table2[i], off);
+		off += 4;
 	}
-
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
 }
 
-void mdp4_mixer_blend_init(mixer_num)
+void mdp4_mixer_blend_init(struct mdp_info *mdp, int mixer_num)
 {
-	unsigned char *overlay_base;
+	unsigned long overlay_base;
 	int off;
 
 	if (mixer_num) 	/* mixer number, /dev/fb0, /dev/fb1 */
-		overlay_base = MDP_BASE + MDP4_OVERLAYPROC1_BASE;/* 0x18000 */
+		overlay_base = MDP4_OVERLAYPROC1_BASE;/* 0x18000 */
 	else
-		overlay_base = MDP_BASE + MDP4_OVERLAYPROC0_BASE;/* 0x10000 */
-
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
+		overlay_base = MDP4_OVERLAYPROC0_BASE;/* 0x10000 */
 
 	/* stage 0 to stage 2 */
 	off = 0;
-	outpdw(overlay_base + off + 0x104, 0x010);
-	outpdw(overlay_base + off + 0x108, 0xff);/* FG */
-	outpdw(overlay_base + off + 0x10c, 0x00);/* BG */
+	mdp_writel(mdp, 0x010, overlay_base + off + 0x104);
+	mdp_writel(mdp, 0xff, overlay_base + off + 0x108);/* FG */
+	mdp_writel(mdp, 0x00, overlay_base + off + 0x10c);/* BG */
 
 	off += 0x20;
-	outpdw(overlay_base + off + 0x104, 0x010);
-	outpdw(overlay_base + off + 0x108, 0xff);/* FG */
-	outpdw(overlay_base + off + 0x10c, 0x00);/* BG */
+	mdp_writel(mdp, 0x010, overlay_base + off + 0x104);
+	mdp_writel(mdp, 0xff, overlay_base + off + 0x108);/* FG */
+	mdp_writel(mdp, 0x00, overlay_base + off + 0x10c);/* BG */
 
 	off += 0x20;
-	outpdw(overlay_base + off + 0x104, 0x010);
-	outpdw(overlay_base + off + 0x108, 0xff);/* FG */
-	outpdw(overlay_base + off + 0x10c, 0x00);/* BG */
-
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+	mdp_writel(mdp, 0x010, overlay_base + off + 0x104);
+	mdp_writel(mdp, 0xff, overlay_base + off + 0x108);/* FG */
+	mdp_writel(mdp, 0x00, overlay_base + off + 0x10c);/* BG */
 }
 
-struct mdp_csc_cfg mdp_csc_convert[4] = {
-	{ /*RGB2RGB*/
-		0,
-		{
-			0x0200, 0x0000, 0x0000,
-			0x0000, 0x0200, 0x0000,
-			0x0000, 0x0000, 0x0200,
-		},
-		{ 0x0, 0x0, 0x0, },
-		{ 0x0, 0x0, 0x0, },
-		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff, },
-		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff, },
-	},
-	{ /*YUV2RGB*/
-		0,
-		{
-			0x0254, 0x0000, 0x0331,
-			0x0254, 0xff37, 0xfe60,
-			0x0254, 0x0409, 0x0000,
-		},
-		{ 0xfff0, 0xff80, 0xff80, },
-		{ 0x0, 0x0, 0x0, },
-		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff, },
-		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff, },
-	},
-	{ /*RGB2YUV*/
-		0,
-		{
-			0x0083, 0x0102, 0x0032,
-			0x1fb5, 0x1f6c, 0x00e1,
-			0x00e1, 0x1f45, 0x1fdc
-		},
-		{ 0x0, 0x0, 0x0, },
-		{ 0x0010, 0x0080, 0x0080, },
-		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff, },
-		{ 0x0010, 0x00eb, 0x0010, 0x00f0, 0x0010, 0x00f0, },
-	},
-	{ /*YUV2YUV ???*/
-		0,
-		{
-			0x0200, 0x0000, 0x0000,
-			0x0000, 0x0200, 0x0000,
-			0x0000, 0x0000, 0x0200,
-		},
-		{ 0x0, 0x0, 0x0, },
-		{ 0x0, 0x0, 0x0, },
-		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff, },
-		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff, },
-	},
+
+static uint32_t csc_matrix_tab[9] = {
+	0x0254, 0x0000, 0x0331,
+	0x0254, 0xff37, 0xfe60,
+	0x0254, 0x0409, 0x0000
 };
 
-void mdp4_vg_csc_restore(void)
-{
-        int i;
+static uint32_t csc_pre_bv_tab[3] = {0xfff0, 0xff80, 0xff80 };
+static uint32_t csc_post_bv_tab[3] = {0, 0, 0 };
 
-        for (i = 0; i < CSC_MAX_BLOCKS; i++)
-                mdp4_csc_config(&csc_cfg_matrix[i]);
+static  uint32_t csc_pre_lv_tab[6] =  {0, 0xff, 0, 0xff, 0, 0xff };
+static  uint32_t csc_post_lv_tab[6] = {0, 0xff, 0, 0xff, 0, 0xff };
+
+#define MDP4_CSC_MV_OFF 	0x4400
+#define MDP4_CSC_PRE_BV_OFF 	0x4500
+#define MDP4_CSC_POST_BV_OFF 	0x4580
+#define MDP4_CSC_PRE_LV_OFF 	0x4600
+#define MDP4_CSC_POST_LV_OFF 	0x4680
+
+void mdp4_vg_csc_mv_setup(struct mdp_info *mdp, int vp_num)
+{
+	uint32_t off;
+	int i, voff;
+
+	voff = MDP4_VIDEO_OFF * vp_num;
+	off = MDP4_VIDEO_BASE + voff + MDP4_CSC_MV_OFF;
+	for (i = 0; i < 9; i++) {
+    mdp_writel(mdp, csc_matrix_tab[i], off);
+		off += 4;
+	}
 }
 
-
-void mdp4_vg_csc_update(struct mdp_csc *p)
+void mdp4_vg_csc_pre_bv_setup(struct mdp_info *mdp, int vp_num)
 {
-	struct mdp4_overlay_pipe *pipe;
-	uint32_t block = 0;
-	int i = 0;
+	uint32_t off;
+	int i, voff;
 
-	pipe = mdp4_overlay_ndx2pipe(p->id);
-	if (pipe == NULL) {
-		pr_err("%s: p->id = %d Error\n", __func__, p->id);
-		return;
+	voff = MDP4_VIDEO_OFF * vp_num;
+	off = MDP4_VIDEO_BASE + voff + MDP4_CSC_PRE_BV_OFF;
+	for (i = 0; i < 3; i++) {
+    mdp_writel(mdp, csc_pre_bv_tab[i], off);
+		off += 4;
 	}
-	if (pipe->pipe_num == OVERLAY_PIPE_VG1)
-		block = MDP_BLOCK_VG_1;
-	else if (pipe->pipe_num == OVERLAY_PIPE_VG2)
-		block = MDP_BLOCK_VG_2;
-	else
-		return;
-
-	for (i = 0; i < CSC_MAX_BLOCKS; i++) {
-		if (csc_cfg_matrix[i].block == block)
-			break;
-	}
-	if (i == CSC_MAX_BLOCKS)
-		return;
-
-	memcpy(&csc_cfg_matrix[i].csc_data.csc_mv, p->csc_mv,
-			sizeof(p->csc_mv));
-	memcpy(&csc_cfg_matrix[i].csc_data.csc_pre_bv, p->csc_pre_bv,
-		sizeof(p->csc_pre_bv));
-	memcpy(&csc_cfg_matrix[i].csc_data.csc_post_bv, p->csc_post_bv,
-		sizeof(p->csc_post_bv));
-	memcpy(&csc_cfg_matrix[i].csc_data.csc_pre_lv, p->csc_pre_lv,
-		sizeof(p->csc_pre_lv));
-	memcpy(&csc_cfg_matrix[i].csc_data.csc_post_lv, p->csc_post_lv,
-		sizeof(p->csc_post_lv));
-	csc_cfg_matrix[i].csc_data.flags = MDP_CSC_FLAG_YUV_OUT;
-
-	mdp4_csc_config(&csc_cfg_matrix[i]);
-
 }
+
+void mdp4_vg_csc_post_bv_setup(struct mdp_info *mdp, int vp_num)
+{
+	uint32_t off;
+	int i, voff;
+
+	voff = MDP4_VIDEO_OFF * vp_num;
+	off = MDP4_VIDEO_BASE + voff + MDP4_CSC_POST_BV_OFF;
+	for (i = 0; i < 3; i++) {
+    mdp_writel(mdp, csc_post_bv_tab[i], off);
+		off += 4;
+	}
+}
+
+void mdp4_vg_csc_pre_lv_setup(struct mdp_info *mdp, int vp_num)
+{
+	uint32_t off;
+	int i, voff;
+
+	voff = MDP4_VIDEO_OFF * vp_num;
+	off = MDP4_VIDEO_BASE + voff + MDP4_CSC_PRE_LV_OFF;
+
+	for (i = 0; i < 6; i++) {
+		mdp_writel(mdp, csc_pre_lv_tab[i], off);
+		off += 4;
+	}
+}
+
+void mdp4_vg_csc_post_lv_setup(struct mdp_info *mdp, int vp_num)
+{
+	uint32_t off;
+	int i, voff;
+
+	voff = MDP4_VIDEO_OFF * vp_num;
+	off = MDP4_VIDEO_BASE + voff + MDP4_CSC_POST_LV_OFF;
+
+	for (i = 0; i < 6; i++) {
+		mdp_writel(mdp, csc_post_lv_tab[i], off);
+		off += 4;
+	}
+}
+
+static uint32_t csc_rgb2yuv_matrix_tab[9] = {
+	0x0083, 0x0102, 0x0032,
+	0xffb5, 0xff6c, 0x00e1,
+	0x00e1, 0xff45, 0xffdc
+};
+
+static uint32_t csc_rgb2yuv_pre_bv_tab[3] = {0, 0, 0};
+
+static uint32_t csc_rgb2yuv_post_bv_tab[3] = {0x0010, 0x0080, 0x0080};
+
+static  uint32_t csc_rgb2yuv_pre_lv_tab[6] = {
+	0x00, 0xff, 0x00,
+	0xff, 0x00, 0xff
+};
+
+static  uint32_t csc_rgb2yuv_post_lv_tab[6] = {
+	0x0010, 0x00eb, 0x0010,
+	0x00f0, 0x0010, 0x00f0
+};
+
+void mdp4_mixer1_csc_mv_setup(struct mdp_info *mdp)
+{
+	uint32_t off;
+	int i;
+
+	off = MDP4_OVERLAYPROC1_BASE + 0x2400;
+
+	for (i = 0; i < 9; i++) {
+		mdp_writel(mdp, csc_rgb2yuv_matrix_tab[i], off);
+		off += 4;
+	}
+}
+
+void mdp4_mixer1_csc_pre_bv_setup(struct mdp_info *mdp)
+{
+	uint32_t off;
+	int i;
+
+	off = MDP4_OVERLAYPROC1_BASE + 0x2500;
+
+	for (i = 0; i < 3; i++) {
+		mdp_writel(mdp, csc_rgb2yuv_pre_bv_tab[i], off);
+		off += 4;
+	}
+}
+
+void mdp4_mixer1_csc_post_bv_setup(struct mdp_info *mdp)
+{
+	uint32_t off;
+	int i;
+
+	off = MDP4_OVERLAYPROC1_BASE + 0x2580;
+
+	for (i = 0; i < 3; i++) {
+		mdp_writel(mdp, csc_rgb2yuv_post_bv_tab[i], off);
+		off += 4;
+	}
+}
+
+void mdp4_mixer1_csc_pre_lv_setup(struct mdp_info *mdp)
+{
+	uint32_t off;
+	int i;
+
+	off = MDP4_OVERLAYPROC1_BASE + 0x2600;
+
+	for (i = 0; i < 6; i++) {
+		mdp_writel(mdp, csc_rgb2yuv_pre_lv_tab[i], off);
+		off += 4;
+	}
+}
+
+void mdp4_mixer1_csc_post_lv_setup(struct mdp_info *mdp)
+{
+	uint32_t off;
+	int i;
+
+	off = MDP4_OVERLAYPROC1_BASE + 0x2680;
+
+	for (i = 0; i < 6; i++) {
+		mdp_writel(mdp, csc_rgb2yuv_post_lv_tab[i], off);
+		off += 4;
+	}
+}
+
 
 char gc_lut[] = {
 	0x0, 0x1, 0x2, 0x2, 0x3, 0x4, 0x5, 0x6,
@@ -1958,32 +1618,30 @@ char gc_lut[] = {
 	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 };
 
-void mdp4_mixer_gc_lut_setup(int mixer_num)
+void mdp4_mixer_gc_lut_setup(struct mdp_info *mdp, int mixer_num)
 {
-	unsigned char *base;
-	uint32 data;
+	unsigned long base;
+	uint32_t data;
 	char val;
 	int i, off;
 
 	if (mixer_num) 	/* mixer number, /dev/fb0, /dev/fb1 */
-		base = MDP_BASE + MDP4_OVERLAYPROC1_BASE;/* 0x18000 */
+		base = MDP4_OVERLAYPROC1_BASE;/* 0x18000 */
 	else
-		base = MDP_BASE + MDP4_OVERLAYPROC0_BASE;/* 0x10000 */
+		base = MDP4_OVERLAYPROC0_BASE;/* 0x10000 */
 
 	base += 0x4000;	/* GC_LUT offset */
 
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	off = 0;
 	for (i = 0; i < 4096; i++) {
 		val = gc_lut[i];
 		data = (val << 16 | val << 8 | val); /* R, B, and G are same */
-		outpdw(base + off, data);
+		mdp_writel(mdp, data, base + off);
 		off += 4;
 	}
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 }
 
-uint32 igc_video_lut[] = {	 /* non linear */
+uint32_t igc_video_lut[] = {	 /* non linear */
 	0x0, 0x1, 0x2, 0x4, 0x5, 0x6, 0x7, 0x9,
 	0xA, 0xB, 0xC, 0xE, 0xF, 0x10, 0x12, 0x14,
 	0x15, 0x17, 0x19, 0x1B, 0x1D, 0x1F, 0x21, 0x23,
@@ -2018,28 +1676,26 @@ uint32 igc_video_lut[] = {	 /* non linear */
 	0xF04, 0xF27, 0xF4B, 0xF6E, 0xF92, 0xFB6, 0xFDB, 0xFFF,
 };
 
-void mdp4_vg_igc_lut_setup(int vp_num)
+void mdp4_vg_igc_lut_setup(struct mdp_info *mdp, int vp_num)
 {
-	unsigned char *base;
+	unsigned long base;
 	int i, voff, off;
-	uint32 data, val;
+	uint32_t data, val;
 
 	voff = MDP4_VIDEO_OFF * vp_num;
-	base = MDP_BASE + MDP4_VIDEO_BASE + voff + 0x5000;
+	base = MDP4_VIDEO_BASE + voff + 0x5000;
 
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	off = 0;
 	for (i = 0; i < 256; i++) {
 		val = igc_video_lut[i];
 		data = (val << 16 | val);	/* color 0 and 1 */
-		outpdw(base + off, data);
-		outpdw(base + off + 0x800, val);	/* color 2 */
+		mdp_writel(mdp, data, base + off);
+    mdp_writel(mdp, val, base + off + 0x800);	/* color 2 */
 		off += 4;
 	}
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 }
 
-uint32 igc_rgb_lut[] = {   /* linear */
+uint32_t igc_rgb_lut[] = {   /* linear */
 	0x0, 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70,
 	0x80, 0x91, 0xA1, 0xB1, 0xC1, 0xD1, 0xE1, 0xF1,
 	0x101, 0x111, 0x121, 0x131, 0x141, 0x151, 0x161, 0x171,
@@ -2074,1125 +1730,26 @@ uint32 igc_rgb_lut[] = {   /* linear */
 	0xF8F, 0xF9F, 0xFAF, 0xFBF, 0xFCF, 0xFDF, 0xFEF, 0xFFF,
 };
 
-void mdp4_rgb_igc_lut_setup(int num)
+void mdp4_rgb_igc_lut_setup(struct mdp_info *mdp, int num)
 {
-	unsigned char *base;
+	unsigned long base;
 	int i, voff, off;
-	uint32 data, val;
+	uint32_t data, val;
 
 	voff = MDP4_RGB_OFF * num;
-	base = MDP_BASE + MDP4_RGB_BASE + voff + 0x5000;
+	base = MDP4_RGB_BASE + voff + 0x5000;
 
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	off = 0;
 	for (i = 0; i < 256; i++) {
 		val = igc_rgb_lut[i];
 		data = (val << 16 | val);	/* color 0 and 1 */
-		outpdw(base + off, data);
-		outpdw(base + off + 0x800, val);	/* color 2 */
+		mdp_writel(mdp, data, base + off);
+    mdp_writel(mdp, val, base + off + 0x800);	/* color 2 */
 		off += 4;
 	}
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 }
 
-uint32 mdp4_rgb_igc_lut_cvt(uint32 ndx)
+uint32_t mdp4_rgb_igc_lut_cvt(uint32_t ndx)
 {
 	return igc_rgb_lut[ndx & 0x0ff];
-}
-
-uint32_t mdp4_ss_table_value(int8_t value, int8_t index)
-{
-	uint32_t out = 0x0;
-	int8_t level = -1;
-	uint32_t mask = 0xffffffff;
-
-	if (value < 0) {
-		if (value == -128)
-			value = 127;
-		else
-			value = -value;
-		out = 0x11111111;
-	} else {
-		out = 0x88888888;
-		mask = 0x0fffffff;
-	}
-
-	if (value == 0)
-		level = 0;
-	else {
-		while (value > 0 && level < 7) {
-			level++;
-			value -= 16;
-		}
-	}
-
-	if (level == 0) {
-		if (index == 0)
-			out = 0x0;
-		else
-			out = 0x20000000;
-	} else {
-		out += (0x11111111 * level);
-		if (index == 1)
-			out &= mask;
-	}
-
-	return out;
-}
-
-static uint32_t mdp4_csc_block2base(uint32_t block)
-{
-	uint32_t base = 0x0;
-	switch (block) {
-	case MDP_BLOCK_OVERLAY_1:
-		base = 0x1A000;
-		break;
-	case MDP_BLOCK_OVERLAY_2:
-		base = (mdp_rev >= MDP_REV_43) ? 0x8A000 : 0x0;
-		break;
-	case MDP_BLOCK_VG_1:
-		base = 0x24000;
-		break;
-	case MDP_BLOCK_VG_2:
-		base = 0x34000;
-		break;
-	case MDP_BLOCK_DMA_P:
-		base = 0x93000;
-		break;
-	case MDP_BLOCK_DMA_S:
-		base = (mdp_rev >= MDP_REV_42) ? 0xA3000 : 0x0;
-	default:
-		break;
-	}
-	return base;
-}
-
-int mdp4_csc_enable(struct mdp_csc_cfg_data *config)
-{
-	uint32_t output, base, temp, mask;
-
-	switch (config->block) {
-	case MDP_BLOCK_DMA_P:
-		base = 0x90070;
-		output = (config->csc_data.flags << 3) & (0x08);
-		temp = (config->csc_data.flags << 10) & (0x1800);
-		output |= temp;
-		mask = 0x08 | 0x1800;
-		break;
-	case MDP_BLOCK_DMA_S:
-		base = 0xA0028;
-		output = (config->csc_data.flags << 3) & (0x08);
-		temp = (config->csc_data.flags << 10) & (0x1800);
-		output |= temp;
-		mask = 0x08 | 0x1800;
-		break;
-	case MDP_BLOCK_VG_1:
-		base = 0x20058;
-		output = (config->csc_data.flags << 11) & (0x800);
-		temp = (config->csc_data.flags << 8) & (0x600);
-		output |= temp;
-		mask = 0x800 | 0x600;
-		break;
-	case MDP_BLOCK_VG_2:
-		base = 0x30058;
-		output = (config->csc_data.flags << 11) & (0x800);
-		temp = (config->csc_data.flags << 8) & (0x600);
-		output |= temp;
-		mask = 0x800 | 0x600;
-		break;
-	case MDP_BLOCK_OVERLAY_1:
-		base = 0x18200;
-		output = config->csc_data.flags;
-		mask = 0x07;
-		break;
-	case MDP_BLOCK_OVERLAY_2:
-		base = 0x88200;
-		output = config->csc_data.flags;
-		mask = 0x07;
-		break;
-	default:
-		pr_err("%s - CSC block does not exist on MDP_BLOCK = %d\n",
-						__func__, config->block);
-		return -EINVAL;
-	}
-
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-	temp = inpdw(MDP_BASE + base) & ~mask;
-	output |= temp;
-	outpdw(MDP_BASE + base, output);
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
-	return 0;
-}
-
-#define CSC_MV_OFF	0x400
-#define CSC_BV_OFF	0x500
-#define CSC_LV_OFF	0x600
-#define CSC_POST_OFF	0x80
-
-void mdp4_csc_write(struct mdp_csc_cfg *data, uint32_t base)
-{
-	int i;
-	uint32_t *off;
-
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-	off = (uint32_t *) ((uint32_t) base + CSC_MV_OFF);
-	for (i = 0; i < 9; i++) {
-		outpdw(off, data->csc_mv[i]);
-		off++;
-	}
-
-	off = (uint32_t *) ((uint32_t) base + CSC_BV_OFF);
-	for (i = 0; i < 3; i++) {
-		outpdw(off, data->csc_pre_bv[i]);
-		outpdw((uint32_t *)((uint32_t)off + CSC_POST_OFF),
-					data->csc_post_bv[i]);
-		off++;
-	}
-
-	off = (uint32_t *) ((uint32_t) base + CSC_LV_OFF);
-	for (i = 0; i < 6; i++) {
-		outpdw(off, data->csc_pre_lv[i]);
-		outpdw((uint32_t *)((uint32_t)off + CSC_POST_OFF),
-					data->csc_post_lv[i]);
-		off++;
-	}
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
-}
-
-int mdp4_csc_config(struct mdp_csc_cfg_data *config)
-{
-	int ret = 0;
-	uint32_t base;
-
-	base = mdp4_csc_block2base(config->block);
-	if (!base) {
-		pr_warn("%s: Block type %d isn't supported by CSC.\n",
-				__func__, config->block);
-		return -EINVAL;
-	}
-
-	mdp4_csc_write(&config->csc_data, (uint32_t) (MDP_BASE + base));
-
-	ret = mdp4_csc_enable(config);
-
-	return ret;
-}
-
-void mdp4_init_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num)
-{
-	struct mdp_buf_type *buf;
-
-	if (mix_num == MDP4_MIXER0)
-		buf = mfd->ov0_wb_buf;
-	else
-		buf = mfd->ov1_wb_buf;
-
-	buf->ihdl = NULL;
-	buf->write_addr = 0;
-	buf->read_addr = 0;
-}
-
-u32 mdp4_allocate_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num)
-{
-	struct mdp_buf_type *buf;
-	ion_phys_addr_t	addr, read_addr = 0;
-	size_t buffer_size;
-	unsigned long len;
-
-	if (mix_num == MDP4_MIXER0)
-		buf = mfd->ov0_wb_buf;
-	else
-		buf = mfd->ov1_wb_buf;
-
-	if (buf->write_addr || !IS_ERR_OR_NULL(buf->ihdl))
-		return 0;
-
-	if (!buf->size) {
-		pr_err("%s:%d In valid size\n", __func__, __LINE__);
-		return -EINVAL;
-	}
-
-	buffer_size = roundup(mfd->panel_info.xres * \
-		mfd->panel_info.yres * 3 * 2, SZ_4K);
-
-	if (!IS_ERR_OR_NULL(mfd->iclient)) {
-		pr_info("%s:%d ion based allocation mfd->mem_hid 0x%x\n",
-			__func__, __LINE__, mfd->mem_hid);
-		buf->ihdl = ion_alloc(mfd->iclient, buffer_size, SZ_4K,
-			mfd->mem_hid, 0);
-		if (!IS_ERR_OR_NULL(buf->ihdl)) {
-			if (mdp_iommu_split_domain) {
-				if (ion_map_iommu(mfd->iclient, buf->ihdl,
-					DISPLAY_READ_DOMAIN, GEN_POOL, SZ_4K,
-					0, &read_addr, &len, 0, 0)) {
-					pr_err("ion_map_iommu() read failed\n");
-					return -ENOMEM;
-				}
-				if (mfd->mem_hid & ION_SECURE) {
-					if (ion_phys(mfd->iclient, buf->ihdl,
-						&addr, (size_t *)&len)) {
-						pr_err("%s:%d: ion_phys map failed\n",
-							 __func__, __LINE__);
-						return -ENOMEM;
-					}
-				} else {
-					if (ion_map_iommu(mfd->iclient,
-						buf->ihdl, DISPLAY_WRITE_DOMAIN,
-						GEN_POOL, SZ_4K, 0, &addr, &len,
-						0, 0)) {
-						pr_err("ion_map_iommu() failed\n");
-						return -ENOMEM;
-					}
-				}
-			} else {
-				if (ion_map_iommu(mfd->iclient, buf->ihdl,
-					DISPLAY_READ_DOMAIN, GEN_POOL, SZ_4K,
-					0, &addr, &len, 0, 0)) {
-					pr_err("ion_map_iommu() write failed\n");
-					return -ENOMEM;
-				}
-			}
-		} else {
-			pr_err("%s:%d: ion_alloc failed\n", __func__,
-				__LINE__);
-			return -ENOMEM;
-		}
-	} else {
-		addr = allocate_contiguous_memory_nomap(buffer_size,
-			mfd->mem_hid, 4);
-	}
-	if (addr) {
-		pr_info("allocating %d bytes at %x for mdp writeback\n",
-			buffer_size, (u32) addr);
-		buf->write_addr = addr;
-
-		if (read_addr)
-			buf->read_addr = read_addr;
-		else
-			buf->read_addr = buf->write_addr;
-
-		return 0;
-	} else {
-		pr_err("%s cannot allocate memory for mdp writeback!\n",
-			 __func__);
-		return -ENOMEM;
-	}
-}
-
-void mdp4_free_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num)
-{
-	struct mdp_buf_type *buf;
-
-	if (mix_num == MDP4_MIXER0)
-		buf = mfd->ov0_wb_buf;
-	else
-		buf = mfd->ov1_wb_buf;
-
-	if (!IS_ERR_OR_NULL(mfd->iclient)) {
-		if (!IS_ERR_OR_NULL(buf->ihdl)) {
-			if (mdp_iommu_split_domain) {
-				if (!(mfd->mem_hid & ION_SECURE))
-					ion_unmap_iommu(mfd->iclient, buf->ihdl,
-						DISPLAY_WRITE_DOMAIN, GEN_POOL);
-				ion_unmap_iommu(mfd->iclient, buf->ihdl,
-					DISPLAY_READ_DOMAIN, GEN_POOL);
-			} else {
-				ion_unmap_iommu(mfd->iclient, buf->ihdl,
-					DISPLAY_READ_DOMAIN, GEN_POOL);
-			}
-			ion_free(mfd->iclient, buf->ihdl);
-			buf->ihdl = NULL;
-			pr_info("%s:%d free ION writeback imem",
-					__func__, __LINE__);
-		}
-	} else {
-		if (buf->write_addr) {
-			free_contiguous_memory_by_paddr(buf->write_addr);
-			pr_debug("%s:%d free writeback pmem\n", __func__,
-				__LINE__);
-		}
-	}
-	buf->write_addr = 0;
-	buf->read_addr = 0;
-}
-
-static int mdp4_update_pcc_regs(uint32_t offset,
-				struct mdp_pcc_cfg_data *cfg_ptr)
-{
-	int ret = -1;
-
-	if (offset && cfg_ptr) {
-
-		outpdw(offset, cfg_ptr->r.c);
-		outpdw(offset + 0x30, cfg_ptr->g.c);
-		outpdw(offset + 0x60, cfg_ptr->b.c);
-		offset += 4;
-
-		outpdw(offset, cfg_ptr->r.r);
-		outpdw(offset + 0x30, cfg_ptr->g.r);
-		outpdw(offset + 0x60, cfg_ptr->b.r);
-		offset += 4;
-
-		outpdw(offset, cfg_ptr->r.g);
-		outpdw(offset + 0x30, cfg_ptr->g.g);
-		outpdw(offset + 0x60, cfg_ptr->b.g);
-		offset += 4;
-
-		outpdw(offset, cfg_ptr->r.b);
-		outpdw(offset + 0x30, cfg_ptr->g.b);
-		outpdw(offset + 0x60, cfg_ptr->b.b);
-		offset += 4;
-
-		outpdw(offset, cfg_ptr->r.rr);
-		outpdw(offset + 0x30, cfg_ptr->g.rr);
-		outpdw(offset + 0x60, cfg_ptr->b.rr);
-		offset += 4;
-
-		outpdw(offset, cfg_ptr->r.gg);
-		outpdw(offset + 0x30, cfg_ptr->g.gg);
-		outpdw(offset + 0x60, cfg_ptr->b.gg);
-		offset += 4;
-
-		outpdw(offset, cfg_ptr->r.bb);
-		outpdw(offset + 0x30, cfg_ptr->g.bb);
-		outpdw(offset + 0x60, cfg_ptr->b.bb);
-		offset += 4;
-
-		outpdw(offset, cfg_ptr->r.rg);
-		outpdw(offset + 0x30, cfg_ptr->g.rg);
-		outpdw(offset + 0x60, cfg_ptr->b.rg);
-		offset += 4;
-
-		outpdw(offset, cfg_ptr->r.gb);
-		outpdw(offset + 0x30, cfg_ptr->g.gb);
-		outpdw(offset + 0x60, cfg_ptr->b.gb);
-		offset += 4;
-
-		outpdw(offset, cfg_ptr->r.rb);
-		outpdw(offset + 0x30, cfg_ptr->g.rb);
-		outpdw(offset + 0x60, cfg_ptr->b.rb);
-		offset += 4;
-
-		outpdw(offset, cfg_ptr->r.rgb_0);
-		outpdw(offset + 0x30, cfg_ptr->g.rgb_0);
-		outpdw(offset + 0x60, cfg_ptr->b.rgb_0);
-		offset += 4;
-
-		outpdw(offset, cfg_ptr->r.rgb_1);
-		outpdw(offset + 0x30, cfg_ptr->g.rgb_1);
-		outpdw(offset + 0x60, cfg_ptr->b.rgb_1);
-
-		ret = 0;
-	}
-
-	return ret;
-}
-
-static int mdp4_read_pcc_regs(uint32_t offset,
-				struct mdp_pcc_cfg_data *cfg_ptr)
-{
-	int ret = -1;
-
-	if (offset && cfg_ptr) {
-		cfg_ptr->r.c = inpdw(offset);
-		cfg_ptr->g.c = inpdw(offset + 0x30);
-		cfg_ptr->b.c = inpdw(offset + 0x60);
-		offset += 4;
-
-		cfg_ptr->r.r = inpdw(offset);
-		cfg_ptr->g.r = inpdw(offset + 0x30);
-		cfg_ptr->b.r = inpdw(offset + 0x60);
-		offset += 4;
-
-		cfg_ptr->r.g = inpdw(offset);
-		cfg_ptr->g.g = inpdw(offset + 0x30);
-		cfg_ptr->b.g = inpdw(offset + 0x60);
-		offset += 4;
-
-		cfg_ptr->r.b = inpdw(offset);
-		cfg_ptr->g.b = inpdw(offset + 0x30);
-		cfg_ptr->b.b = inpdw(offset + 0x60);
-		offset += 4;
-
-		cfg_ptr->r.rr = inpdw(offset);
-		cfg_ptr->g.rr = inpdw(offset + 0x30);
-		cfg_ptr->b.rr = inpdw(offset + 0x60);
-		offset += 4;
-
-		cfg_ptr->r.gg = inpdw(offset);
-		cfg_ptr->g.gg = inpdw(offset + 0x30);
-		cfg_ptr->b.gg = inpdw(offset + 0x60);
-		offset += 4;
-
-		cfg_ptr->r.bb = inpdw(offset);
-		cfg_ptr->g.bb = inpdw(offset + 0x30);
-		cfg_ptr->b.bb = inpdw(offset + 0x60);
-		offset += 4;
-
-		cfg_ptr->r.rg = inpdw(offset);
-		cfg_ptr->g.rg = inpdw(offset + 0x30);
-		cfg_ptr->b.rg = inpdw(offset + 0x60);
-		offset += 4;
-
-		cfg_ptr->r.gb = inpdw(offset);
-		cfg_ptr->g.gb = inpdw(offset + 0x30);
-		cfg_ptr->b.gb = inpdw(offset + 0x60);
-		offset += 4;
-
-		cfg_ptr->r.rb = inpdw(offset);
-		cfg_ptr->g.rb = inpdw(offset + 0x30);
-		cfg_ptr->b.rb = inpdw(offset + 0x60);
-		offset += 4;
-
-		cfg_ptr->r.rgb_0 = inpdw(offset);
-		cfg_ptr->g.rgb_0 = inpdw(offset + 0x30);
-		cfg_ptr->b.rgb_0 = inpdw(offset + 0x60);
-		offset += 4;
-
-		cfg_ptr->r.rgb_1 = inpdw(offset);
-		cfg_ptr->g.rgb_1 = inpdw(offset + 0x30);
-		cfg_ptr->b.rgb_1 = inpdw(offset + 0x60);
-
-		ret = 0;
-	}
-
-	return ret;
-}
-
-
-#define MDP_PCC_OFFSET 0xA000
-#define MDP_DMA_GC_OFFSET 0x8800
-#define MDP_LM_GC_OFFSET 0x4800
-
-#define MDP_DMA_P_OP_MODE_OFFSET 0x70
-#define MDP_DMA_S_OP_MODE_OFFSET 0x28
-#define MDP_LM_OP_MODE_OFFSET 0x14
-
-#define DMA_PCC_R2_OFFSET 0x100
-
-#define MDP_GC_COLOR_OFFSET	0x100
-#define MDP_GC_PARMS_OFFSET	0x80
-
-#define MDP_AR_GC_MAX_STAGES	16
-
-static uint32_t mdp_pp_block2pcc(uint32_t block)
-{
-	uint32_t valid = 0;
-
-	switch (block) {
-	case MDP_BLOCK_DMA_P:
-	case MDP_BLOCK_DMA_S:
-		valid = (mdp_rev >= MDP_REV_42) ? 1 : 0;
-		break;
-
-	default:
-		break;
-	}
-
-	return valid;
-}
-
-int mdp4_pcc_cfg(struct mdp_pcc_cfg_data *cfg_ptr)
-{
-	int ret = -1;
-	uint32_t pcc_offset = 0, mdp_cfg_offset = 0;
-	uint32_t mdp_dma_op_mode = 0;
-	uint32_t blockbase;
-
-	if (!mdp_pp_block2pcc(cfg_ptr->block))
-		return ret;
-
-	blockbase = mdp_block2base(cfg_ptr->block);
-	if (!blockbase)
-		return ret;
-
-	blockbase += (uint32_t) MDP_BASE;
-
-	switch (cfg_ptr->block) {
-	case MDP_BLOCK_DMA_P:
-	case MDP_BLOCK_DMA_S:
-		pcc_offset = blockbase + MDP_PCC_OFFSET;
-		mdp_cfg_offset = blockbase;
-		mdp_dma_op_mode = blockbase +
-			(MDP_BLOCK_DMA_P == cfg_ptr->block ?
-			 MDP_DMA_P_OP_MODE_OFFSET
-			 : MDP_DMA_S_OP_MODE_OFFSET);
-		break;
-
-	default:
-		break;
-	}
-
-	if (0x8 & cfg_ptr->ops)
-		pcc_offset += DMA_PCC_R2_OFFSET;
-
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-
-	switch ((0x6 & cfg_ptr->ops)>>1) {
-	case 0x1:
-		ret = mdp4_read_pcc_regs(pcc_offset, cfg_ptr);
-		break;
-
-	case 0x2:
-		ret = mdp4_update_pcc_regs(pcc_offset, cfg_ptr);
-		break;
-
-	default:
-		break;
-	}
-
-	if (0x8 & cfg_ptr->ops)
-		outpdw(mdp_dma_op_mode,
-			((inpdw(mdp_dma_op_mode) & ~(0x1<<10)) |
-						((0x8 & cfg_ptr->ops)<<10)));
-
-	outpdw(mdp_cfg_offset,
-			((inpdw(mdp_cfg_offset) & ~(0x1<<29)) |
-						((cfg_ptr->ops & 0x1)<<29)));
-
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
-
-	return ret;
-}
-
-static uint32_t mdp_pp_block2argc(uint32_t block)
-{
-	uint32_t valid = 0;
-
-	switch (block) {
-	case MDP_BLOCK_DMA_P:
-	case MDP_BLOCK_DMA_S:
-	case MDP_BLOCK_OVERLAY_0:
-	case MDP_BLOCK_OVERLAY_1:
-		valid = (mdp_rev >= MDP_REV_42) ? 1 : 0;
-		break;
-
-	case MDP_BLOCK_OVERLAY_2:
-		valid = (mdp_rev >= MDP_REV_43) ? 1 : 0;
-		break;
-
-	default:
-		break;
-	}
-
-	return valid;
-}
-
-static int update_ar_gc_lut(uint32_t *offset, struct mdp_pgc_lut_data *lut_data)
-{
-	int count = 0;
-
-	uint32_t *c0_offset = offset;
-	uint32_t *c0_params_offset = (uint32_t *)((uint32_t)c0_offset
-							+ MDP_GC_PARMS_OFFSET);
-
-	uint32_t *c1_offset = (uint32_t *)((uint32_t)offset
-							+ MDP_GC_COLOR_OFFSET);
-
-	uint32_t *c1_params_offset = (uint32_t *)((uint32_t)c1_offset
-							+ MDP_GC_PARMS_OFFSET);
-
-	uint32_t *c2_offset = (uint32_t *)((uint32_t)offset
-						+ 2*MDP_GC_COLOR_OFFSET);
-
-	uint32_t *c2_params_offset = (uint32_t *)((uint32_t)c2_offset
-						+MDP_GC_PARMS_OFFSET);
-
-
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-	for (count = 0; count < MDP_AR_GC_MAX_STAGES; count++) {
-		if (count < lut_data->num_r_stages) {
-			outpdw(c0_offset+count,
-				((0xfff & lut_data->r_data[count].x_start)
-					| 0x10000));
-
-			outpdw(c0_params_offset+count,
-				((0x7fff & lut_data->r_data[count].slope)
-					| ((0xffff
-					& lut_data->r_data[count].offset)
-						<< 16)));
-		} else
-			outpdw(c0_offset+count, 0);
-
-		if (count < lut_data->num_b_stages) {
-			outpdw(c1_offset+count,
-				((0xfff & lut_data->b_data[count].x_start)
-					| 0x10000));
-
-			outpdw(c1_params_offset+count,
-				((0x7fff & lut_data->b_data[count].slope)
-					| ((0xffff
-					& lut_data->b_data[count].offset)
-						<< 16)));
-		} else
-			outpdw(c1_offset+count, 0);
-
-		if (count < lut_data->num_g_stages) {
-			outpdw(c2_offset+count,
-				((0xfff & lut_data->g_data[count].x_start)
-					| 0x10000));
-
-			outpdw(c2_params_offset+count,
-				((0x7fff & lut_data->g_data[count].slope)
-				| ((0xffff
-				& lut_data->g_data[count].offset)
-					<< 16)));
-		} else
-			outpdw(c2_offset+count, 0);
-	}
-
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
-
-	return 0;
-}
-
-static int mdp4_argc_process_write_req(uint32_t *offset,
-		struct mdp_pgc_lut_data *pgc_ptr)
-{
-	int ret = -1;
-	struct mdp_ar_gc_lut_data r[MDP_AR_GC_MAX_STAGES];
-	struct mdp_ar_gc_lut_data g[MDP_AR_GC_MAX_STAGES];
-	struct mdp_ar_gc_lut_data b[MDP_AR_GC_MAX_STAGES];
-
-	ret = copy_from_user(&r[0], pgc_ptr->r_data,
-		pgc_ptr->num_r_stages * sizeof(struct mdp_ar_gc_lut_data));
-
-	if (!ret) {
-		ret = copy_from_user(&g[0],
-				pgc_ptr->g_data,
-				pgc_ptr->num_g_stages
-				* sizeof(struct mdp_ar_gc_lut_data));
-		if (!ret)
-			ret = copy_from_user(&b[0],
-					pgc_ptr->b_data,
-					pgc_ptr->num_b_stages
-					* sizeof(struct mdp_ar_gc_lut_data));
-	}
-
-	if (ret)
-		return ret;
-
-	pgc_ptr->r_data = &r[0];
-	pgc_ptr->g_data = &g[0];
-	pgc_ptr->b_data = &b[0];
-
-	ret = update_ar_gc_lut(offset, pgc_ptr);
-	return ret;
-}
-
-int mdp4_argc_cfg(struct mdp_pgc_lut_data *pgc_ptr)
-{
-	int ret = -1;
-	uint32_t *offset = 0, *pgc_enable_offset = 0, lshift_bits = 0;
-	uint32_t blockbase;
-
-	if (!mdp_pp_block2argc(pgc_ptr->block))
-		return ret;
-
-	blockbase = mdp_block2base(pgc_ptr->block);
-	if (!blockbase)
-		return ret;
-
-	blockbase += (uint32_t) MDP_BASE;
-	ret = 0;
-
-	switch (pgc_ptr->block) {
-	case MDP_BLOCK_DMA_P:
-	case MDP_BLOCK_DMA_S:
-		offset = (uint32_t *)(blockbase + MDP_DMA_GC_OFFSET);
-		pgc_enable_offset = (uint32_t *) blockbase;
-		lshift_bits = 28;
-		break;
-
-	case MDP_BLOCK_OVERLAY_0:
-	case MDP_BLOCK_OVERLAY_1:
-	case MDP_BLOCK_OVERLAY_2:
-		offset = (uint32_t *)(blockbase + MDP_LM_GC_OFFSET);
-		pgc_enable_offset = (uint32_t *)(blockbase
-				+ MDP_LM_OP_MODE_OFFSET);
-		lshift_bits = 2;
-		break;
-
-	default:
-		ret = -1;
-		break;
-	}
-
-	if (!ret) {
-
-		switch ((0x6 & pgc_ptr->flags)>>1) {
-		case 0x1:
-			ret = -ENOTTY;
-			break;
-
-		case 0x2:
-			ret = mdp4_argc_process_write_req(offset, pgc_ptr);
-			break;
-
-		default:
-			break;
-		}
-
-		if (!ret) {
-			mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-			outpdw(pgc_enable_offset, (inpdw(pgc_enable_offset) &
-							~(0x1<<lshift_bits)) |
-				((0x1 & pgc_ptr->flags) << lshift_bits));
-			mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF,
-									FALSE);
-		}
-	}
-
-	return ret;
-}
-
-static uint32_t mdp4_pp_block2igc(uint32_t block)
-{
-	uint32_t valid = 0;
-	switch (block) {
-	case MDP_BLOCK_VG_1:
-		valid = 0x1;
-		break;
-	case MDP_BLOCK_VG_2:
-		valid = 0x1;
-		break;
-	case MDP_BLOCK_RGB_1:
-		valid = 0x1;
-		break;
-	case MDP_BLOCK_RGB_2:
-		valid = 0x1;
-		break;
-	case MDP_BLOCK_DMA_P:
-		valid = (mdp_rev >= MDP_REV_40) ? 1 : 0;
-		break;
-	case MDP_BLOCK_DMA_S:
-		valid = (mdp_rev >= MDP_REV_40) ? 1 : 0;
-		break;
-	default:
-		break;
-	}
-	return valid;
-}
-
-static int mdp4_igc_lut_write(struct mdp_igc_lut_data *cfg, uint32_t en_off,
-		uint32_t lut_off)
-{
-	int i;
-	uint32_t base, *off_low, *off_high;
-	uint32_t low[cfg->len];
-	uint32_t high[cfg->len];
-
-	base = mdp_block2base(cfg->block);
-
-	if (cfg->len != 256)
-		return -EINVAL;
-
-	off_low = (uint32_t *)(MDP_BASE + base + lut_off);
-	off_high = (uint32_t *)(MDP_BASE + base + lut_off + 0x800);
-	if (copy_from_user(&low, cfg->c0_c1_data, cfg->len * sizeof(uint32_t)))
-		return -EFAULT;
-	if (copy_from_user(&high, cfg->c2_data, cfg->len * sizeof(uint32_t)))
-		return -EFAULT;
-
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-	for (i = 0; i < cfg->len; i++) {
-		MDP_OUTP(off_low++, low[i]);
-		/*low address write should occur before high address write*/
-		wmb();
-		MDP_OUTP(off_high++, high[i]);
-	}
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
-	return 0;
-}
-
-static int mdp4_igc_lut_ctrl(struct mdp_igc_lut_data *cfg)
-{
-	uint32_t mask, out;
-	uint32_t base = mdp_block2base(cfg->block);
-	int8_t shift = 0;
-
-	switch (cfg->block) {
-	case MDP_BLOCK_DMA_P:
-	case MDP_BLOCK_DMA_S:
-		base = base;
-		shift = 30;
-		break;
-	case MDP_BLOCK_VG_1:
-	case MDP_BLOCK_VG_2:
-	case MDP_BLOCK_RGB_1:
-	case MDP_BLOCK_RGB_2:
-		base += 0x58;
-		shift = 16;
-		break;
-	default:
-		return -EINVAL;
-
-	}
-	out = 1<<shift;
-	mask = ~out;
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-	out = inpdw(MDP_BASE + base) & mask;
-	MDP_OUTP(MDP_BASE + base, out | ((cfg->ops & 0x1)<<shift));
-	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
-
-	return 0;
-}
-
-static int mdp4_igc_lut_write_cfg(struct mdp_igc_lut_data *cfg)
-{
-	int ret = 0;
-
-	switch (cfg->block) {
-	case MDP_BLOCK_DMA_P:
-	case MDP_BLOCK_DMA_S:
-		ret = mdp4_igc_lut_write(cfg, 0x00, 0x9000);
-		break;
-	case MDP_BLOCK_VG_1:
-	case MDP_BLOCK_VG_2:
-	case MDP_BLOCK_RGB_1:
-	case MDP_BLOCK_RGB_2:
-		ret = mdp4_igc_lut_write(cfg, 0x58, 0x5000);
-		break;
-	default:
-		ret = -EINVAL;
-	}
-
-	return ret;
-}
-
-int mdp4_igc_lut_config(struct mdp_igc_lut_data *cfg)
-{
-	int ret = 0;
-
-	if (!mdp4_pp_block2igc(cfg->block)) {
-		ret = -ENOTTY;
-		goto error;
-	}
-
-	switch ((cfg->ops & 0x6) >> 1) {
-	case 0x1:
-		pr_info("%s: IGC LUT read not supported\n", __func__);
-		break;
-	case 0x2:
-		ret = mdp4_igc_lut_write_cfg(cfg);
-		if (ret)
-			goto error;
-		break;
-	default:
-		break;
-	}
-
-	ret = mdp4_igc_lut_ctrl(cfg);
-
-error:
-	return ret;
-}
-
-#define QSEED_TABLE_1_COUNT	2
-#define QSEED_TABLE_2_COUNT	1024
-
-static uint32_t mdp4_pp_block2qseed(uint32_t block)
-{
-	uint32_t valid = 0;
-	switch (block) {
-	case MDP_BLOCK_VG_1:
-	case MDP_BLOCK_VG_2:
-		valid = 0x1;
-		break;
-	default:
-		break;
-	}
-	return valid;
-}
-
-int mdp4_qseed_access_cfg(struct mdp_qseed_cfg *config, uint32_t base)
-{
-	int i, ret = 0;
-	uint32_t *values;
-
-	if ((config->table_num != 1) && (config->table_num != 2)) {
-		ret = -ENOTTY;
-		goto error;
-	}
-
-	if (((config->table_num == 1) && (config->len != QSEED_TABLE_1_COUNT))
-			|| ((config->table_num == 2) &&
-				(config->len != QSEED_TABLE_2_COUNT))) {
-		ret = -EINVAL;
-		goto error;
-	}
-
-	values = kmalloc(config->len * sizeof(uint32_t), GFP_KERNEL);
-	if (!values) {
-		ret = -ENOMEM;
-		goto error;
-	}
-
-	base += (config->table_num == 1) ? MDP4_QSEED_TABLE1_OFF :
-							MDP4_QSEED_TABLE2_OFF;
-
-	if (config->ops & MDP_PP_OPS_WRITE) {
-		ret = copy_from_user(values, config->data,
-						sizeof(uint32_t) * config->len);
-		if (ret) {
-			pr_warn("%s: Error copying from user, %d", __func__,
-									ret);
-			ret = -EINVAL;
-			goto err_mem;
-		}
-		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-		for (i = 0; i < config->len; i++) {
-			if (!(base & 0x3FF))
-				wmb();
-			MDP_OUTP(base , values[i]);
-			base += sizeof(uint32_t);
-		}
-		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
-	} else if (config->ops & MDP_PP_OPS_READ) {
-		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-		for (i = 0; i < config->len; i++) {
-			values[i] = inpdw(base);
-			if (!(base & 0x3FF))
-				rmb();
-			base += sizeof(uint32_t);
-		}
-		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
-		ret = copy_to_user(config->data, values,
-						sizeof(uint32_t) * config->len);
-		if (ret) {
-			pr_warn("%s: Error copying to user, %d", __func__, ret);
-			ret = -EINVAL;
-			goto err_mem;
-		}
-	}
-
-err_mem:
-	kfree(values);
-error:
-	return ret;
-}
-
-int mdp4_qseed_cfg(struct mdp_qseed_cfg_data *config)
-{
-	int ret = 0;
-	struct mdp_qseed_cfg *cfg = &config->qseed_data;
-	uint32_t base;
-
-	if (!mdp4_pp_block2qseed(config->block)) {
-		ret = -ENOTTY;
-		goto error;
-	}
-
-	if ((cfg->ops & MDP_PP_OPS_READ) && (cfg->ops & MDP_PP_OPS_WRITE)) {
-		ret = -EPERM;
-		pr_warn("%s: Cannot read and write on the same request\n",
-								__func__);
-		goto error;
-	}
-	base = (uint32_t) (MDP_BASE + mdp_block2base(config->block));
-	ret = mdp4_qseed_access_cfg(cfg, base);
-
-error:
-	return ret;
-}
-
-static int is_valid_calib_addr(void *addr)
-{
-	int ret = 0;
-	unsigned int ptr;
-
-	if (addr == NULL)
-		goto end;
-
-	ptr = (unsigned int) addr;
-
-	if (mdp_rev >= MDP_REV_30 && mdp_rev < MDP_REV_40) {
-		/* if request is outside the MDP reg-map or is not aligned 4 */
-		if (ptr > 0xF0600 || ptr % 0x4)
-			goto end;
-
-		if (ptr >= 0x90000 && ptr < 0x94000) {
-			if (ptr == 0x90000 || ptr == 0x90070)
-				ret = 1;
-			else if (ptr >= 0x93400 && ptr <= 0x93420)
-				ret = 1;
-			else if (ptr >= 0x93500 && ptr <= 0x93508)
-				ret = 1;
-			else if (ptr >= 0x93580 && ptr <= 0x93588)
-				ret = 1;
-			else if (ptr >= 0x93600 && ptr <= 0x93614)
-				ret = 1;
-			else if (ptr >= 0x93680 && ptr <= 0x93694)
-				ret = 1;
-			else if (ptr >= 0x93800 && ptr <= 0x93BFC)
-				ret = 1;
-		}
-	} else if (mdp_rev >= MDP_REV_40 && mdp_rev <= MDP_REV_44) {
-		/* if request is outside the MDP reg-map or is not aligned 4 */
-		if (ptr > 0xF0600 || ptr % 0x4)
-			goto end;
-
-		if (ptr < 0x90000) {
-			if (ptr == 0x4 || ptr == 0x28200 || ptr == 0x28204)
-				ret = 1;
-		} else if (ptr < 0x95000) {
-			if (ptr == 0x90000 || ptr == 0x90070)
-				ret = 1;
-			else if (ptr >= 0x93400 && ptr <= 0x93420)
-				ret = 1;
-			else if (ptr >= 0x93500 && ptr <= 0x93508)
-				ret = 1;
-			else if (ptr >= 0x93580 && ptr <= 0x93588)
-				ret = 1;
-			else if (ptr >= 0x93600 && ptr <= 0x93614)
-				ret = 1;
-			else if (ptr >= 0x93680 && ptr <= 0x93694)
-				ret = 1;
-			else if (ptr >= 0x94800 && ptr <= 0x94BFC)
-				ret = 1;
-		} else if (ptr < 0x9A000) {
-			if (ptr >= 0x98800 && ptr <= 0x9883C)
-				ret = 1;
-			else if (ptr >= 0x98880 && ptr <= 0x988AC)
-				ret = 1;
-			else if (ptr >= 0x98900 && ptr <= 0x9893C)
-				ret = 1;
-			else if (ptr >= 0x98980 && ptr <= 0x989BC)
-				ret = 1;
-			else if (ptr >= 0x98A00 && ptr <= 0x98A3C)
-				ret = 1;
-			else if (ptr >= 0x98A80 && ptr <= 0x98ABC)
-				ret = 1;
-			else if (ptr >= 0x99000 && ptr <= 0x993FC)
-				ret = 1;
-			else if (ptr >= 0x99800 && ptr <= 0x99BFC)
-				ret = 1;
-		} else if (ptr >= 0x9A000 && ptr <= 0x9a08c) {
-			ret = 1;
-		}
-	}
-end:
-	return ret;
-}
-
-int mdp4_calib_config(struct mdp_calib_config_data *cfg)
-{
-	int ret = -1;
-	void *ptr = (void *) cfg->addr;
-
-	if (is_valid_calib_addr(ptr))
-		ret = 0;
-	else
-		return ret;
-
-	ptr = (void *)(((unsigned int) ptr) + MDP_BASE);
-	mdp_clk_ctrl(1);
-	if (cfg->ops & MDP_PP_OPS_READ) {
-		cfg->data = inpdw(ptr);
-		ret = 1;
-	} else if (cfg->ops & MDP_PP_OPS_WRITE) {
-		outpdw(ptr, cfg->data);
-	}
-	mdp_clk_ctrl(0);
-	return ret;
 }
