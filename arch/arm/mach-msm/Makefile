@@ -288,8 +288,13 @@ obj-$(CONFIG_MACH_PROTOU) += board-protou-keypad.o
 obj-$(CONFIG_MACH_PROTOU) += board-protou-mmc.o
 obj-$(CONFIG_MACH_PROTOU) += board-protou-wifi.o htc_wifi_nvs.o htc_fast_clk_7k.o board-protou-rfkill.o htc_util_7x2x.o
 obj-$(CONFIG_MACH_PROTOU) += board-protou-audio.o
-obj-$(CONFIG_ARCH_MSM7X30) += devices-msm7x30.o memory_topology.o devices_htc.o emmc_partitions.o msm_vibrator.o
+obj-$(CONFIG_ARCH_MSM7X30) += memory_topology.o devices_htc.o emmc_partitions.o msm_vibrator.o
 obj-$(CONFIG_ARCH_MSM7X30) += clock-local.o clock-7x30.o acpuclock-7x30.o htc_awb_cal.o
+ifeq ($(CONFIG_VIVO_PMEM),y)
+obj-$(CONFIG_ARCH_MSM7X30) += devices-msm7x30-pmem.o
+else
+obj-$(CONFIG_ARCH_MSM7X30) += devices-msm7x30.o
+endif
 obj-$(CONFIG_MACH_MSM7X25_SURF) += board-msm7x27.o devices-msm7x25.o
 obj-$(CONFIG_MACH_MSM7X25_FFA) += board-msm7x27.o devices-msm7x25.o
 obj-$(CONFIG_ARCH_MSM8960) += clock-local.o clock-dss-8960.o clock-8960.o clock-rpm.o
