@@ -128,15 +128,11 @@ static u32 res_trk_disable_videocore(void)
 	clk_put(resource_context.hclk);
 	clk_put(resource_context.pclk);
 
-/* HTC_START - Check regulator pointer */
-	if (!IS_ERR(resource_context.regulator)) {
-		rc = regulator_disable(resource_context.regulator);
-		if (rc) {
-			VCDRES_MSG_ERROR("\n regulator disable failed %d\n", rc);
-			mutex_unlock(&resource_context.lock);
-			return false;
-		}
-/* HTC_END */
+	rc = regulator_disable(resource_context.regulator);
+	if (rc) {
+		VCDRES_MSG_ERROR("\n regulator disable failed %d\n", rc);
+		mutex_unlock(&resource_context.lock);
+		return false;
 	}
 
 	resource_context.hclk_div2 = NULL;
@@ -271,18 +267,14 @@ static u32 res_trk_enable_videocore(void)
 	if (!resource_context.rail_enabled) {
 		int rc = -1;
 
-/* HTC_START - Check regulator pointer */
-		if (!IS_ERR(resource_context.regulator)) {
-			rc = regulator_enable(resource_context.regulator);
-			if (rc) {
-				VCDRES_MSG_ERROR("%s(): regulator_enable failed %d\n",
-						__func__, rc);
-				goto bail_out;
-			}
-			VCDRES_MSG_LOW("%s(): regulator enable Success %d\n",
-					__func__, rc);
+		rc = regulator_enable(resource_context.regulator);
+		if (rc) {
+			VCDRES_MSG_ERROR("%s(): regulator_enable failed %d\n",
+							 __func__, rc);
+			goto bail_out;
 		}
-/* HTC_END */
+		VCDRES_MSG_LOW("%s(): regulator enable Success %d\n",
+							__func__, rc);
 
 		resource_context.pclk = clk_get(resource_context.device,
 			"iface_clk");
@@ -685,8 +677,16 @@ boot_fw_free:
 	return false;
 }
 
+static struct ion_client *res_trk_create_ion_client(void){
+	struct ion_client *video_client;
+	VCDRES_MSG_LOW("%s", __func__);
+	video_client = msm_ion_client_create(-1, "video_client");
+	return video_client;
+}
+
 void res_trk_init(struct device *device, u32 irq)
 {
+	VCDRES_MSG_LOW("%s", __func__);
 	if (resource_context.device || resource_context.irq_num ||
 		!device) {
 		VCDRES_MSG_ERROR("%s() Resource Tracker Init error\n",
@@ -703,9 +703,27 @@ void res_trk_init(struct device *device, u32 irq)
 		(struct msm_vidc_platform_data *) device->platform_data;
 	if (resource_context.vidc_platform_data) {
 		resource_context.memtype =
-		resource_context.vidc_platform_data->memtype;
+			resource_context.vidc_platform_data->memtype;
+		VCDRES_MSG_LOW("%s(): resource_context.memtype = 0x%x",
+			__func__, (u32)resource_context.memtype);
+		if (resource_context.vidc_platform_data->enable_ion) {
+			resource_context.res_ion_client =
+				res_trk_create_ion_client();
+			if (!(resource_context.res_ion_client)) {
+				VCDRES_MSG_ERROR("%s()ION createfail\n",
+						__func__);
+				return;
+			}
+			VCDRES_MSG_LOW("%s(): ion_client = 0x%x", __func__,
+				(u32)resource_context.res_ion_client);
+		} else {
+			VCDRES_MSG_ERROR("%s(): ION not disabled\n",
+					__func__);
+		}
 	} else {
 		resource_context.memtype = -1;
+		VCDRES_MSG_ERROR("%s(): vidc_platform_data is NULL",
+			__func__);
 	}
 }
 
@@ -713,18 +731,28 @@ u32 res_trk_get_core_type(void){
 	return resource_context.core_type;
 }
 
-u32 res_trk_get_mem_type(void){
-	return resource_context.memtype;
-}
-
 u32 res_trk_get_enable_ion(void)
 {
-	return 0;
+	if (resource_context.vidc_platform_data->enable_ion)
+		return 1;
+	else
+		return 0;
 }
 
 struct ion_client *res_trk_get_ion_client(void)
 {
-	return NULL;
+	return resource_context.res_ion_client;
+}
+
+u32 res_trk_get_mem_type(void)
+{
+	u32 mem_type = ION_HEAP(resource_context.memtype);
+	return mem_type;
+}
+
+void res_trk_set_mem_type(enum ddl_mem_area mem_type)
+{
+	return;
 }
 
 u32 res_trk_get_disable_fullhd(void)
@@ -732,15 +760,19 @@ u32 res_trk_get_disable_fullhd(void)
 	return 0;
 }
 
-#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-void res_trk_set_mem_type(enum ddl_mem_area mem_type)
+int res_trk_check_for_sec_session()
+{
+	return 0;
+}
+
+void res_trk_secure_unset(void)
 {
 	return;
 }
 
-int res_trk_check_for_sec_session()
+void res_trk_secure_set(void)
 {
-	return 0;
+	return;
 }
 
 int res_trk_open_secure_session()
@@ -752,4 +784,14 @@ int res_trk_close_secure_session()
 {
 	return 0;
 }
-#endif
+u32 get_res_trk_perf_level(enum vcd_perf_level perf_level)
+{
+	return -ENOTSUPP;
+}
+u32 res_trk_is_cp_enabled(void)
+{
+	if (resource_context.vidc_platform_data->cp_enabled)
+		return 1;
+	else
+		return 0;
+}

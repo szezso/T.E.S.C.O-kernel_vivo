@@ -86,6 +86,13 @@ enum ion_heap_ids {
 	ION_HEAP_ID_RESERVED = 31 /** Bit reserved for ION_SECURE flag */
 };
 
+enum ion_fixed_position {
+	NOT_FIXED,
+	FIXED_LOW,
+	FIXED_MIDDLE,
+	FIXED_HIGH,
+};
+
 /**
  * Flag to use when allocating to indicate that a heap is secure.
  */
@@ -190,6 +197,10 @@ struct ion_cp_heap_pdata {
 	ion_phys_addr_t secure_base; /* Base addr used when heap is shared */
 	size_t secure_size; /* Size used for securing heap when heap is shared*/
 	int reusable;
+	int mem_is_fmem;
+	int iommu_map_all;
+	int iommu_2x_map_domain;
+	enum ion_fixed_position fixed_position;
 	ion_virt_addr_t *virt_addr;
 	int (*request_region)(void *);
 	int (*release_region)(void *);
@@ -427,7 +438,7 @@ int ion_map_iommu(struct ion_client *client, struct ion_handle *handle,
 			int domain_num, int partition_num, unsigned long align,
 			unsigned long iova_length, unsigned long *iova,
 			unsigned long *buffer_size,
-			unsigned long flags);
+			unsigned long flags, unsigned long iommu_flags);
 
 
 /**
@@ -503,6 +514,23 @@ int msm_ion_secure_heap(int heap_id);
  * Returns 0 on success
  */
 int msm_ion_unsecure_heap(int heap_id);
+
+/**
+ * msm_ion_do_cache_op - do cache operations.
+ *
+ * @client - pointer to ION client.
+ * @handle - pointer to buffer handle.
+ * @vaddr -  virtual address to operate on.
+ * @len - Length of data to do cache operation on.
+ * @cmd - Cache operation to perform:
+ *		ION_IOC_CLEAN_CACHES
+ *		ION_IOC_INV_CACHES
+ *		ION_IOC_CLEAN_INV_CACHES
+ *
+ * Returns 0 on success
+ */
+int msm_ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
+			void *vaddr, unsigned long len, unsigned int cmd);
 
 #else
 static inline struct ion_client *ion_client_create(struct ion_device *dev,
@@ -611,6 +639,13 @@ static inline int msm_ion_secure_heap(int heap_id)
 }
 
 static inline int msm_ion_unsecure_heap(int heap_id)
+{
+	return -ENODEV;
+}
+
+static inline int msm_ion_do_cache_op(struct ion_client *client,
+			struct ion_handle *handle, void *vaddr,
+			unsigned long len, unsigned int cmd)
 {
 	return -ENODEV;
 }

@@ -53,6 +53,12 @@ enum vcd_power_state {
 	VCD_PWR_STATE_SLEEP,
 };
 
+struct vcd_aspect_ratio {
+	u32 aspect_ratio;
+	u32 extended_par_width;
+	u32 extended_par_height;
+};
+
 struct vcd_frame_data {
 	u8 *virtual;
 	u8 *physical;
@@ -60,7 +66,7 @@ struct vcd_frame_data {
 	u32 alloc_len;
 	u32 data_len;
 	u32 offset;
-	s64 time_stamp;
+	s64 time_stamp; /* in usecs*/
 	u32 flags;
 	u32 frm_clnt_data;
 	struct vcd_property_dec_output_buffer dec_op_prop;
@@ -70,6 +76,8 @@ struct vcd_frame_data {
 	u32 intrlcd_ip_frm_tag;
 	u8 *desc_buf;
 	u32 desc_size;
+	struct ion_handle *buff_ion_handle;
+	struct vcd_aspect_ratio aspect_ratio_info;
 };
 
 struct vcd_sequence_hdr {
@@ -108,11 +116,14 @@ struct vcd_init_config {
 	void (*timer_stop) (void *timer_handle);
 };
 
+/*Flags passed to vcd_open*/
+#define VCD_CP_SESSION 0x00000001
+
 u32 vcd_init(struct vcd_init_config *config, s32 *driver_handle);
 u32 vcd_term(s32 driver_handle);
 u32 vcd_open(s32 driver_handle, u32 decoding,
 	void (*callback) (u32 event, u32 status, void *info, size_t sz,
-	void *handle, void *const client_data), void *client_data);
+	void *handle, void *const client_data), void *client_data, int flags);
 u32 vcd_close(void *handle);
 u32 vcd_encode_start(void *handle);
 u32 vcd_encode_frame(void *handle, struct vcd_frame_data *input_frame);

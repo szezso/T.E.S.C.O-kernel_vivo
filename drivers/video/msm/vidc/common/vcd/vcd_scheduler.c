@@ -75,10 +75,10 @@ u32 vcd_sched_add_client(struct vcd_clnt_ctxt *cctxt)
 	if (!cctxt) {
 		VCD_MSG_ERROR("%s(): Invalid parameter", __func__);
 		rc = VCD_ERR_ILLEGAL_PARM;
-	} else if (cctxt->sched_clnt_hdl) {
+	} else if (cctxt->sched_clnt_hdl)
 		VCD_MSG_HIGH(
 			"%s(): Scheduler client already exists!", __func__);
-	} else {
+	else {
 		sched_cctxt = (struct vcd_sched_clnt_ctx *)
 			kmalloc(sizeof(struct vcd_sched_clnt_ctx),
 					GFP_KERNEL);
@@ -102,9 +102,10 @@ u32 vcd_sched_add_client(struct vcd_clnt_ctxt *cctxt)
 				VCD_FAILED_RETURN(rc,
 					"Failed: Get VCD_I_FRAME_RATE");
 			}
-			cctxt->reqd_perf_lvl = cctxt->frm_p_units *
-				cctxt->frm_rate.fps_numerator /
-				cctxt->frm_rate.fps_denominator;
+			if (!cctxt->perf_set_by_client)
+				cctxt->reqd_perf_lvl = cctxt->frm_p_units *
+					cctxt->frm_rate.fps_numerator /
+					cctxt->frm_rate.fps_denominator;
 
 			cctxt->sched_clnt_hdl = sched_cctxt;
 			memset(sched_cctxt, 0,
