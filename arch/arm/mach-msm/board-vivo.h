@@ -36,13 +36,13 @@
 
 #define PMEM_KERNEL_EBI0_SIZE   	0x00500000       /* 7MB -> 9MB*/
 #define MSM_ION_SF_SIZE        		0x01F00000
-#define MSM_ION_CAMERA_SIZE             MSM_PMEM_ADSP_SIZE
+#define MSM_ION_CAMERA_SIZE             0x01D00000
 
 #define MSM_PMEM_MDP_BASE		0x2DFC0000
 #define MSM_PMEM_MDP_SIZE		0x01B40000
 
+#define MSM_FB_BASE			0x2FB00000
 #define MSM_FB_SIZE			0x00500000
-#define MSM_FB_BASE                     0x2FB00000
 
 
 /* GPIO definition */
