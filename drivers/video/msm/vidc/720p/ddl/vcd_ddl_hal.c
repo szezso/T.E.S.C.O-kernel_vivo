@@ -16,11 +16,13 @@
 #include "vcd_ddl_utils.h"
 #include "vcd_ddl_metadata.h"
 
-#if DEBUG
-#define DBG(x...) printk(KERN_DEBUG x)
-#else
-#define DBG(x...)
-#endif
+/*HTC_START*/
+extern u32 vidc_msg_debug;
+#define DBG(x...)				\
+	if (vidc_msg_debug) {			\
+		printk(KERN_DEBUG "[VID] " x);	\
+	}
+/*HTC_END*/
 
 #define DBG_INFO(x...) pr_info(x)
 
