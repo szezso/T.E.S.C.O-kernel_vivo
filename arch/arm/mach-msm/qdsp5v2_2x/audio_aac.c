@@ -33,7 +33,7 @@
 #include <asm/ioctls.h>
 #include <linux/slab.h>
 #include <mach/msm_adsp.h>
-#include <mach/qdsp5v2_2x/msm_audio_aac.h>
+#include <linux/msm_audio_aac.h>
 #include <mach/qdsp5v2_2x/qdsp5audppmsg.h>
 #include <mach/qdsp5v2_2x/qdsp5audplaycmdi.h>
 #include <mach/qdsp5v2_2x/qdsp5audplaymsg.h>

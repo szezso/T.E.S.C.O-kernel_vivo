@@ -432,6 +432,7 @@ void audpp_disable(int id, void *private)
 		else
 			pr_aud_err("Didn't receive CFG_MSG DISABLE \
 					message from ADSP\n");
+		audpp->enabled = 0;
 		msm_adsp_disable(audpp->mod);
 		msm_adsp_put(audpp->mod);
 		audpp->mod = NULL;

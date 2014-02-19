@@ -69,7 +69,7 @@
 #include <mach/qdsp5v2_2x/audio_acdb_def.h>
 
 #include <mach/qdsp5v2_2x/marimba_profile.h>
-#include <linux/spi/spi_aic3254.h>
+#include <linux/spi_aic3254.h>
 #ifdef CONFIG_TIMPANI_CODEC
 #include "timpani_profile_8x60.h"
 #endif
@@ -612,7 +612,7 @@ static struct snddev_icodec_data snddev_ispeaker_rx_data = {
 	.acdb_id = ACDB_ID_SPKR_PHONE_MONO,
 	.profile = &ispeaker_rx_profile,
 #endif
-	.channel_mode = 1,
+	.channel_mode = 2,
 	.pmctl_id = NULL,
 	.pmctl_id_sz = 0,
 	.default_sample_rate = 48000,

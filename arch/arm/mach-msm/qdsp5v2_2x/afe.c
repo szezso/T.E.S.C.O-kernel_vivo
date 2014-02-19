@@ -145,7 +145,7 @@ int afe_enable(u8 path_id, struct msm_afe_config *config)
 				afe->aux_conf_flag = 0;
 			}
 		}
-		BUG();
+//		BUG();
 	} else {
 		rc = 0;
 		afe->in_use++;
