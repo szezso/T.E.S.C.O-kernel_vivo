@@ -39,6 +39,10 @@
 #include "mdp4.h"
 #endif
 
+#ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
+#define MSM_FB_NUM	3
+#endif
+
 static void msmfb_resume_handler(struct early_suspend *h);
 static void msmfb_resume(struct msmfb_info *msmfb);
 

@@ -48,6 +48,10 @@ config FB_MSM_MDP_ABL
         depends on FB_MSM && (MSM_MDP40)
         default n
 
+config FB_MSM_TRIPLE_BUFFER
+	bool "Support for triple frame buffer"
+	default n
+
 config MSM_ROTATOR
         tristate "MSM Offline Image Rotator Driver"
         depends on ARCH_MSM7X30 && ANDROID_PMEM
