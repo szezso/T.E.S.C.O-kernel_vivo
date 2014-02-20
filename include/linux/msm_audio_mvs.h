@@ -28,7 +28,7 @@
 #ifndef __MSM_AUDIO_MVS_H
 #define __MSM_AUDIO_MVS_H
 
-#include <linux/msm_audio.h>
+#include <linux/msm_audio_7X30.h>
 
 #define AUDIO_GET_MVS_CONFIG _IOW(AUDIO_IOCTL_MAGIC, \
 	(AUDIO_MAX_COMMON_IOCTL_NUM + 0), unsigned)
