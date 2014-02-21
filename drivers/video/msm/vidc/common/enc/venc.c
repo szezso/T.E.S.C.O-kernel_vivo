@@ -526,6 +526,8 @@ static int vid_enc_open(struct inode *inode, struct file *file)
 
 	INFO("\n msm_vidc_enc: Inside %s()", __func__);
 
+	vcd_set_is_encoding(true);
+
 	mutex_lock(&vid_enc_device_p->lock);
 
 	stop_cmd = 0;
@@ -598,6 +600,7 @@ static int vid_enc_release(struct inode *inode, struct file *file)
 #ifndef USE_RES_TRACKER
 	vidc_disable_clk();
 #endif
+	vcd_set_is_encoding(false);
 	INFO("\n msm_vidc_enc: Return from %s()", __func__);
 	return 0;
 }

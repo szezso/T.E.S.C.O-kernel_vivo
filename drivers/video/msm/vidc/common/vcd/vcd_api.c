@@ -980,6 +980,7 @@ struct ion_client *vcd_get_ion_client(void)
 }
 EXPORT_SYMBOL(vcd_get_ion_client);
 
-
-
-
+void vcd_set_is_encoding(bool encoding)
+{
+	res_trk_set_is_encoding(encoding);
+}

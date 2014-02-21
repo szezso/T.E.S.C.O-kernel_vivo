@@ -40,6 +40,8 @@ static unsigned int axi_clk_freq_table_dec[2] = {
 
 static struct res_trk_context resource_context;
 
+static bool is_encoding = false;
+
 #define VIDC_BOOT_FW			"vidc_720p_command_control.fw"
 #define VIDC_MPG4_DEC_FW		"vidc_720p_mp4_dec_mc.fw"
 #define VIDC_H263_DEC_FW		"vidc_720p_h263_dec_mc.fw"
@@ -715,7 +717,7 @@ void res_trk_init(struct device *device, u32 irq)
 			resource_context.vidc_platform_data->memtype;
 		VCDRES_MSG_LOW("%s(): resource_context.memtype = 0x%x",
 			__func__, (u32)resource_context.memtype);
-		if (resource_context.vidc_platform_data->enable_ion) {
+		if (res_trk_get_enable_ion()) {
 			resource_context.res_ion_client =
 				res_trk_create_ion_client();
 			if (!(resource_context.res_ion_client)) {
@@ -739,7 +741,7 @@ u32 res_trk_get_core_type(void){
 
 u32 res_trk_get_enable_ion(void)
 {
-	if (resource_context.vidc_platform_data->enable_ion)
+	if (resource_context.vidc_platform_data->enable_ion && !is_encoding)
 		return 1;
 	else
 		return 0;
@@ -754,10 +756,10 @@ u32 res_trk_get_mem_type(void)
 {
 	u32 mem_type;
 
-	if (resource_context.vidc_platform_data->enable_ion)
+	if (res_trk_get_enable_ion())
 		mem_type = ION_HEAP(resource_context.memtype);
 	else
-		mem_type = resource_context.memtype;
+		mem_type = resource_context.vidc_platform_data->memtype_pmem;
 
 	return mem_type;
 }
@@ -806,4 +808,8 @@ u32 res_trk_is_cp_enabled(void)
 		return 1;
 	else
 		return 0;
+}
+void res_trk_set_is_encoding(bool encoding)
+{
+	is_encoding = encoding;
 }
