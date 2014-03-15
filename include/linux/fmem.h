@@ -29,8 +29,6 @@ struct fmem_data {
 	struct vm_struct *area;
 	unsigned long size;
 	unsigned long reserved_size;
-        unsigned long reserved_size_low;
-        unsigned long reserved_size_high;
 };
 
 enum fmem_state {
