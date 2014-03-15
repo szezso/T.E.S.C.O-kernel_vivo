@@ -1,0 +1,5 @@
+#!/bin/sh
+
+export ARCH=arm
+export CROSS_COMPILE=/home/szezso/cm11/prebuilts/gcc/linux-x86/arm/arm-eabi-4.7/bin/arm-eabi-
+make -j64 ARCH=arm
