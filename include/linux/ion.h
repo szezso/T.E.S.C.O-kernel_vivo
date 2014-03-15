@@ -418,6 +418,7 @@ int ion_handle_get_flags(struct ion_client *client, struct ion_handle *handle,
  * @iova - pointer to store the iova address
  * @buffer_size - pointer to store the size of the buffer
  * @flags - flags for options to map
+ * @iommu_flags - flags specific to the iommu.
  *
  * Maps the handle into the iova space specified via domain number. Iova
  * will be allocated from the partition specified via partition_num.
@@ -427,7 +428,7 @@ int ion_map_iommu(struct ion_client *client, struct ion_handle *handle,
 			int domain_num, int partition_num, unsigned long align,
 			unsigned long iova_length, unsigned long *iova,
 			unsigned long *buffer_size,
-			unsigned long flags);
+			unsigned long flags, unsigned long iommu_flags);
 
 
 /**
@@ -503,6 +504,23 @@ int msm_ion_secure_heap(int heap_id);
  * Returns 0 on success
  */
 int msm_ion_unsecure_heap(int heap_id);
+
+/**
+ * msm_ion_do_cache_op - do cache operations.
+ *
+ * @client - pointer to ION client.
+ * @handle - pointer to buffer handle.
+ * @vaddr -  virtual address to operate on.
+ * @len - Length of data to do cache operation on.
+ * @cmd - Cache operation to perform:
+ *		ION_IOC_CLEAN_CACHES
+ *		ION_IOC_INV_CACHES
+ *		ION_IOC_CLEAN_INV_CACHES
+ *
+ * Returns 0 on success
+ */
+int msm_ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
+			void *vaddr, unsigned long len, unsigned int cmd);
 
 #else
 static inline struct ion_client *ion_client_create(struct ion_device *dev,
@@ -614,6 +632,14 @@ static inline int msm_ion_unsecure_heap(int heap_id)
 {
 	return -ENODEV;
 }
+
+static inline int msm_ion_do_cache_op(struct ion_client *client,
+			struct ion_handle *handle, void *vaddr,
+			unsigned long len, unsigned int cmd)
+{
+	return -ENODEV;
+}
+
 #endif /* CONFIG_ION */
 #endif /* __KERNEL__ */
 

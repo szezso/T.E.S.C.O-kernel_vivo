@@ -607,7 +607,7 @@ int ion_map_iommu(struct ion_client *client, struct ion_handle *handle,
 			int domain_num, int partition_num, unsigned long align,
 			unsigned long iova_length, unsigned long *iova,
 			unsigned long *buffer_size,
-			unsigned long flags)
+			unsigned long flags, unsigned long iommu_flags)
 {
 	struct ion_buffer *buffer;
 	struct ion_iommu_map *iommu_map;
@@ -882,7 +882,7 @@ out:
 	return ret;
 }
 
-static int ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
+int ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 			void *uaddr, unsigned long offset, unsigned long len,
 			unsigned int cmd)
 {
