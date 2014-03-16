@@ -18,13 +18,4 @@
 #define _LINUX_MSM_ION_H
 
 #include <linux/ion.h>
-
-static inline struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd)
-{
-	return ERR_PTR(-ENODEV);
-}
-
-struct sg_table *ion_sg_table(struct ion_client *client,
-			      struct ion_handle *handle);
-
 #endif
