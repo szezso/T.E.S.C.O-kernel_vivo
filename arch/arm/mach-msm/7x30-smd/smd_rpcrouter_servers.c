@@ -52,7 +52,7 @@ static void rpc_server_register(struct msm_rpc_server *server)
 	int rc;
 	rc = msm_rpc_register_server(endpoint, server->prog, server->vers);
 	if (rc < 0)
-		printk(KERN_ERR "[K] [rpcserver] error registering %p @ %08x:%d\n",
+		printk(KERN_ERR "[rpcserver] error registering %p @ %08x:%d\n",
 		       server, server->prog, server->vers);
 }
 
@@ -159,7 +159,7 @@ static int rpc_send_accepted_void_reply(struct msm_rpc_endpoint *client,
 	}
 	if (rc < 0)
 		printk(KERN_ERR
-		       "[K] %s: could not write response: %d\n",
+		       "%s: could not write response: %d\n",
 		       __FUNCTION__, rc);
 
 	return rc;
@@ -316,7 +316,7 @@ int msm_rpc_server_cb_req(struct msm_rpc_server *server,
 		xdr_init_input(&server->cb_xdr, buffer, rc);
 		if ((rc < ((int)(sizeof(uint32_t) * 2))) ||
 		    (be32_to_cpu(*((uint32_t *)buffer + 1)) != 1)) {
-			printk(KERN_ERR "[K] %s: Invalid reply: %d\n",
+			printk(KERN_ERR "%s: Invalid reply: %d\n",
 			       __func__, rc);
 			goto free_and_release;
 		}
@@ -445,7 +445,7 @@ int msm_rpc_server_cb_req2(struct msm_rpc_server *server,
 		xdr_init_input(&server->cb_xdr, buffer, rc);
 		rc = xdr_recv_reply(&server->cb_xdr, &rpc_rsp);
 		if (rc || (rpc_rsp.type != 1)) {
-			printk(KERN_ERR "[K] %s: Invalid reply :%d\n",
+			printk(KERN_ERR "%s: Invalid reply :%d\n",
 			       __func__, rc);
 			rc = -EINVAL;
 			goto free_and_release;
@@ -521,7 +521,7 @@ static int rpc_servers_thread(void *data)
 
 		rc = msm_rpc_read(endpoint, &buffer, -1, -1);
 		if (rc < 0) {
-			printk(KERN_ERR "[K] %s: could not read: %d\n",
+			printk(KERN_ERR "%s: could not read: %d\n",
 			       __FUNCTION__, rc);
 			break;
 		}

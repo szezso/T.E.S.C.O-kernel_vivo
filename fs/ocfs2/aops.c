@@ -551,8 +551,9 @@ bail:
 
 /*
  * ocfs2_dio_end_io is called by the dio core when a dio is finished.  We're
- * particularly interested in the aio/dio case.  We use the rw_lock DLM lock
- * to protect io on one node from truncation on another.
+ * particularly interested in the aio/dio case.  Like the core uses
+ * i_alloc_sem, we use the rw_lock DLM lock to protect io on one node from
+ * truncation on another.
  */
 static void ocfs2_dio_end_io(struct kiocb *iocb,
 			     loff_t offset,
@@ -568,7 +569,7 @@ static void ocfs2_dio_end_io(struct kiocb *iocb,
 	BUG_ON(!ocfs2_iocb_is_rw_locked(iocb));
 
 	if (ocfs2_iocb_is_sem_locked(iocb)) {
-		inode_dio_done(inode);
+		up_read(&inode->i_alloc_sem);
 		ocfs2_iocb_clear_sem_locked(iocb);
 	}
 
