@@ -1,6 +1,5 @@
 config ZSMALLOC
 	tristate "Memory allocator for compressed pages"
-	depends on SPARSEMEM
 	default n
 	help
 	  zsmalloc is a slab-based memory allocator designed to store
