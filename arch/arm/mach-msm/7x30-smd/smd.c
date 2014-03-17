@@ -1142,6 +1142,10 @@ EXPORT_SYMBOL(smd_read_avail);
 
 int smd_write_avail(smd_channel_t *ch)
 {
+	if (!ch) {
+		pr_err("[SMD] %s: Invalid channel specified\n", __func__);
+		return -ENODEV;
+	}
 	return ch->write_avail(ch);
 }
 EXPORT_SYMBOL(smd_write_avail);
