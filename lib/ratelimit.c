@@ -11,7 +11,7 @@
 
 #include <linux/ratelimit.h>
 #include <linux/jiffies.h>
-#include <linux/export.h>
+#include <linux/module.h>
 
 /*
  * __ratelimit - rate limiting

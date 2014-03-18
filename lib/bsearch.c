@@ -9,7 +9,7 @@
  * published by the Free Software Foundation; version 2.
  */
 
-#include <linux/export.h>
+#include <linux/module.h>
 #include <linux/bsearch.h>
 
 /*
