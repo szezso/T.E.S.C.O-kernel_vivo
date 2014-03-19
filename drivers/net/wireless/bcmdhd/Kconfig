@@ -1,5 +1,3 @@
-if BCMDHD_GOOGLE
-
 config BCMDHD
 	tristate "Broadcom 4329/30 wireless cards support"
 	depends on MMC
@@ -22,7 +20,7 @@ config BCMDHD_FW_PATH
 config BCMDHD_NVRAM_PATH
 	depends on BCMDHD
 	string "NVRAM path"
-	default "/proc/calibration"
+	default "/system/etc/wifi/bcmdhd.cal"
 	---help---
 	  Path to the calibration file.
 
@@ -37,7 +35,7 @@ config BCMDHD_WEXT
 config DHD_USE_STATIC_BUF
 	bool "Enable memory preallocation"
 	depends on BCMDHD
-	default y
+	default n
 	---help---
 	  Use memory preallocated in platform
 
@@ -54,5 +52,3 @@ config DHD_ENABLE_P2P
 	default n
 	---help---
 	  Use Enable Wifi Direct
-
-endif #BCMDHD_GOOGLE
