@@ -30,10 +30,6 @@
 
 #include "acpuclock.h"
 
-/* maxscroff */
-uint32_t maxscroff_freq = 614400;
-uint32_t maxscroff = 0;
-
 #ifdef CONFIG_SMP
 struct cpufreq_work_struct {
 	struct work_struct work;
@@ -55,22 +51,6 @@ struct cpufreq_suspend_t {
 static DEFINE_PER_CPU(struct cpufreq_suspend_t, cpufreq_suspend);
 
 static int override_cpu;
-
-/**maxscroff**/
-static int __init cpufreq_read_arg_maxscroff(char *max_so)
-{
-	if (strcmp(max_so, "0") == 0) {
-		maxscroff = 0;
-	} else if (strcmp(max_so, "1") == 0) {
-		maxscroff = 1;
-	} else {
-		maxscroff = 0;
-	}
-	return 1;
-}
-
-__setup("max_so=", cpufreq_read_arg_maxscroff);
-/**end maxscroff**/
 
 static int set_cpu_freq(struct cpufreq_policy *policy, unsigned int new_freq)
 {
@@ -141,9 +121,6 @@ static int msm_cpufreq_target(struct cpufreq_policy *policy,
 		ret = -EINVAL;
 		goto done;
 	}
-
-  if (table[index].frequency == policy->cur)
-    goto done;
 
 #ifdef CONFIG_CPU_FREQ_DEBUG
 	pr_debug("CPU[%d] target %d relation %d (%d-%d) selected %d\n",
@@ -287,60 +264,8 @@ static ssize_t store_mfreq(struct sysdev_class *class,
 
 static SYSDEV_CLASS_ATTR(mfreq, 0200, NULL, store_mfreq);
 
-/** maxscreen off sysfs interface **/
-
-static ssize_t show_max_screen_off_khz(struct cpufreq_policy *policy, char *buf)
-{
-	return sprintf(buf, "%u\n", maxscroff_freq);
-}
-
-static ssize_t store_max_screen_off_khz(struct cpufreq_policy *policy,
-		const char *buf, size_t count)
-{
-	unsigned int freq = 0;
-	int ret;
-	int index;
-	struct cpufreq_frequency_table *freq_table = cpufreq_frequency_get_table(policy->cpu);
-
-	if (!freq_table)
-		return -EINVAL;
-
-	ret = sscanf(buf, "%u", &freq);
-	if (ret != 1)
-		return -EINVAL;
-
-	mutex_lock(&per_cpu(cpufreq_suspend, policy->cpu).suspend_mutex);
-
-	ret = cpufreq_frequency_table_target(policy, freq_table, freq,
-			CPUFREQ_RELATION_H, &index);
-	if (ret)
-		goto out;
-
-	maxscroff_freq = freq_table[index].frequency;
-
-	ret = count;
-
-out:
-	mutex_unlock(&per_cpu(cpufreq_suspend, policy->cpu).suspend_mutex);
-	return ret;
-}
-
-struct freq_attr msm_cpufreq_attr_max_screen_off_khz = {
-	.attr = { .name = "screen_off_max_freq",
-		.mode = 0644,
-	},
-	.show = show_max_screen_off_khz,
-	.store = store_max_screen_off_khz,
-};
-
-
-/** end maxscreen off sysfs interface **/
-
-
 static struct freq_attr *msm_freq_attr[] = {
 	&cpufreq_freq_attr_scaling_available_freqs,
-/** maxscreen off sysfs interface **/
-	&msm_cpufreq_attr_max_screen_off_khz,
 	NULL,
 };
 

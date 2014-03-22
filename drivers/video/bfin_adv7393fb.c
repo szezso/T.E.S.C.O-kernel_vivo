@@ -411,13 +411,12 @@ static int __devinit bfin_adv7393_fb_probe(struct i2c_client *client,
 
 	/* Workaround "PPI Does Not Start Properly In Specific Mode" */
 	if (ANOMALY_05000400) {
-		ret = gpio_request_one(P_IDENT(P_PPI0_FS3), GPIOF_OUT_INIT_LOW,
-					"PPI0_FS3")
-		if (ret) {
+		if (gpio_request(P_IDENT(P_PPI0_FS3), "PPI0_FS3")) {
 			dev_err(&client->dev, "PPI0_FS3 GPIO request failed\n");
 			ret = -EBUSY;
 			goto out_8;
 		}
+		gpio_direction_output(P_IDENT(P_PPI0_FS3), 0);
 	}
 
 	if (peripheral_request_list(ppi_pins, DRIVER_NAME)) {
@@ -482,7 +481,7 @@ static int __devinit bfin_adv7393_fb_probe(struct i2c_client *client,
 		goto out_4;
 	}
 
-	if (request_irq(IRQ_PPI_ERROR, ppi_irq_error, 0,
+	if (request_irq(IRQ_PPI_ERROR, ppi_irq_error, IRQF_DISABLED,
 			"PPI ERROR", fbdev) < 0) {
 		dev_err(&client->dev, "unable to request PPI ERROR IRQ\n");
 		ret = -EFAULT;

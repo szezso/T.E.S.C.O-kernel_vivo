@@ -38,8 +38,6 @@ struct mdp_device;
 #define MSM_MDP_DMA_PACK_ALIGN_LSB		(1 << 4)
 #define MSM_MDP_RGB_PANEL_SELE_REFRESH		(1 << 5)
 #define MSM_MDP_ABL_ENABLE			(1 << 6)
-#define MSM_MDP_FORCE_UPDATE      		(1 << 7)
-#define MSM_MDP_PANEL_ROT_180			MSM_MDP_PANEL_FLIP_UD | MSM_MDP_PANEL_FLIP_LR
 
 /* mddi type */
 #define MSM_MDP_MDDI_TYPE_I	 0
@@ -378,10 +376,15 @@ struct msmfb_info {
 
 	struct early_suspend earlier_suspend;
 	struct early_suspend early_suspend;
+#ifdef CONFIG_HTC_ONMODE_CHARGING
+	struct early_suspend onchg_earlier_suspend;
+	struct early_suspend onchg_suspend;
+#endif
 	struct wake_lock idle_lock;
 	spinlock_t update_lock;
 	struct mutex panel_init_lock;
 	wait_queue_head_t frame_wq;
+	struct workqueue_struct *resume_workqueue;
 	struct work_struct resume_work;
 	struct msmfb_callback dma_callback;
 	struct msmfb_callback vsync_callback;

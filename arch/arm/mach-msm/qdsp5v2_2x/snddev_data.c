@@ -612,7 +612,7 @@ static struct snddev_icodec_data snddev_ispeaker_rx_data = {
 	.acdb_id = ACDB_ID_SPKR_PHONE_MONO,
 	.profile = &ispeaker_rx_profile,
 #endif
-	.channel_mode = 1,
+	.channel_mode = 2,
 	.pmctl_id = NULL,
 	.pmctl_id_sz = 0,
 	.default_sample_rate = 48000,

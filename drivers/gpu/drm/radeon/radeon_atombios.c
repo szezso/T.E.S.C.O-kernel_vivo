@@ -480,9 +480,7 @@ static bool radeon_atom_apply_quirks(struct drm_device *dev,
 	 */
 	if ((dev->pdev->device == 0x9498) &&
 	    (dev->pdev->subsystem_vendor == 0x1682) &&
-	    (dev->pdev->subsystem_device == 0x2452) &&
-	    (i2c_bus->valid == false) &&
-	    !(supported_device & (ATOM_DEVICE_TV_SUPPORT | ATOM_DEVICE_CV_SUPPORT))) {
+	    (dev->pdev->subsystem_device == 0x2452)) {
 		struct radeon_device *rdev = dev->dev_private;
 		*i2c_bus = radeon_lookup_i2c_gpio(rdev, 0x93);
 	}
@@ -751,16 +749,13 @@ bool radeon_get_atom_connector_info_from_object_table(struct drm_device *dev)
 								(ATOM_SRC_DST_TABLE_FOR_ONE_OBJECT *)
 								(ctx->bios + data_offset +
 								 le16_to_cpu(router_obj->asObjects[k].usSrcDstTableOffset));
-							u8 *num_dst_objs = (u8 *)
-								((u8 *)router_src_dst_table + 1 +
-								 (router_src_dst_table->ucNumberOfSrc * 2));
-							u16 *dst_objs = (u16 *)(num_dst_objs + 1);
 							int enum_id;
 
 							router.router_id = router_obj_id;
-							for (enum_id = 0; enum_id < (*num_dst_objs); enum_id++) {
+							for (enum_id = 0; enum_id < router_src_dst_table->ucNumberOfDst;
+							     enum_id++) {
 								if (le16_to_cpu(path->usConnObjectId) ==
-								    le16_to_cpu(dst_objs[enum_id]))
+								    le16_to_cpu(router_src_dst_table->usDstObjectID[enum_id]))
 									break;
 							}
 
@@ -1661,9 +1656,7 @@ struct radeon_encoder_atom_dig *radeon_atombios_get_lvds_info(struct
 								kfree(edid);
 						}
 					}
-					record += fake_edid_record->ucFakeEDIDLength ?
-						fake_edid_record->ucFakeEDIDLength + 2 :
-						sizeof(ATOM_FAKE_EDID_PATCH_RECORD);
+					record += sizeof(ATOM_FAKE_EDID_PATCH_RECORD);
 					break;
 				case LCD_PANEL_RESOLUTION_RECORD_TYPE:
 					panel_res_record = (ATOM_PANEL_RESOLUTION_PATCH_RECORD *)record;

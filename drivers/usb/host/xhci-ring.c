@@ -465,7 +465,7 @@ static void ring_doorbell_for_active_rings(struct xhci_hcd *xhci,
 
 	/* A ring has pending URBs if its TD list is not empty */
 	if (!(ep->ep_state & EP_HAS_STREAMS)) {
-		if (ep->ring && !(list_empty(&ep->ring->td_list)))
+		if (!(list_empty(&ep->ring->td_list)))
 			xhci_ring_ep_doorbell(xhci, slot_id, ep_index, 0);
 		return;
 	}
@@ -882,12 +882,8 @@ remove_finished_td:
 		/* Otherwise ring the doorbell(s) to restart queued transfers */
 		ring_doorbell_for_active_rings(xhci, slot_id, ep_index);
 	}
-
-	/* Clear stopped_td and stopped_trb if endpoint is not halted */
-	if (!(ep->ep_state & EP_HALTED)) {
-		ep->stopped_td = NULL;
-		ep->stopped_trb = NULL;
-	}
+	ep->stopped_td = NULL;
+	ep->stopped_trb = NULL;
 
 	/*
 	 * Drop the lock and complete the URBs in the cancelled TD list.
@@ -1370,12 +1366,6 @@ static void handle_cmd_completion(struct xhci_hcd *xhci,
 			inc_deq(xhci, xhci->cmd_ring, false);
 			return;
 		}
-		/* There is no command to handle if we get a stop event when the
-		 * command ring is empty, event->cmd_trb points to the next
-		 * unset command
-		 */
-		if (xhci->cmd_ring->dequeue == xhci->cmd_ring->enqueue)
-			return;
 	}
 
 	switch (le32_to_cpu(xhci->cmd_ring->dequeue->generic.field[3])

@@ -444,8 +444,7 @@ enum station_info_flags {
 	STATION_INFO_SIGNAL_AVG		= 1<<13,
 	STATION_INFO_RX_BITRATE		= 1<<14,
 	STATION_INFO_BSS_PARAM          = 1<<15,
-	STATION_INFO_CONNECTED_TIME	= 1<<16,
-	STATION_INFO_ASSOC_REQ_IES	= 1<<17
+	STATION_INFO_CONNECTED_TIME	= 1<<16
 };
 
 /**
@@ -559,9 +558,6 @@ struct station_info {
 	struct sta_bss_parameters bss_param;
 
 	int generation;
-
-	const u8 *assoc_req_ies;
-	size_t assoc_req_ies_len;
 };
 
 /**
@@ -1557,7 +1553,6 @@ enum wiphy_flags {
 	WIPHY_FLAG_MESH_AUTH			= BIT(10),
 	WIPHY_FLAG_SUPPORTS_SCHED_SCAN		= BIT(11),
 	WIPHY_FLAG_ENFORCE_COMBINATIONS		= BIT(12),
-	WIPHY_FLAG_HAVE_AP_SME			= BIT(17),
 };
 
 /**

@@ -628,15 +628,7 @@ __update_max_tr(struct trace_array *tr, struct task_struct *tsk, int cpu)
 
 	memcpy(max_data->comm, tsk->comm, TASK_COMM_LEN);
 	max_data->pid = tsk->pid;
-	/*
-	 * If tsk == current, then use current_uid(), as that does not use
-	 * RCU. The irq tracer can be called out of RCU scope.
-	 */
-	if (tsk == current)
-		max_data->uid = current_uid();
-	else
-		max_data->uid = task_uid(tsk);
-
+	max_data->uid = task_uid(tsk);
 	max_data->nice = tsk->static_prio - 20 - MAX_RT_PRIO;
 	max_data->policy = tsk->policy;
 	max_data->rt_priority = tsk->rt_priority;
@@ -3245,7 +3237,6 @@ waitagain:
 	memset(&iter->seq, 0,
 	       sizeof(struct trace_iterator) -
 	       offsetof(struct trace_iterator, seq));
-	cpumask_clear(iter->started);
 	iter->pos = -1;
 
 	trace_event_read_lock();
@@ -3364,7 +3355,6 @@ static ssize_t tracing_splice_read_pipe(struct file *filp,
 		.pages		= pages_def,
 		.partial	= partial_def,
 		.nr_pages	= 0, /* This gets updated below. */
-		.nr_pages_max	= PIPE_DEF_BUFFERS,
 		.flags		= flags,
 		.ops		= &tracing_pipe_buf_ops,
 		.spd_release	= tracing_spd_release_pipe,
@@ -3436,7 +3426,7 @@ static ssize_t tracing_splice_read_pipe(struct file *filp,
 
 	ret = splice_to_pipe(pipe, &spd);
 out:
-	splice_shrink_spd(&spd);
+	splice_shrink_spd(pipe, &spd);
 	return ret;
 
 out_err:
@@ -3849,7 +3839,6 @@ tracing_buffers_splice_read(struct file *file, loff_t *ppos,
 	struct splice_pipe_desc spd = {
 		.pages		= pages_def,
 		.partial	= partial_def,
-		.nr_pages_max	= PIPE_DEF_BUFFERS,
 		.flags		= flags,
 		.ops		= &buffer_pipe_buf_ops,
 		.spd_release	= buffer_spd_release,
@@ -3938,7 +3927,7 @@ tracing_buffers_splice_read(struct file *file, loff_t *ppos,
 	}
 
 	ret = splice_to_pipe(pipe, &spd);
-	splice_shrink_spd(&spd);
+	splice_shrink_spd(pipe, &spd);
 out:
 	return ret;
 }

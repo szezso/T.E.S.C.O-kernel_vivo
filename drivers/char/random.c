@@ -283,14 +283,14 @@
  * The minimum number of bits of entropy before we wake up a read on
  * /dev/random.  Should be enough to do a significant reseed.
  */
-static int random_read_wakeup_thresh = 256;
+static int random_read_wakeup_thresh = 64;
 
 /*
  * If the entropy count falls under this number of bits, then we
  * should wake up processes which are selecting or polling on write
  * access to /dev/random.
  */
-static int random_write_wakeup_thresh = 512;
+static int random_write_wakeup_thresh = 128;
 
 /*
  * When the input pool goes over trickle_thresh, start dropping most
@@ -655,6 +655,8 @@ void add_device_randomness(const void *buf, unsigned int size)
 }
 EXPORT_SYMBOL(add_device_randomness);
 
+static struct timer_rand_state input_timer_state;
+
 /*
  * This function adds entropy to the entropy "pool" by using timing
  * delays.  It uses the timer_rand_state structure to make an estimate
@@ -727,7 +729,16 @@ out:
 void add_input_randomness(unsigned int type, unsigned int code,
 				 unsigned int value)
 {
-  return;
+	static unsigned char last_value;
+
+	/* ignore autorepeat and the like */
+	if (value == last_value)
+		return;
+
+	DEBUG_ENT("input event\n");
+	last_value = value;
+	add_timer_randomness(&input_timer_state,
+			     (type << 4) ^ code ^ (code >> 4) ^ value);
 }
 EXPORT_SYMBOL_GPL(add_input_randomness);
 
@@ -1121,7 +1132,57 @@ void rand_initialize_disk(struct gendisk *disk)
 static ssize_t
 random_read(struct file *file, char __user *buf, size_t nbytes, loff_t *ppos)
 {
-        return extract_entropy_user(&nonblocking_pool, buf, nbytes);
+	ssize_t n, retval = 0, count = 0;
+
+	if (nbytes == 0)
+		return 0;
+
+	while (nbytes > 0) {
+		n = nbytes;
+		if (n > SEC_XFER_SIZE)
+			n = SEC_XFER_SIZE;
+
+		DEBUG_ENT("reading %d bits\n", n*8);
+
+		n = extract_entropy_user(&blocking_pool, buf, n);
+
+		DEBUG_ENT("read got %d bits (%d still needed)\n",
+			  n*8, (nbytes-n)*8);
+
+		if (n == 0) {
+			if (file->f_flags & O_NONBLOCK) {
+				retval = -EAGAIN;
+				break;
+			}
+
+			DEBUG_ENT("sleeping?\n");
+
+			wait_event_interruptible(random_read_wait,
+				input_pool.entropy_count >=
+						 random_read_wakeup_thresh);
+
+			DEBUG_ENT("awake\n");
+
+			if (signal_pending(current)) {
+				retval = -ERESTARTSYS;
+				break;
+			}
+
+			continue;
+		}
+
+		if (n < 0) {
+			retval = n;
+			break;
+		}
+		count += n;
+		buf += n;
+		nbytes -= n;
+		break;		/* This break makes the device work */
+				/* like a named pipe */
+	}
+
+	return (count ? count : retval);
 }
 
 static ssize_t
@@ -1374,11 +1435,12 @@ ctl_table random_table[] = {
 
 static u32 random_int_secret[MD5_MESSAGE_BYTES / 4] ____cacheline_aligned;
 
-int random_int_secret_init(void)
+static int __init random_int_secret_init(void)
 {
 	get_random_bytes(random_int_secret, sizeof(random_int_secret));
 	return 0;
 }
+late_initcall(random_int_secret_init);
 
 /*
  * Get a random word for internal kernel use only. Similar to urandom but

@@ -18,15 +18,12 @@ endif
 
 AFLAGS_head.o := -DTEXT_OFFSET=$(TEXT_OFFSET)
 AFLAGS_head.o += -Wa,-march=armv7-a$(plus_sec)
-AFLAGS_head.o += -Wa,-mcpu=cortex-a8 
 HEAD = head.o
 
 AFLAGS_misc.o +=-Wa,-march=armv7-a$(plus_sec)
-AFLAGS_misc.o += -Wa,-mcpu=cortex-a8
 MISC = misc.o
 
 AFLAGS_decompress.o += -Wa,-march=armv7-a$(plus_sec)
-AFLAGS_decompress.o += -Wa,-mcpu=cortex-a8 
 DECOMPRESS = decompress.o
 
 FONTC	= $(srctree)/drivers/video/console/font_acorn_8x8.c

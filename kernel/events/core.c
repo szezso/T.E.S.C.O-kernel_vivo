@@ -223,9 +223,9 @@ perf_cgroup_match(struct perf_event *event)
 	return !event->cgrp || event->cgrp == cpuctx->cgrp;
 }
 
-static inline bool perf_tryget_cgroup(struct perf_event *event)
+static inline void perf_get_cgroup(struct perf_event *event)
 {
-	return css_tryget(&event->cgrp->css);
+	css_get(&event->cgrp->css);
 }
 
 static inline void perf_put_cgroup(struct perf_event *event)
@@ -342,8 +342,6 @@ void perf_cgroup_switch(struct task_struct *task, int mode)
 	list_for_each_entry_rcu(pmu, &pmus, entry) {
 
 		cpuctx = this_cpu_ptr(pmu->pmu_cpu_context);
-		if (cpuctx->unique_pmu != pmu)
-			continue; /* ensure we process each cpuctx once */
 
 		perf_pmu_disable(cpuctx->ctx.pmu);
 
@@ -367,10 +365,9 @@ void perf_cgroup_switch(struct task_struct *task, int mode)
 
 			if (mode & PERF_CGROUP_SWIN) {
 				WARN_ON_ONCE(cpuctx->cgrp);
-				/*
-				 * set cgrp before ctxsw in to allow
-				 * event_filter_match() to not have to pass
-				 * task around
+				/* set cgrp before ctxsw in to
+				 * allow event_filter_match() to not
+				 * have to pass task around
 				 */
 				cpuctx->cgrp = perf_cgroup_from_task(task);
 				cpu_ctx_sched_in(cpuctx, EVENT_ALL, task);
@@ -418,11 +415,7 @@ static inline int perf_cgroup_connect(int fd, struct perf_event *event,
 	event->cgrp = cgrp;
 
 	/* must be done before we fput() the file */
-	if (!perf_tryget_cgroup(event)) {
-		event->cgrp = NULL;
-		ret = -ENOENT;
-		goto out;
-	}
+	perf_get_cgroup(event);
 
 	/*
 	 * all events in a group must monitor
@@ -658,18 +651,8 @@ perf_lock_task_context(struct task_struct *task, int ctxn, unsigned long *flags)
 {
 	struct perf_event_context *ctx;
 
-retry:
-	/*
-	 * One of the few rules of preemptible RCU is that one cannot do
-	 * rcu_read_unlock() while holding a scheduler (or nested) lock when
-	 * part of the read side critical section was preemptible -- see
-	 * rcu_read_unlock_special().
-	 *
-	 * Since ctx->lock nests under rq->lock we must ensure the entire read
-	 * side critical section is non-preemptible.
-	 */
-	preempt_disable();
 	rcu_read_lock();
+retry:
 	ctx = rcu_dereference(task->perf_event_ctxp[ctxn]);
 	if (ctx) {
 		/*
@@ -685,8 +668,6 @@ retry:
 		raw_spin_lock_irqsave(&ctx->lock, *flags);
 		if (ctx != rcu_dereference(task->perf_event_ctxp[ctxn])) {
 			raw_spin_unlock_irqrestore(&ctx->lock, *flags);
-			rcu_read_unlock();
-			preempt_enable();
 			goto retry;
 		}
 
@@ -696,7 +677,6 @@ retry:
 		}
 	}
 	rcu_read_unlock();
-	preempt_enable();
 	return ctx;
 }
 
@@ -843,15 +823,6 @@ list_add_event(struct perf_event *event, struct perf_event_context *ctx)
 	ctx->nr_events++;
 	if (event->attr.inherit_stat)
 		ctx->nr_stat++;
-}
-
-/*
- * Initialize event state based on the perf_event_attr::disabled.
- */
-static inline void perf_event__state_init(struct perf_event *event)
-{
-	event->state = event->attr.disabled ? PERF_EVENT_STATE_OFF :
-					      PERF_EVENT_STATE_INACTIVE;
 }
 
 /*
@@ -1645,16 +1616,7 @@ static int __perf_event_enable(void *info)
 	struct perf_cpu_context *cpuctx = __get_cpu_context(ctx);
 	int err;
 
-	/*
-	 * There's a time window between 'ctx->is_active' check
-	 * in perf_event_enable function and this place having:
-	 *   - IRQs on
-	 *   - ctx->lock unlocked
-	 *
-	 * where the task could be killed and 'ctx' deactivated
-	 * by perf_event_exit_task.
-	 */
-	if (!ctx->is_active)
+	if (WARN_ON_ONCE(!ctx->is_active))
 		return -EINVAL;
 
 	raw_spin_lock(&ctx->lock);
@@ -4582,7 +4544,7 @@ static void perf_event_task_event(struct perf_task_event *task_event)
 	rcu_read_lock();
 	list_for_each_entry_rcu(pmu, &pmus, entry) {
 		cpuctx = get_cpu_ptr(pmu->pmu_cpu_context);
-		if (cpuctx->unique_pmu != pmu)
+		if (cpuctx->active_pmu != pmu)
 			goto next;
 		perf_event_task_ctx(&cpuctx->ctx, task_event);
 
@@ -4728,7 +4690,7 @@ static void perf_event_comm_event(struct perf_comm_event *comm_event)
 	rcu_read_lock();
 	list_for_each_entry_rcu(pmu, &pmus, entry) {
 		cpuctx = get_cpu_ptr(pmu->pmu_cpu_context);
-		if (cpuctx->unique_pmu != pmu)
+		if (cpuctx->active_pmu != pmu)
 			goto next;
 		perf_event_comm_ctx(&cpuctx->ctx, comm_event);
 
@@ -4924,7 +4886,7 @@ got_name:
 	rcu_read_lock();
 	list_for_each_entry_rcu(pmu, &pmus, entry) {
 		cpuctx = get_cpu_ptr(pmu->pmu_cpu_context);
-		if (cpuctx->unique_pmu != pmu)
+		if (cpuctx->active_pmu != pmu)
 			goto next;
 		perf_event_mmap_ctx(&cpuctx->ctx, mmap_event,
 					vma->vm_flags & VM_EXEC);
@@ -5950,8 +5912,8 @@ static void update_pmu_context(struct pmu *pmu, struct pmu *old_pmu)
 
 		cpuctx = per_cpu_ptr(pmu->pmu_cpu_context, cpu);
 
-		if (cpuctx->unique_pmu == old_pmu)
-			cpuctx->unique_pmu = pmu;
+		if (cpuctx->active_pmu == old_pmu)
+			cpuctx->active_pmu = pmu;
 	}
 }
 
@@ -6083,7 +6045,7 @@ skip_type:
 		cpuctx->ctx.pmu = pmu;
 		cpuctx->jiffies_interval = 1;
 		INIT_LIST_HEAD(&cpuctx->rotation_list);
-		cpuctx->unique_pmu = pmu;
+		cpuctx->active_pmu = pmu;
 	}
 
 got_cpu_context:
@@ -6257,7 +6219,8 @@ perf_event_alloc(struct perf_event_attr *attr, int cpu,
 
 	event->overflow_handler	= overflow_handler;
 
-	perf_event__state_init(event);
+	if (attr->disabled)
+		event->state = PERF_EVENT_STATE_OFF;
 
 	pmu = NULL;
 
@@ -6631,17 +6594,9 @@ SYSCALL_DEFINE5(perf_event_open,
 
 		mutex_lock(&gctx->mutex);
 		perf_remove_from_context(group_leader);
-
-		/*
-		 * Removing from the context ends up with disabled
-		 * event. What we want here is event in the initial
-		 * startup state, ready to be add into new context.
-		 */
-		perf_event__state_init(group_leader);
 		list_for_each_entry(sibling, &group_leader->sibling_list,
 				    group_entry) {
 			perf_remove_from_context(sibling);
-			perf_event__state_init(sibling);
 			put_ctx(gctx);
 		}
 		mutex_unlock(&gctx->mutex);
@@ -7109,7 +7064,7 @@ inherit_task_group(struct perf_event *event, struct task_struct *parent,
 		 * child.
 		 */
 
-		child_ctx = alloc_perf_context(parent_ctx->pmu, child);
+		child_ctx = alloc_perf_context(event->pmu, child);
 		if (!child_ctx)
 			return -ENOMEM;
 

@@ -173,14 +173,6 @@ config CPU_FREQ_GOV_ONDEMAND
 
 	  If in doubt, say N.
 
-config CPU_FREQ_GOV_SMARTASSH3
-  	tristate "'SmartassH3' cpufreq governor"
-  	depends on CPU_FREQ
-  	help
-    	  'SmartassH3' - a "smartassV2 with tweaks by H3ROS" governor!
-
-    	  If in doubt, say N.
-
 config CPU_FREQ_GOV_ONDEMAND_2_PHASE
 	tristate "'2-phase' power-efficiency ondemand algorithm"
 	depends on CPU_FREQ_GOV_ONDEMAND
