@@ -14,12 +14,14 @@
 #define _ARCH_IOMMU_DOMAINS_H
 
 enum {
+	VIDEO_DOMAIN,
 	GLOBAL_DOMAIN,
 	MAX_DOMAINS
 };
 
 enum {
 	VIDEO_FIRMWARE_POOL,
+	VIDEO_MAIN_POOL,
 	LOW_256MB_POOL,
 	HIGH_POOL,
 };
@@ -48,7 +50,13 @@ extern int msm_use_iommu(void);
 extern int msm_iommu_map_extra(struct iommu_domain *domain,
 						unsigned long start_iova,
 						unsigned long size,
+						unsigned long page_size,
 						int cached);
+
+extern void msm_iommu_unmap_extra(struct iommu_domain *domain,
+						unsigned long start_iova,
+						unsigned long size,
+						unsigned long page_size);
 
 #else
 static inline struct iommu_domain
@@ -84,9 +92,17 @@ static inline int msm_use_iommu(void)
 static inline int msm_iommu_map_extra(struct iommu_domain *domain,
 						unsigned long start_iova,
 						unsigned long size,
+						unsigned long page_size,
 						int cached)
 {
 	return -ENODEV;
+}
+
+static inline void msm_iommu_unmap_extra(struct iommu_domain *domain,
+						unsigned long start_iova,
+						unsigned long size,
+						unsigned long page_size)
+{
 }
 #endif
 

@@ -16,14 +16,11 @@
 #include "vcd_ddl_utils.h"
 #include "vcd_ddl_metadata.h"
 
-/*HTC_START*/
-extern u32 vidc_msg_debug;
-#define DBG(x...)				\
-	if (vidc_msg_debug) {			\
-		printk(KERN_DEBUG "[VID] " x);	\
-	}
-/*HTC_END*/
-
+#if DEBUG
+#define DBG(x...) printk(KERN_DEBUG x)
+#else
+#define DBG(x...)
+#endif
 
 static void ddl_decoder_input_done_callback(
 	struct	ddl_client_context *ddl, u32 frame_transact_end);
@@ -293,11 +290,6 @@ static u32 ddl_header_done_callback(struct ddl_context *ddl_context)
 			decoder->client_output_buf_req.actual_count
 			&& decoder->progressive_only)
 			need_reconfig = false;
-        printk("\n input_vcd_frm->flags = 0x%x\n", (u32)input_vcd_frm->flags);
-		if (input_vcd_frm->flags & VCD_FRAME_FLAG_EOS) {
-			need_reconfig = false;
-			printk("need_reconfig=%d\n", need_reconfig);
-		}
 		if ((input_vcd_frm->data_len <= seq_hdr_info.dec_frm_size ||
 			 (input_vcd_frm->flags & VCD_FRAME_FLAG_CODECCONFIG)) &&
 			(!need_reconfig ||
@@ -307,12 +299,6 @@ static u32 ddl_header_done_callback(struct ddl_context *ddl_context)
 			seq_hdr_only_frame = true;
 			input_vcd_frm->data_len = 0;
 			ddl->input_frame.frm_trans_end = !need_reconfig;
-            printk("ddl_callback: INPUT_DONE: data_len=%d, dec_frm_sz=%d, "
-				"flags=0x%x, trans_end=%d\n",
-				input_vcd_frm->data_len,
-				seq_hdr_info.dec_frm_size,
-				input_vcd_frm->flags,
-				ddl->input_frame.frm_trans_end);
 			ddl_context->ddl_callback(
 				VCD_EVT_RESP_INPUT_DONE,
 				VCD_S_SUCCESS, &ddl->input_frame,
@@ -348,7 +334,6 @@ static u32 ddl_header_done_callback(struct ddl_context *ddl_context)
 		} else
 			DDL_IDLE(ddl_context);
 	}
-    printk("\nprocess_further = %d\n",process_further);
 	return process_further;
 }
 
