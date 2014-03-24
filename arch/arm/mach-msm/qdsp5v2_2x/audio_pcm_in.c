@@ -878,7 +878,7 @@ static int audpcm_in_open(struct inode *inode, struct file *file)
 	current_audio_in = audio;
 #endif
 
-	audio->phys = allocate_contiguous_memory_nomap(DMASZ, MEMTYPE_EBI1, SZ_4K);
+	audio->phys = allocate_contiguous_memory_nomap(DMASZ, MEMTYPE_EBI0, SZ_4K);
         if (!IS_ERR((void *) audio->phys)) {
 		audio->data = ioremap(audio->phys, DMASZ);
                 if (!audio->data) {
