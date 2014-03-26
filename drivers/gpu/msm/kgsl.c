@@ -26,11 +26,7 @@
 #include <linux/ashmem.h>
 #include <linux/major.h>
 #include <linux/highmem.h>
-#ifdef CONFIG_KGSL_COMPAT
-#include <linux/ion.h>
-#else
 #include <linux/msm_ion.h>
-#endif
 #include <linux/io.h>
 #include <mach/socinfo.h>
 
@@ -679,6 +675,9 @@ kgsl_get_process_private(struct kgsl_device *device,
 	struct kgsl_process_private *private;
 
 	private = kgsl_find_process_private(cur_dev_priv);
+
+	if (!private)
+		return NULL;
 
 	mutex_lock(&private->process_private_mutex);
 	if (!private->mem_rb.rb_node)
