@@ -96,7 +96,6 @@ static enum hrtimer_restart flashlight_hrtimer_func(struct hrtimer *timer)
 			struct flashlight_struct, timer);
 	FLT_INFO_LOG("%s: turn off flash mode\n", __func__);
 	spin_lock_irqsave(&fl_str->spin_lock, fl_str->spinlock_flags);
-	flashlight_turn_off();
 	spin_unlock_irqrestore(&fl_str->spin_lock, fl_str->spinlock_flags);
 	return HRTIMER_NORESTART;
 }
