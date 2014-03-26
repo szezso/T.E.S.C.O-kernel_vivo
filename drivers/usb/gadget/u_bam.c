@@ -816,8 +816,6 @@ static void gbam_debugfs_init(void)
 	if (!dfile || IS_ERR(dfile))
 		debugfs_remove(dent);
 }
-#else
-static void gam_debugfs_init(void) { }
 #endif
 
 void gbam_disconnect(struct grmnet *gr, u8 port_num)
@@ -939,7 +937,9 @@ int gbam_setup(unsigned int count)
 		}
 	}
 
+#if defined(CONFIG_DEBUG_FS)
 	gbam_debugfs_init();
+#endif
 
 	return 0;
 free_bam_ports:
