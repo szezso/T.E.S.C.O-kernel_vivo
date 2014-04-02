@@ -150,6 +150,7 @@ int htc_get_usb_accessory_adc_level(uint32_t *buffer);
 
 #ifdef CONFIG_ION_MSM
 static struct platform_device ion_dev;
+#define MSM_ION_HEAP_NUM       3
 #endif
 
 struct pm8xxx_gpio_init_info {
@@ -1602,8 +1603,8 @@ static void Vivo_seccam_clk_switch(void){
 static struct camera_flash_cfg msm_camera_sensor_flash_cfg = {
 	.camera_flash = flashlight_control,
 	.num_flash_levels = FLASHLIGHT_NUM,
-	.low_temp_limit = 5,
-	.low_cap_limit = 1,
+	.low_temp_limit = 10,
+	.low_cap_limit = 15,
 };
 
 #ifdef CONFIG_S5K3H1GX

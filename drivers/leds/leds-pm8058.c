@@ -27,6 +27,10 @@
 #include <mach/htc_headset_misc.h>
 #endif
 
+#ifdef CONFIG_TOUCHSCREEN_ATMEL_SWEEP2WAKE
+#include <linux/atmel_qt602240.h>
+#endif
+
 #ifdef CONFIG_LEDS_PM8058_multiplier
 #include <linux/leds-pm8058-multiplier.h>
 #endif
@@ -466,7 +470,10 @@ static ssize_t pm8058_led_off_timer_store(struct device *dev,
 						}
 	}
 #else
-	off_timer = 0;
+	LED_INFO_LOG("Setting %s off_timer to %d min %d sec\n",
+					   led_cdev->name, min, sec);
+
+	off_timer = min * 60 + sec;
 #endif
 	alarm_cancel(&ldata->led_alarm);
 	cancel_work_sync(&ldata->led_work);
@@ -759,6 +766,13 @@ static int pm8058_led_probe(struct platform_device *pdev)
 			goto err_register_attr_pwm_coefficient;
 		}
 	}
+
+#ifdef CONFIG_TOUCHSCREEN_ATMEL_SWEEP2WAKE
+	if (!strcmp(pdata->led_config[2].name, "button-backlight")) {
+		sweep2wake_setleddev(&ldata[2].ldev);
+		printk(KERN_INFO "[sweep2wake]: set led device %s, bank %d\n", pdata->led_config[2].name, ldata[2].bank);
+	}
+#endif
 
 	return 0;
 
