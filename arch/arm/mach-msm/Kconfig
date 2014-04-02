@@ -41,6 +41,8 @@ config ARCH_MSM7X30
 	select RESERVE_FIRST_PAGE
 	select MSM_DALRPC
 	select MSM_SPM_V1
+	select ARM_HAS_SG_CHAIN
+	select MSM_MULTIMEDIA_USE_ION
 
 config ARCH_QSD8X50
 	bool "QSD8X50"
