@@ -245,8 +245,8 @@
 #endif
 
 
-extern struct platform_device msm_device_mdp;
-extern struct platform_device msm_device_mddi0;
+extern struct platform_device msm_mdp_device;
+extern struct platform_device msm_mddi_device;
 extern int panel_type;
 
 int vivo_panel_sleep_in(void);
