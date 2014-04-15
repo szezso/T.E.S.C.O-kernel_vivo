@@ -54,7 +54,6 @@ MODULE_DEVICE_TABLE (usb, wdm_ids);
 #define WDM_POLL_RUNNING	6
 #define WDM_RESPONDING		7
 #define WDM_SUSPENDING		8
-#define WDM_OVERFLOW		10
 
 #define WDM_MAX			16
 
@@ -119,7 +118,6 @@ static void wdm_in_callback(struct urb *urb)
 {
 	struct wdm_device *desc = urb->context;
 	int status = urb->status;
-	int length = urb->actual_length;
 
 	spin_lock(&desc->iuspin);
 	clear_bit(WDM_RESPONDING, &desc->flags);
@@ -150,17 +148,9 @@ static void wdm_in_callback(struct urb *urb)
 	}
 
 	desc->rerr = status;
-	if (length + desc->length > desc->wMaxCommand) {
-		/* The buffer would overflow */
-		set_bit(WDM_OVERFLOW, &desc->flags);
-	} else {
-		/* we may already be in overflow */
-		if (!test_bit(WDM_OVERFLOW, &desc->flags)) {
-			memmove(desc->ubuf + desc->length, desc->inbuf, length);
-			desc->length += length;
-			desc->reslength = length;
-		}
-	}
+	desc->reslength = urb->actual_length;
+	memmove(desc->ubuf + desc->length, desc->inbuf, desc->reslength);
+	desc->length += desc->reslength;
 skip_error:
 	wake_up(&desc->wait);
 
@@ -427,11 +417,6 @@ retry:
 			rv = -ENODEV;
 			goto err;
 		}
-		if (test_bit(WDM_OVERFLOW, &desc->flags)) {
-			clear_bit(WDM_OVERFLOW, &desc->flags);
-			rv = -ENOBUFS;
-			goto err;
-		}
 		i++;
 		if (file->f_flags & O_NONBLOCK) {
 			if (!test_bit(WDM_READ, &desc->flags)) {
@@ -471,7 +456,6 @@ retry:
 			spin_unlock_irq(&desc->iuspin);
 			goto retry;
 		}
-
 		if (!desc->reslength) { /* zero length read */
 			dev_dbg(&desc->intf->dev, "%s: zero length - clearing WDM_READ\n", __func__);
 			clear_bit(WDM_READ, &desc->flags);
@@ -917,7 +901,6 @@ static int wdm_post_reset(struct usb_interface *intf)
 	struct wdm_device *desc = usb_get_intfdata(intf);
 	int rv;
 
-	clear_bit(WDM_OVERFLOW, &desc->flags);
 	rv = recover_from_urb_loss(desc);
 	mutex_unlock(&desc->wlock);
 	mutex_unlock(&desc->rlock);

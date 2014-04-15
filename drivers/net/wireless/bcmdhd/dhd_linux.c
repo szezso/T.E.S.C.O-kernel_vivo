@@ -423,11 +423,7 @@ uint dhd_intr = TRUE;
 module_param(dhd_intr, uint, 0);
 
 /* SDIO Drive Strength (in milliamps) */
-#if defined(CONFIG_MACH_VILLEC2)
-uint dhd_sdiod_drive_strength = 3;
-#else
 uint dhd_sdiod_drive_strength = 6;
-#endif
 module_param(dhd_sdiod_drive_strength, uint, 0);
 
 /* Tx/Rx bounds */
@@ -539,7 +535,7 @@ static int dhd_sleep_pm_callback(struct notifier_block *nfb, unsigned long actio
 
 static struct notifier_block dhd_sleep_pm_notifier = {
 	.notifier_call = dhd_sleep_pm_callback,
-	.priority = 0
+	.priority = 10
 };
 extern int register_pm_notifier(struct notifier_block *nb);
 extern int unregister_pm_notifier(struct notifier_block *nb);
@@ -580,6 +576,7 @@ extern int wl_pattern_atoh(char *src, char *dst);
 static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 {
 	int is_screen_off = value;
+	int ret = 0;
 /* HTC_CSP_START */
 #ifdef BCM4329_LOW_POWER
 	int ignore_bcmc = 1;
@@ -611,7 +608,10 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 				/* ignore broadcast and multicast packet*/
 				bcm_mkiovar("pm_ignore_bcmc", (char *)&ignore_bcmc,
 					4, iovbuf, sizeof(iovbuf));
-				dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
+				ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
+				if (ret < 0) {
+					DHD_ERROR(("%s: can't set pm_ignore , error=%d\n", __func__, ret));					
+				}				
 				/* keep alive packet*/
 				dhd_set_keepalive(1);
 			}
@@ -622,6 +622,8 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 				/* Kernel suspended */
 				DHD_TRACE(("%s: force extra Suspend setting \n", __FUNCTION__));
 
+				/* Enable packet filter, only allow unicast packet to send up */
+				dhd_set_packet_filter(1, dhd);
 #ifdef PNO_SUPPORT
 				/* set pfn */
 				dhd_set_pfn(dhd, 1);
@@ -644,6 +646,8 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 				/* Kernel resumed  */
 				DHD_TRACE(("%s: Remove extra suspend setting \n", __FUNCTION__));
 
+				/* disable pkt filter */
+				dhd_set_packet_filter(0, dhd);
 #ifdef PNO_SUPPORT
 				dhd_set_pfn(dhd, 0);
 #endif
@@ -1741,7 +1745,7 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 	int i;
 	dhd_if_t *ifp;
 	wl_event_msg_t event;
-	int tout = DHD_PACKET_TIMEOUT;
+	int tout = DHD_PACKET_TIMEOUT_MS;
 #ifdef HTC_KlocWork
 	memset(&event,0,sizeof(event));
 #endif
@@ -1885,6 +1889,7 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 			&data);
 
 			wl_event_to_host_order(&event);
+ 			tout = DHD_EVENT_TIMEOUT_MS;
 			if (event.event_type == WLC_E_BTA_HCI_EVENT) {
 #ifdef HTC_KlocWork
 				if(!data) {
@@ -1893,8 +1898,9 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 				else
 #endif
 				dhd_bta_doevt(dhdp, data, event.datalen);
+			} else if (event.event_type == WLC_E_PFN_NET_FOUND) {
+				tout *= 2;
 			}
-			tout = DHD_EVENT_TIMEOUT;
 		}
 
 		ASSERT(ifidx < DHD_MAX_IFS && dhd->iflist[ifidx]);
@@ -2468,7 +2474,7 @@ dhd_ioctl_entry(struct net_device *net, struct ifreq *ifr, int cmd)
 	/* send to dongle only if we are not waiting for reload already */
 	if (dhd->pub.hang_was_sent) {
 		DHD_ERROR(("%s: HANG was sent up earlier\n", __FUNCTION__));
-		DHD_OS_WAKE_LOCK_TIMEOUT_ENABLE(&dhd->pub, DHD_EVENT_TIMEOUT);
+		DHD_OS_WAKE_LOCK_TIMEOUT_ENABLE(&dhd->pub, DHD_EVENT_TIMEOUT_MS);
 		DHD_OS_WAKE_UNLOCK(&dhd->pub);
 		return OSL_ERROR(BCME_DONGLE_DOWN);
 	}
@@ -2637,8 +2643,10 @@ dhd_ioctl_entry(struct net_device *net, struct ifreq *ifr, int cmd)
 	}
 #endif /* WLMEDIA_HTSF */
 
-	bcmerror = dhd_wl_ioctl(&dhd->pub, ifidx, (wl_ioctl_t *)&ioc, buf, buflen);
-
+	/* HTC_CSP_START*/
+	if (buf != NULL)
+		bcmerror = dhd_wl_ioctl(&dhd->pub, ifidx, (wl_ioctl_t *)&ioc, buf, buflen);
+	/* HTC_CSP_END*/
 done:
 	dhd_check_hang(net, &dhd->pub, bcmerror);
 
@@ -2826,14 +2834,14 @@ err:
 }
 #endif /* DHD_BCM_WIFI_HDMI */
 
-#define BCM4330B1_STA_FW_PATH "/system/vendor/firmware/fw_bcm4330_b1.bin"
-#define BCM4330B1_APSTA_FW_PATH "/system/vendor/firmware/fw_bcm4330_apsta_b1.bin"
-#define BCM4330B1_P2P_FW_PATH "/system/vendor/firmware/fw_bcm4330_p2p_b1.bin"
-#define BCM4330B1_MFG_FW_PATH "/system/vendor/firmware/bcm_mfg.bin"
-#define BCM4330B2_STA_FW_PATH "/system/vendor/firmware/fw_bcm4330_b2.bin"
-#define BCM4330B2_APSTA_FW_PATH "/system/vendor/firmware/fw_bcm4330_apsta_b2.bin"
-#define BCM4330B2_P2P_FW_PATH "/system/vendor/firmware/fw_bcm4330_p2p_b2.bin"
-#define BCM4330B2_MFG_FW_PATH "/system/vendor/firmware/bcm_mfg2.bin"
+#define BCM4330B1_STA_FW_PATH "/system/etc/firmware/fw_bcm4330_b1.bin"
+#define BCM4330B1_APSTA_FW_PATH "/system/etc/firmware/fw_bcm4330_apsta_b1.bin"
+#define BCM4330B1_P2P_FW_PATH "/system/etc/firmware/fw_bcm4330_p2p_b1.bin"
+#define BCM4330B1_MFG_FW_PATH "/system/etc/firmware/bcm_mfg.bin"
+#define BCM4330B2_STA_FW_PATH "/system/etc/firmware/fw_bcm4330_b2.bin"
+#define BCM4330B2_APSTA_FW_PATH "/system/etc/firmware/fw_bcm4330_apsta_b2.bin"
+#define BCM4330B2_P2P_FW_PATH "/system/etc/firmware/fw_bcm4330_p2p_b2.bin"
+#define BCM4330B2_MFG_FW_PATH "/system/etc/firmware/bcm_mfg2.bin"
 
 static int
 dhd_open(struct net_device *net)
@@ -3440,11 +3448,14 @@ dhd_bus_start(dhd_pub_t *dhdp)
 		dhd_set_pktfilter(dhdp, 1, ALLOW_IPV6_MULTICAST, 0, "0xffff", "0x3333");
 #endif
 	}
-#else
-	dhdp->pktfilter_count = 1;
+#endif
+	dhdp->pktfilter_count = 4;
 	/* Setup filter to allow only unicast */
 	dhdp->pktfilter[0] = "100 0 0 0 0x01 0x00";
-#endif
+	dhdp->pktfilter[1] = NULL;
+	dhdp->pktfilter[2] = NULL;
+	dhdp->pktfilter[3] = NULL;
+
 #ifdef WRITE_MACADDR
 	dhd_write_macaddr(dhd->pub.mac.octet);
 #endif
@@ -3496,7 +3507,7 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	uint power_mode = PM_FAST;
 	uint32 dongle_align = DHD_SDALIGN;
 	uint32 glom = 0;
-	uint bcn_timeout = 4;
+	uint bcn_timeout = 4; //[Broadcom 0423]
 	uint retry_max = 10;
 #if defined(ARP_OFFLOAD_SUPPORT)
 	int arpoe = 0; /* Do not enable ARP offload feature since it has bug */
@@ -3529,6 +3540,8 @@ int ht_wsec_restrict = WLC_HT_TKIP_RESTRICT | WLC_HT_WEP_RESTRICT;
 #ifdef GET_CUSTOM_MAC_ENABLE
 	struct ether_addr ea_addr;
 #endif /* GET_CUSTOM_MAC_ENABLE */
+	uint srl = 15;
+	uint lrl = 15;
 
 	DHD_TRACE(("Enter %s\n", __func__));
 	dhd->op_mode = 0;
@@ -3917,6 +3930,10 @@ int ht_wsec_restrict = WLC_HT_TKIP_RESTRICT | WLC_HT_WEP_RESTRICT;
 	ret = 1;
 	bcm_mkiovar("tc_enable", (char *)&ret, 4, iovbuf, sizeof(iovbuf));
 	dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
+
+	/* set srl and lrl */
+	dhd_wl_ioctl_cmd(dhd, WLC_SET_SRL, (char *)&srl, sizeof(srl), TRUE, 0);
+	dhd_wl_ioctl_cmd(dhd, WLC_SET_LRL, (char *)&lrl, sizeof(lrl), TRUE, 0);
 /* HTC_CSP_END */
 
 done:
@@ -5384,7 +5401,7 @@ int dhd_os_wake_lock_timeout(dhd_pub_t *pub)
 #ifdef CONFIG_HAS_WAKELOCK
 		if (dhd->wakelock_timeout_enable)
 			wake_lock_timeout(&dhd->wl_rxwake,
-				dhd->wakelock_timeout_enable * HZ);
+				msecs_to_jiffies(dhd->wakelock_timeout_enable));
 #endif
 		dhd->wakelock_timeout_enable = 0;
 		spin_unlock_irqrestore(&dhd->wakelock_spinlock, flags);

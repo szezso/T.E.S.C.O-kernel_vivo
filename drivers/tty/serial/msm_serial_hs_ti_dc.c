@@ -1577,48 +1577,6 @@ void ti_dc_msm_hs_request_clock_on(struct uart_port *uport)
 }
 EXPORT_SYMBOL(ti_dc_msm_hs_request_clock_on);
 
-static void msm_hs_request_clock_on_locked(struct uart_port *uport)
-{
-	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
-	unsigned int data;
-	int ret = 0;
-
-	switch (msm_uport->clk_state) {
-	case MSM_HS_CLK_OFF:
-		wake_lock(&msm_uport->dma_wake_lock);
-		clk_enable(msm_uport->clk);
-		if (msm_uport->pclk)
-			ret = clk_enable(msm_uport->pclk);
-		disable_irq_nosync(msm_uport->wakeup.irq);
-		if (unlikely(ret)) {
-			dev_err(uport->dev, "Clock ON Failure"
-				"Stalling HSUART\n");
-			break;
-		}
-		/* else fall-through */
-	case MSM_HS_CLK_REQUEST_OFF:
-		if (msm_uport->rx.flush == FLUSH_STOP ||
-		    msm_uport->rx.flush == FLUSH_SHUTDOWN) {
-			msm_hs_write(uport, UARTDM_CR_ADDR, RESET_RX);
-			data = msm_hs_read(uport, UARTDM_DMEN_ADDR);
-			data |= UARTDM_RX_DM_EN_BMSK;
-			msm_hs_write(uport, UARTDM_DMEN_ADDR, data);
-			/* Complete above device write. Hence mb() here. */
-			mb();
-		}
-		hrtimer_try_to_cancel(&msm_uport->clk_off_timer);
-		if (msm_uport->rx.flush == FLUSH_SHUTDOWN)
-			msm_hs_start_rx_locked(uport);
-		if (msm_uport->rx.flush == FLUSH_STOP)
-			msm_uport->rx.flush = FLUSH_IGNORE;
-		msm_uport->clk_state = MSM_HS_CLK_ON;
-		break;
-	case MSM_HS_CLK_ON:
-		break;
-	case MSM_HS_CLK_PORT_OFF:
-		break;
-	}
-}
 /*
 void msm_hs_request_clock_on(struct uart_port *uport) {
 	unsigned long flags;

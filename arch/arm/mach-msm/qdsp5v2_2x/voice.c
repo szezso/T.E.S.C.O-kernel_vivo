@@ -205,14 +205,9 @@ static void voice_auddev_cb_function(u32 evt_id,
 				/* block to wait for CHANGE_START */
 				pr_info("start waiting for "
 					"voc_state -> VOICE_CHANGE\n");
-				/*Add timeout for wait event interruptible*/
-				rc = wait_event_interruptible_timeout(
+				rc = wait_event_interruptible(
 				v->voc_wait, (v->voc_state == VOICE_CHANGE)
-				|| (atomic_read(&v->rel_start_flag) == 1), msecs_to_jiffies(1000));
-				if (rc == 0) {
-					pr_info("wait timeout, voc_state = %d\n", v->voc_state);
-					return;
-				}
+				|| (atomic_read(&v->rel_start_flag) == 1));
 				pr_aud_info("wait done, voc_state = %d\n", v->voc_state);
 			} else {
 				MM_ERR("Get AUDDEV_EVT_DEV_CHG_VOICE "

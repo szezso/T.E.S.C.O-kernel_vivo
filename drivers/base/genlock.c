@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -116,7 +116,6 @@ static const struct file_operations genlock_fops = {
 struct genlock *genlock_create_lock(struct genlock_handle *handle)
 {
 	struct genlock *lock;
-	void *ret;
 
 	if (IS_ERR_OR_NULL(handle)) {
 		GENLOCK_LOG_ERR("Invalid handle\n");
@@ -146,13 +145,8 @@ struct genlock *genlock_create_lock(struct genlock_handle *handle)
 	 * other processes
 	 */
 
-	ret = anon_inode_getfile("genlock", &genlock_fops, lock, O_RDWR);
-	if (IS_ERR_OR_NULL(ret)) {
-		GENLOCK_LOG_ERR("Unable to create lock inode\n");
-		kfree(lock);
-		return ret;
-	}
-	lock->file = ret;
+	lock->file = anon_inode_getfile("genlock", &genlock_fops,
+		lock, O_RDWR);
 
 	/* Attach the new lock to the handle */
 	handle->lock = lock;
@@ -666,19 +660,12 @@ static struct genlock_handle *_genlock_get_handle(void)
 
 struct genlock_handle *genlock_get_handle(void)
 {
-	void *ret;
 	struct genlock_handle *handle = _genlock_get_handle();
 	if (IS_ERR(handle))
 		return handle;
 
-	ret = anon_inode_getfile("genlock-handle",
+	handle->file = anon_inode_getfile("genlock-handle",
 		&genlock_handle_fops, handle, O_RDWR);
-	if (IS_ERR_OR_NULL(ret)) {
-		GENLOCK_LOG_ERR("Unable to create handle inode\n");
-		kfree(handle);
-		return ret;
-	}
-	handle->file = ret;
 
 	return handle;
 }
@@ -712,50 +699,6 @@ struct genlock_handle *genlock_get_handle_fd(int fd)
 }
 EXPORT_SYMBOL(genlock_get_handle_fd);
 
-/*
- * Get a file descriptor reference to a lock suitable for sharing with
- * other processes
- */
-
-int genlock_get_fd_handle(struct genlock_handle *handle)
-{
-	int ret;
-	struct genlock *lock;
-
-	if (IS_ERR_OR_NULL(handle))
-		return -EINVAL;
-
-	lock = handle->lock;
-
-	if (IS_ERR(lock))
-		return PTR_ERR(lock);
-
-	if (!lock->file) {
-		GENLOCK_LOG_ERR("No file attached to the lock\n");
-		return -EINVAL;
-	}
-
-	ret = get_unused_fd_flags(0);
-
-	if (ret < 0)
-		return ret;
-
-	fd_install(ret, lock->file);
-
-	/*
-	 * Taking a reference for lock file.
-	 * This is required as now we have two file descriptor
-	 * pointing to same file. If one FD is closed, lock file
-	 * will be closed. Taking this reference will make sure
-	 * that file doesn't get close. This refrence will go
-	 * when client will call close on this FD.
-	 */
-	fget(ret);
-
-	return ret;
-}
-EXPORT_SYMBOL(genlock_get_fd_handle);
-
 #ifdef CONFIG_GENLOCK_MISCDEVICE
 
 static long genlock_dev_ioctl(struct file *filep, unsigned int cmd,
@@ -787,8 +730,6 @@ static long genlock_dev_ioctl(struct file *filep, unsigned int cmd,
 		ret = genlock_get_fd(handle->lock);
 		if (ret < 0)
 			return ret;
-
-		memset(&param, 0, sizeof(param));
 
 		param.fd = ret;
 

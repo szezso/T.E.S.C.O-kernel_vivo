@@ -121,7 +121,11 @@ u32 wl_dbg_level = WL_DBG_ERR ;
 /* Set this to 1 to use a seperate interface (p2p0)
  *  for p2p operations.
  */
+#ifdef CONFIG_BCMDHD_P2P_INTERFACE
+#define ENABLE_P2P_INTERFACE	1
+#else
 #define ENABLE_P2P_INTERFACE	0
+#endif
 
 /* This is to override regulatory domains defined in cfg80211 module (reg.c)
  * By default world regulatory domain defined in reg.c puts the flags NL80211_RRF_PASSIVE_SCAN
@@ -275,6 +279,8 @@ static s32 wl_bss_connect_done(struct wl_priv *wl, struct net_device *ndev,
 static s32 wl_bss_roaming_done(struct wl_priv *wl, struct net_device *ndev,
 	const wl_event_msg_t *e, void *data);
 static s32 wl_notify_mic_status(struct wl_priv *wl, struct net_device *ndev,
+	const wl_event_msg_t *e, void *data);
+static s32 wl_notify_pfn_status(struct wl_priv *wl, struct net_device *ndev,
 	const wl_event_msg_t *e, void *data);
 /*
  * register/deregister parent device
@@ -1571,7 +1577,7 @@ __wl_cfg80211_scan(struct wiphy *wiphy, struct net_device *ndev,
 #ifdef HTC_KlocWork
 	if (request) {
 #endif
-		if (request->n_ssids > WL_SCAN_PARAMS_SSID_MAX) {
+		if (request && request->n_ssids > WL_SCAN_PARAMS_SSID_MAX) {	
 			WL_ERR(("n_ssids > WL_SCAN_PARAMS_SSID_MAX\n"));
 			return -EOPNOTSUPP;
 		}
@@ -1680,9 +1686,12 @@ __wl_cfg80211_scan(struct wiphy *wiphy, struct net_device *ndev,
 #ifdef HTC_KlocWork
 				if (request)
 #endif
+				/* HTC_CSP_START*/
+				if (request->ie != NULL){
 					err = wl_cfgp2p_enable_discovery(wl, ndev,
 					request->ie, request->ie_len);
-
+				}
+				/*HTC_CSP_END*/
 				if (unlikely(err)) {
 					goto scan_out;
 				}
@@ -2710,7 +2719,7 @@ wl_cfg80211_config_default_key(struct wiphy *wiphy, struct net_device *dev,
 		WL_ERR(("WLC_GET_WSEC error (%d)\n", err));
 		return err;
 	}
-	if (wsec == WEP_ENABLED) {
+	if (wsec & WEP_ENABLED) {
 		/* Just select a new current key */
 		index = (u32) key_idx;
 		index = htod32(index);
@@ -3839,12 +3848,16 @@ wl_cfg80211_mgmt_tx(struct wiphy *wiphy, struct net_device *ndev,
 		}
 	}
 	cfg80211_mgmt_tx_status(ndev, *cookie, buf, len, ack, GFP_KERNEL);
-	if (act_frm->subtype == P2P_PAF_GON_CONF) {
+	/*HTC_CSP_START*/
+	if (act_frm != NULL){
+		if (act_frm->subtype == P2P_PAF_GON_CONF) {
 #ifdef FORCE_MPC
 		if (!strstr(firmware_path, "_p2p"))
 #endif
-			wldev_iovar_setint(dev, "mpc", 1);
+		wldev_iovar_setint(dev, "mpc", 1);
+		}
 	}
+	/*HTC_CSP_END*/
 	kfree(af_params);
 exit:
 	return err;
@@ -4172,6 +4185,9 @@ exit:
 	return 0;
 }
 
+#define default_ssid "HTC Portable Hotspot"
+static int used_default_ssid = 0;
+
 static s32
 wl_cfg80211_add_set_beacon(struct wiphy *wiphy, struct net_device *dev,
 	struct beacon_parameters *info)
@@ -4314,7 +4330,7 @@ wl_cfg80211_add_set_beacon(struct wiphy *wiphy, struct net_device *dev,
 			int max_assoc = 8;
 			bcm_tlv_t *max_assoc_ie;
 
-			if (ssid_ie->len == 0) {
+			if (ssid_ie->len == 0 && ssid_ie->data[0] == DOT11_MNG_SSID_ID) {
 				printf("%s: search SSID again to get real SSID.\n", __func__);
 				ssid_ie = bcm_parse_tlvs((u8 *)ssid_ie->data,
 							info->head_len - ie_offset - 1,
@@ -4323,13 +4339,31 @@ wl_cfg80211_add_set_beacon(struct wiphy *wiphy, struct net_device *dev,
 					printf("%s: got real ssid, use it instead. ssid_ie->len=%d\n", __func__, ssid_ie->len);
 				else
 					printf("%s: so sad. no real ssid found.\n", __func__);
+				wl_iw_send_priv_event(dev,"NULL_SSID_IE");
+				used_default_ssid = 1;
 				closed = 1;
+			} else if (ssid_ie->len == 0) {
+				printf("%s: so sad!!!!. no real ssid found.\n", __func__);
+				wl_iw_send_priv_event(dev,"NULL_SSID_IE");
+				used_default_ssid = 1;
 			}
 			/*HTC_CSP_END*/
 			memset(&ssid, 0, sizeof(wlc_ssid_t)); 
-			memcpy(ssid.SSID, ssid_ie->data, ssid_ie->len);
-			WL_DBG(("SSID is (%s) in Head \n", ssid.SSID));
-			ssid.SSID_len = ssid_ie->len;
+
+			/* HTC_CSP_START*/
+			if (ssid_ie != NULL && ssid_ie->len) {
+				memcpy(ssid.SSID, ssid_ie->data, ssid_ie->len);
+				ssid.SSID_len = ssid_ie->len;
+			}
+			else if (used_default_ssid) {
+				printf("Use default SSID to if SSID is NULL\n");
+				memcpy(ssid.SSID, default_ssid, strlen(default_ssid));
+				ssid.SSID_len = strlen(default_ssid);
+				used_default_ssid = 0;
+			}
+			/* HTC_CSP_END*/
+
+			printf("SSID is (%s) in Head  , ssid.SSID_len[%d]\n", ssid.SSID,ssid.SSID_len);
 			wldev_iovar_setint(dev, "mpc", 0);
 			wldev_ioctl(dev, WLC_DOWN, &ap, sizeof(s32), true);
 			wldev_ioctl(dev, WLC_SET_INFRA, &infra, sizeof(s32), true);
@@ -4659,7 +4693,9 @@ static struct wireless_dev *wl_alloc_wdev(struct device *dev)
 			WIPHY_FLAG_SUPPORTS_SEPARATE_DEFAULT_KEYS |
 #endif
 			WIPHY_FLAG_4ADDR_STATION;
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 2, 0)
+	wdev->wiphy->flags |= WIPHY_FLAG_SUPPORTS_FW_ROAM;
+#endif
 		WL_DBG(("Registering custom regulatory)\n"));
 		wdev->wiphy->flags |= WIPHY_FLAG_CUSTOM_REGULATORY;
 		wiphy_apply_custom_regulatory(wdev->wiphy, &brcm_regdom);
@@ -5362,6 +5398,19 @@ wl_notify_mic_status(struct wl_priv *wl, struct net_device *ndev,
 }
 
 static s32
+wl_notify_pfn_status(struct wl_priv *wl, struct net_device *ndev,
+	const wl_event_msg_t *e, void *data)
+{
+	WL_ERR((" PNO Event\n"));
+
+	mutex_lock(&wl->usr_sync);
+	/* TODO: Use cfg80211_sched_scan_results(wiphy); */
+	cfg80211_disconnected(ndev, 0, NULL, 0, GFP_KERNEL);
+	mutex_unlock(&wl->usr_sync);
+	return 0;
+}
+
+static s32
 wl_notify_scan_status(struct wl_priv *wl, struct net_device *ndev,
 	const wl_event_msg_t *e, void *data)
 {
@@ -5540,13 +5589,17 @@ wl_notify_rx_mgmt_frame(struct wl_priv *wl, struct net_device *ndev,
 		/*
 		 * After complete GO Negotiation, roll back to mpc mode
 		 */
-		if ((act_frm->subtype == P2P_PAF_GON_CONF) ||
-		(act_frm->subtype == P2P_PAF_PROVDIS_RSP)) {
+		/*HTC_CSP_START*/
+		if (act_frm != NULL) {
+			if ((act_frm->subtype == P2P_PAF_GON_CONF) ||
+			    (act_frm->subtype == P2P_PAF_PROVDIS_RSP)) {
 #ifdef FORCE_MPC
-			if (!strstr(firmware_path, "_p2p"))
+				if (!strstr(firmware_path, "_p2p"))
 #endif
 				wldev_iovar_setint(dev, "mpc", 1);
+			}
 		}
+		/*HTC_CSP_END*/
 	} else {
 		mgmt_frame = (u8 *)((wl_event_rx_frame_data_t *)rxframe + 1);
 	}
@@ -5578,7 +5631,10 @@ static void wl_init_prof(struct wl_priv *wl, struct net_device *ndev)
 	struct wl_profile *profile = wl_get_profile_by_netdev(wl, ndev);
 
 	spin_lock_irqsave(&wl->cfgdrv_lock, flags);
-	memset(profile, 0, sizeof(struct wl_profile));
+	/* HTC_CSP_START*/
+	if (profile != NULL)
+		memset(profile, 0, sizeof(struct wl_profile));
+	/* HTC_CSP_END*/
 	spin_unlock_irqrestore(&wl->cfgdrv_lock, flags);
 }
 
@@ -5603,7 +5659,7 @@ static void wl_init_event_handler(struct wl_priv *wl)
 	wl->evt_handler[WLC_E_P2P_DISC_LISTEN_COMPLETE] = wl_cfgp2p_listen_complete;
 	wl->evt_handler[WLC_E_ACTION_FRAME_COMPLETE] = wl_cfgp2p_action_tx_complete;
 	wl->evt_handler[WLC_E_ACTION_FRAME_OFF_CHAN_COMPLETE] = wl_cfgp2p_action_tx_complete;
-
+	wl->evt_handler[WLC_E_PFN_NET_FOUND] = wl_notify_pfn_status;
 }
 
 static s32 wl_init_priv_mem(struct wl_priv *wl)
@@ -6671,9 +6727,6 @@ wl_cfg80211_event(struct net_device *ndev, const wl_event_msg_t *e, void *data)
 	    wl_dbg_estr[event_type] : (s8 *) "Unknown";
 	WL_DBG(("event_type (%d):" "WLC_E_" "%s\n", event_type, estr));
 #endif /* (WL_DBG_LEVEL > 0) */
-
-	if (event_type == WLC_E_PFN_NET_FOUND)
-		WL_ERR((" PNO Event\n"));
 
 #if defined(SOFTAP)
 	if (dhd_check_ap_mode_set(wl->pub))

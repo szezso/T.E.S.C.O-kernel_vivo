@@ -62,18 +62,6 @@ static char LINEOUT_AMP_ON[] =
 			{0x00, 0x8C, 0x25, 0x57, 0x73, 0x4D, 0x0D};
 static char AMP_0FF[] = {0x00, 0x90};
 
-#ifdef CONFIG_SOUND_CONTROL_HAX_GPL
-char *htc_speaker_vol_control = SPK_AMP_ON;
-char *htc_headset_vol_control = HEADSET_AMP_ON;
-char *htc_ring_vol_control = RING_AMP_ON;
-char *htc_handset_vol_control = HANDSET_AMP_ON;
-char *htc_lineout_vol_control = LINEOUT_AMP_ON;
-#ifdef CONFIG_SND_CONTROL_HAS_BEATS
-char *htc_beats_on_vol_control = BEATS_AMP_ON;
-char *htc_beats_off_vol_control = BEATS_AMP_OFF;
-#endif
-#endif
-
 static int tpa2051_write_reg(u8 reg, u8 val)
 {
 	int err;
@@ -278,8 +266,6 @@ void set_usb_audio_amp(int on)
 void set_beats_on(int en)
 {
 	pr_aud_info("%s: %d\n", __func__, en);
-   	 en = 1;
-   	 pr_aud_info("BEATS HACK - %s: %d\n", __func__, en); 
 	mutex_lock(&spk_amp_lock);
 	if (en) {
 		tpa2051_i2c_write(BEATS_AMP_ON, AMP_ON_CMD_LEN);
@@ -324,6 +310,7 @@ int update_amp_parameter(int mode)
 	}
 	return 0;
 }
+
 
 static long tpa2051d3_ioctl(struct file *file, unsigned int cmd,
 	   unsigned long arg)
@@ -399,9 +386,7 @@ err2:
 			pr_err("unsupported tpa2051 mode %d\n", modeid);
 			return -EINVAL;
 		}
-	#ifndef CONFIG_SOUND_CONTROL_HAX_GPL
 		rc = update_amp_parameter(modeid);
-	#endif
 		pr_info("set tpa2051 mode to %d\n", modeid);
 		break;
 	case TPA2051_SET_PARAM:

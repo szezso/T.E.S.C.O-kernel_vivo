@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -69,7 +69,6 @@ static int kgsl_sync_pt_compare(struct sync_pt *a, struct sync_pt *b)
 
 struct kgsl_fence_event_priv {
 	struct kgsl_context *context;
-	unsigned int timestamp;
 };
 
 /**
@@ -83,11 +82,10 @@ struct kgsl_fence_event_priv {
  */
 
 static inline void kgsl_fence_event_cb(struct kgsl_device *device,
-	void *priv, u32 context_id, u32 timestamp)
+	void *priv, u32 timestamp)
 {
 	struct kgsl_fence_event_priv *ev = priv;
-	kgsl_sync_timeline_signal(ev->context->timeline, ev->timestamp);
-	kgsl_context_put(ev->context);
+	kgsl_sync_timeline_signal(ev->context->timeline, timestamp);
 	kfree(ev);
 }
 
@@ -126,8 +124,6 @@ int kgsl_add_fence_event(struct kgsl_device *device,
 	if (event == NULL)
 		return -ENOMEM;
 	event->context = context;
-	event->timestamp = timestamp;
-	kgsl_context_get(context);
 
 	pt = kgsl_sync_pt_create(context->timeline, timestamp);
 	if (pt == NULL) {
@@ -158,7 +154,7 @@ int kgsl_add_fence_event(struct kgsl_device *device,
 		goto fail_copy_fd;
 	}
 
-	ret = kgsl_add_event(device, context_id, timestamp,
+	ret = kgsl_add_event(device, timestamp,
 			kgsl_fence_event_cb, event, owner);
 	if (ret)
 		goto fail_event;
@@ -168,13 +164,13 @@ int kgsl_add_fence_event(struct kgsl_device *device,
 fail_event:
 fail_copy_fd:
 	/* clean up sync_fence_install */
+	sync_fence_put(fence);
 	put_unused_fd(priv.fence_fd);
 fail_fd:
 	/* clean up sync_fence_create */
 	sync_fence_put(fence);
 fail_fence:
 fail_pt:
-	kgsl_context_put(context);
 	kfree(event);
 	return ret;
 }
@@ -206,9 +202,7 @@ void kgsl_sync_timeline_signal(struct sync_timeline *timeline,
 {
 	struct kgsl_sync_timeline *ktimeline =
 		(struct kgsl_sync_timeline *) timeline;
-
-	if (timestamp_cmp(timestamp, ktimeline->last_timestamp) > 0)
-		ktimeline->last_timestamp = timestamp;
+	ktimeline->last_timestamp = timestamp;
 	sync_timeline_signal(timeline);
 }
 

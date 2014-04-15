@@ -75,51 +75,68 @@
 #include <mach/clk.h>
 #include <linux/io.h>
 #include <linux/android_pmem.h>
-/*#include <mach/msm_reqs.h>*/
-#ifdef CONFIG_MSM_CAMERA_7X30
 #include <mach/camera-7x30.h>
-#elif defined(CONFIG_MSM_CAMERA_8X60)
-#include <mach/camera-8x60.h>
-#endif
+#include <mach/msm_subsystem_map.h>
 
 #include "msm_gemini_platform.h"
 #include "msm_gemini_common.h"
 #include "msm_gemini_hw.h"
 
-#ifdef CONFIG_MSM_NPA_SYSTEM_BUS
-/* NPA Flow ID */
-#define MSM_SYSTEM_BUS_RATE	MSM_AXI_FLOW_JPEG_12MP
-#else
 /* AXI rate in KHz */
 #define MSM_SYSTEM_BUS_RATE	160000
-#endif
+struct ion_client *gemini_client;
 
-void msm_gemini_platform_p2v(struct file  *file)
+void msm_gemini_platform_p2v(struct file  *file,
+				struct ion_handle **ionhandle)
 {
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	ion_unmap_iommu(gemini_client, *ionhandle, CAMERA_DOMAIN, GEN_POOL);
+	ion_free(gemini_client, *ionhandle);
+	*ionhandle = NULL;
+#elif CONFIG_ANDROID_PMEM
 	put_pmem_file(file);
+#endif
 }
 
-uint32_t msm_gemini_platform_v2p(int fd, uint32_t len, struct file **file_p)
+uint32_t msm_gemini_platform_v2p(int fd, uint32_t len, struct file **file_p,
+				struct ion_handle **ionhandle)
 {
 	unsigned long paddr;
-	unsigned long kvstart;
 	unsigned long size;
 	int rc;
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	*ionhandle = ion_import_fd(gemini_client, fd);
+	if (IS_ERR_OR_NULL(*ionhandle))
+		return 0;
 
+	rc = ion_map_iommu(gemini_client, *ionhandle, CAMERA_DOMAIN, GEN_POOL,
+			SZ_4K, 0, &paddr, (unsigned long *)&size, UNCACHED, 0);
+#elif CONFIG_ANDROID_PMEM
+	unsigned long kvstart;
 	rc = get_pmem_file(fd, &paddr, &kvstart, &size, file_p);
+#else
+	rc = 0;
+	paddr = 0;
+	size = 0;
+#endif
 	if (rc < 0) {
 		GMN_PR_ERR("%s: get_pmem_file fd %d error %d\n", __func__, fd,
 			rc);
-		return 0;
+		goto error1;
 	}
 
 	/* validate user input */
 	if (len > size) {
 		GMN_PR_ERR("%s: invalid offset + len\n", __func__);
-		return 0;
+		goto error1;
 	}
 
 	return paddr;
+error1:
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	ion_free(gemini_client, *ionhandle);
+#endif
+	return 0;
 }
 
 int msm_gemini_platform_init(struct platform_device *pdev,
@@ -178,6 +195,10 @@ int msm_gemini_platform_init(struct platform_device *pdev,
 	*mem  = gemini_mem;
 	*base = gemini_base;
 	*irq  = gemini_irq;
+
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	gemini_client = msm_ion_client_create(-1, "camera/gemini");
+#endif
 	GMN_DBG("%s:%d] success\n", __func__, __LINE__);
 
 	return rc;
@@ -201,7 +222,9 @@ int msm_gemini_platform_release(struct resource *mem, void *base, int irq,
 	result = msm_camio_jpeg_clk_disable();
 	iounmap(base);
 	release_mem_region(mem->start, resource_size(mem));
-
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	ion_client_destroy(gemini_client);
+#endif
 	GMN_DBG("%s:%d] success\n", __func__, __LINE__);
 	return result;
 }

@@ -23,7 +23,6 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <mach/msm_fb.h>
-#include <mach/debug_display.h>
 
 
 #define LCD_CONTROL_BLOCK_BASE 0x110000
@@ -97,8 +96,9 @@ static void toshiba_wait_vsync(struct msm_panel_data *panel_data)
 		panel->toshiba_got_int = 0;
 		client_data->activate_link(client_data); /* clears interrupt */
 	}
-	if (wait_event_timeout(toshiba_vsync_wait, panel->toshiba_got_int, HZ/2) == 0)
-		PR_DISP_ERR("timeout waiting for VSYNC\n");
+	if (wait_event_timeout(toshiba_vsync_wait, panel->toshiba_got_int,
+				HZ/2) == 0)
+		printk(KERN_ERR "timeout waiting for VSYNC\n");
 	panel->toshiba_got_int = 0;
 	/* interrupt clears when screen dma starts */
 }
@@ -115,7 +115,7 @@ static int toshiba_suspend(struct msm_panel_data *panel_data)
 
 	ret = bridge_data->uninit(bridge_data, client_data);
 	if (ret) {
-		PR_DISP_INFO("mddi toshiba client: non zero return from "
+		printk(KERN_INFO "mddi toshiba client: non zero return from "
 			"uninit\n");
 		return ret;
 	}
@@ -186,9 +186,13 @@ static int setup_vsync(struct panel_info *panel,
 		ret = 0;
 		goto uninit;
 	}
-	ret = gpio_request_one(gpio, GPIOF_IN, "vsync");
+	ret = gpio_request(gpio, "vsync");
 	if (ret)
 		goto err_request_gpio_failed;
+
+	ret = gpio_direction_input(gpio);
+	if (ret)
+		goto err_gpio_direction_input_failed;
 
 	ret = irq = gpio_to_irq(gpio);
 	if (ret < 0)
@@ -198,7 +202,7 @@ static int setup_vsync(struct panel_info *panel,
 			  "vsync", panel);
 	if (ret)
 		goto err_request_irq_failed;
-	PR_DISP_INFO("vsync on gpio %d now %d\n",
+	printk(KERN_INFO "vsync on gpio %d now %d\n",
 	       gpio, gpio_get_value(gpio));
 	return 0;
 
@@ -206,6 +210,7 @@ uninit:
 	free_irq(gpio_to_irq(gpio), panel);
 err_request_irq_failed:
 err_get_irq_num_failed:
+err_gpio_direction_input_failed:
 	gpio_free(gpio);
 err_request_gpio_failed:
 	return ret;
@@ -217,9 +222,8 @@ static int mddi_toshiba_probe(struct platform_device *pdev)
 	struct msm_mddi_client_data *client_data = pdev->dev.platform_data;
 	struct msm_mddi_bridge_platform_data *bridge_data =
 		client_data->private_client_data;
-	struct panel_info *panel = devm_kzalloc(&pdev->dev,
-						sizeof(struct panel_info),
-						GFP_KERNEL);
+	struct panel_info *panel =
+		kzalloc(sizeof(struct panel_info), GFP_KERNEL);
 	if (!panel)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, panel);
@@ -261,6 +265,7 @@ static int mddi_toshiba_remove(struct platform_device *pdev)
 	struct panel_info *panel = platform_get_drvdata(pdev);
 
 	setup_vsync(panel, 0);
+	kfree(panel);
 	return 0;
 }
 

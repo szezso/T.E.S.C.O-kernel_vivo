@@ -426,6 +426,26 @@ config DEBUG_FDLEAK_CRITERION
        Set this crierion value of fd numer per process, 1024 is the max fd number
        one process can open
 
+config SLQB_DEBUG
+	default y
+	bool "Enable SLQB debugging support"
+	depends on SLQB
+
+config SLQB_DEBUG_ON
+	default n
+	bool "SLQB debugging on by default"
+	depends on SLQB_DEBUG
+
+config SLQB_SYSFS
+	bool "Create SYSFS entries for slab caches"
+	default n
+	depends on SLQB
+
+config SLQB_STATS
+	bool "Enable SLQB performance statistics"
+	default n
+	depends on SLQB_SYSFS
+
 config DEBUG_KMEMLEAK
 	bool "Kernel memory leak detector"
 	depends on DEBUG_KERNEL && EXPERIMENTAL && \
@@ -1056,7 +1076,7 @@ config FAULT_INJECTION
 config FAILSLAB
 	bool "Fault-injection capability for kmalloc"
 	depends on FAULT_INJECTION
-	depends on SLAB || SLUB
+	depends on SLAB || SLUB || SLQB
 	help
 	  Provide fault-injection capability for kmalloc.
 

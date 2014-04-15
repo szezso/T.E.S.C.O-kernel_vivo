@@ -479,10 +479,8 @@ static int wl_android_get_rssi(struct net_device *net, char *command, int total_
 		return -1;
 
 	/* screen out the rssi value */
-	if (rssi >= -2) {
-		printf("illegal RSSI: %d\n", rssi);
-		rssi = -2;
-	}
+	if (rssi >= 0)
+		rssi = -1;
 
 	error = wldev_get_ssid(net, &ssid);
 	if (error)

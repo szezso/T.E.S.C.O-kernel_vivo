@@ -50,8 +50,16 @@ enum ion_heap_type {
 #define ION_HEAP_SYSTEM_MASK		(1 << ION_HEAP_TYPE_SYSTEM)
 #define ION_HEAP_SYSTEM_CONTIG_MASK	(1 << ION_HEAP_TYPE_SYSTEM_CONTIG)
 #define ION_HEAP_CARVEOUT_MASK		(1 << ION_HEAP_TYPE_CARVEOUT)
-#define ION_HEAP_CP_MASK			(1 << ION_HEAP_TYPE_CP)
+#define ION_HEAP_CP_MASK		(1 << ION_HEAP_TYPE_CP)
 
+/**
+ * heap flags - the lower 16 bits are used by core ion, the upper 16
+ * bits are reserved for use by the heaps themselves.
+ */
+#define ION_FLAG_CACHED 1		/* mappings of this buffer should be
+					   cached, ion will do cache
+					   maintenance when the buffer is
+					   mapped for dma */
 
 /**
  * These are the only ids that should be used for Ion heap ids.
@@ -63,20 +71,20 @@ enum ion_heap_type {
  */
 
 enum ion_heap_ids {
-	ION_HEAP_SYSTEM_ID = -1, /* depreciated */
-	ION_HEAP_SYSTEM_CONTIG_ID = -1, /* depreciated ID */
-	ION_HEAP_SMI_ID = -1, /* depreciated ID */
-	ION_HEAP_AUDIO_ID = -1, /* depreciated ID */
-	ION_HEAP_ADSP2_ID = -1, /* depreciated ID */
-
 	INVALID_HEAP_ID = -1,
-	ION_IOMMU_HEAP_ID = 4,
+	/* In a system with the "Mini Ion Upgrade" (such as this one)
+	 * the heap_mask and caching flag end up sharing a spot in
+	 * ion_allocation_data.flags. We should make sure to never use
+	 * the 0th bit for a heap because that's where the caching bit
+	 * ends up.
+	 */
+	ION_BOGUS_HEAP_DO_NOT_USE = 0,
 	ION_CP_MM_HEAP_ID = 8,
-	ION_CP_ROTATOR_HEAP_ID = 9,
 	ION_CP_MFC_HEAP_ID = 12,
 	ION_CP_WB_HEAP_ID = 16, /* 8660 only */
 	ION_CAMERA_HEAP_ID = 20, /* 8660 only */
 	ION_SF_HEAP_ID = 24,
+	ION_IOMMU_HEAP_ID = 25,
 	ION_QSECOM_HEAP_ID = 27,
 	ION_AUDIO_HEAP_ID = 28,
 
@@ -84,6 +92,13 @@ enum ion_heap_ids {
 	ION_SYSTEM_HEAP_ID = 30,
 
 	ION_HEAP_ID_RESERVED = 31 /** Bit reserved for ION_SECURE flag */
+};
+
+enum ion_fixed_position {
+	NOT_FIXED,
+	FIXED_LOW,
+	FIXED_MIDDLE,
+	FIXED_HIGH,
 };
 
 /**
@@ -96,19 +111,17 @@ enum ion_heap_ids {
  */
 #define ION_HEAP(bit) (1 << (bit))
 
-#define ION_KMALLOC_HEAP_NAME	"kmalloc"
 #define ION_VMALLOC_HEAP_NAME	"vmalloc"
-#define ION_AUDIO_HEAP_NAME     "audio"
-#define ION_SF_HEAP_NAME		"sf"
-#define ION_MM_HEAP_NAME		"mm"
-#define ION_ROTATOR_HEAP_NAME   "rotator"
-#define ION_CAMERA_HEAP_NAME    "camera_preview"
-#define ION_IOMMU_HEAP_NAME     "iommu"
-#define ION_MFC_HEAP_NAME       "mfc"
-#define ION_WB_HEAP_NAME        "wb"
-#define ION_MM_FIRMWARE_HEAP_NAME   "mm_fw"
-#define ION_QSECOM_HEAP_NAME    "qsecom"
-#define ION_FMEM_HEAP_NAME      "fmem"
+#define ION_AUDIO_HEAP_NAME	"audio"
+#define ION_SF_HEAP_NAME	"sf"
+#define ION_MM_HEAP_NAME	"mm"
+#define ION_CAMERA_HEAP_NAME	"camera_preview"
+#define ION_IOMMU_HEAP_NAME	"iommu"
+#define ION_MFC_HEAP_NAME	"mfc"
+#define ION_WB_HEAP_NAME	"wb"
+#define ION_MM_FIRMWARE_HEAP_NAME	"mm_fw"
+#define ION_QSECOM_HEAP_NAME	"qsecom"
+#define ION_FMEM_HEAP_NAME	"fmem"
 
 #define CACHED          1
 #define UNCACHED        0
@@ -150,6 +163,7 @@ struct ion_buffer;
  * @base:	base address of heap in physical memory if applicable
  * @size:	size of the heap in bytes if applicable
  * @memory_type:Memory type used for the heap
+ * @has_outer_cache:    set to 1 if outer cache is used, 0 otherwise.
  * @extra_data:	Extra data specific to each heap type
  */
 struct ion_platform_heap {
@@ -176,7 +190,12 @@ struct ion_platform_heap {
  *			of this heap in the case of a shared heap.
  * @reusable		Flag indicating whether this heap is reusable of not.
  *			(see FMEM)
+ * @mem_is_fmem		Flag indicating whether this memory is coming from fmem
+ *			or not.
+ * @fixed_position	If nonzero, position in the fixed area.
  * @virt_addr:		Virtual address used when using fmem.
+ * @iommu_map_all:	Indicates whether we should map whole heap into IOMMU.
+ * @iommu_2x_map_domain: Indicates the domain to use for overmapping.
  * @request_region:	function to be called when the number of allocations
  *			goes from 0 -> 1
  * @release_region:	function to be called when the number of allocations
@@ -190,6 +209,10 @@ struct ion_cp_heap_pdata {
 	ion_phys_addr_t secure_base; /* Base addr used when heap is shared */
 	size_t secure_size; /* Size used for securing heap when heap is shared*/
 	int reusable;
+	int mem_is_fmem;
+	enum ion_fixed_position fixed_position;
+	int iommu_map_all;
+	int iommu_2x_map_domain;
 	ion_virt_addr_t *virt_addr;
 	int (*request_region)(void *);
 	int (*release_region)(void *);
@@ -200,6 +223,9 @@ struct ion_cp_heap_pdata {
  * struct ion_co_heap_pdata - defines a carveout heap in the given platform
  * @adjacent_mem_id:	Id of heap that this heap must be adjacent to.
  * @align:		Alignment requirement for the memory
+ * @mem_is_fmem		Flag indicating whether this memory is coming from fmem
+ *			or not.
+ * @fixed_position	If nonzero, position in the fixed area.
  * @request_region:	function to be called when the number of allocations
  *			goes from 0 -> 1
  * @release_region:	function to be called when the number of allocations
@@ -210,6 +236,8 @@ struct ion_cp_heap_pdata {
 struct ion_co_heap_pdata {
 	int adjacent_mem_id;
 	unsigned int align;
+	int mem_is_fmem;
+	enum ion_fixed_position fixed_position;
 	int (*request_region)(void *);
 	int (*release_region)(void *);
 	void *(*setup_region)(void);
@@ -217,6 +245,7 @@ struct ion_co_heap_pdata {
 
 /**
  * struct ion_platform_data - array of platform heaps passed from board file
+ * @has_outer_cache:    set to 1 if outer cache is used, 0 otherwise.
  * @nr:    number of structures in the array
  * @request_region: function to be called when the number of allocations goes
  *						from 0 -> 1
@@ -230,8 +259,8 @@ struct ion_co_heap_pdata {
 struct ion_platform_data {
 	unsigned int has_outer_cache;
 	int nr;
-	void (*request_region)(void *);
-	void (*release_region)(void *);
+	int (*request_region)(void *);
+	int (*release_region)(void *);
 	void *(*setup_region)(void);
 	struct ion_platform_heap heaps[];
 };
@@ -599,7 +628,9 @@ static inline int ion_map_iommu(struct ion_client *client,
 			struct ion_handle *handle, int domain_num,
 			int partition_num, unsigned long align,
 			unsigned long iova_length, unsigned long *iova,
-			unsigned long flags)
+			unsigned long *buffer_size,
+			unsigned long flags,
+			unsigned long iommu_flags)
 {
 	return -ENODEV;
 }
@@ -664,6 +695,7 @@ static inline int msm_ion_do_cache_op(struct ion_client *client,
 struct ion_allocation_data {
 	size_t len;
 	size_t align;
+	unsigned int heap_mask;
 	unsigned int flags;
 	struct ion_handle *handle;
 };
@@ -784,7 +816,7 @@ struct ion_flag_data {
  * descriptor obtained from ION_IOC_SHARE and returns the struct with the handle
  * filed set to the corresponding opaque handle.
  */
-#define ION_IOC_IMPORT		_IOWR(ION_IOC_MAGIC, 5, int)
+#define ION_IOC_IMPORT		_IOWR(ION_IOC_MAGIC, 5, struct ion_fd_data)
 
 /**
  * DOC: ION_IOC_CUSTOM - call architecture specific ion ioctl
@@ -800,21 +832,21 @@ struct ion_flag_data {
  *
  * Clean the caches of the handle specified.
  */
-#define ION_IOC_CLEAN_CACHES	_IOWR(ION_IOC_MAGIC, 7, \
+#define ION_IOC_CLEAN_CACHES	_IOWR(ION_IOC_MAGIC, 20, \
 						struct ion_flush_data)
 /**
  * DOC: ION_MSM_IOC_INV_CACHES - invalidate the caches
  *
  * Invalidate the caches of the handle specified.
  */
-#define ION_IOC_INV_CACHES	_IOWR(ION_IOC_MAGIC, 8, \
+#define ION_IOC_INV_CACHES	_IOWR(ION_IOC_MAGIC, 21, \
 						struct ion_flush_data)
 /**
  * DOC: ION_MSM_IOC_CLEAN_CACHES - clean and invalidate the caches
  *
  * Clean and invalidate the caches of the handle specified.
  */
-#define ION_IOC_CLEAN_INV_CACHES	_IOWR(ION_IOC_MAGIC, 9, \
+#define ION_IOC_CLEAN_INV_CACHES	_IOWR(ION_IOC_MAGIC, 22, \
 						struct ion_flush_data)
 
 /**
@@ -823,6 +855,15 @@ struct ion_flag_data {
  * Gets the flags of the current handle which indicate cachability,
  * secure state etc.
  */
-#define ION_IOC_GET_FLAGS		_IOWR(ION_IOC_MAGIC, 10, \
+#define ION_IOC_GET_FLAGS		_IOWR(ION_IOC_MAGIC, 23, \
+						struct ion_flag_data)
+
+
+/**
+ * DOC: ION_IOC_SYNC - BOGUS
+ *
+ * NOT SUPPORTED
+ */
+#define ION_IOC_SYNC		_IOWR(ION_IOC_MAGIC, 42, \
 						struct ion_flag_data)
 #endif /* _LINUX_ION_H */

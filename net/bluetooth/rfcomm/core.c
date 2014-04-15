@@ -39,7 +39,6 @@
 #include <linux/mutex.h>
 #include <linux/kthread.h>
 #include <linux/slab.h>
-#include <linux/interrupt.h>
 
 #include <net/sock.h>
 #include <linux/uaccess.h>
@@ -55,8 +54,8 @@
  * 1 Byte FCS */
 #define RFCOMM_HDR_SIZE 6
 
-static bool disable_cfc;
-static bool l2cap_ertm;
+static int disable_cfc;
+static int l2cap_ertm;
 static int channel_mtu = -1;
 static unsigned int l2cap_mtu = RFCOMM_MAX_L2CAP_MTU;
 

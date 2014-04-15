@@ -22,30 +22,39 @@
 #define PM8058_GPIO_SYS_TO_PM(sys_gpio)    (sys_gpio - NR_GPIO_IRQS)
 
 #define MSM_LINUX_BASE1			0x04400000
-#define MSM_LINUX_SIZE1			0x1BC00000
+#define MSM_LINUX_SIZE1			0x0C000000
 #define MSM_LINUX_BASE2			0x20000000
-#define MSM_LINUX_SIZE2			0xFB00000
+#define MSM_LINUX_SIZE2			0x10000000
+#define MSM_MEM_256MB_OFFSET	0x10000000
 
 #define MSM_GPU_MEM_BASE		0x00100000
 #define MSM_GPU_MEM_SIZE		0x00300000
 
-#define MSM_RAM_CONSOLE_BASE		0x00500000
-#define MSM_RAM_CONSOLE_SIZE		0x00100000
+#define MSM_RAM_CONSOLE_BASE	0x00500000
+#define MSM_RAM_CONSOLE_SIZE	0x00100000
 
-#define MSM_PMEM_ADSP_SIZE		0x01E00000
+#define MSM_PMEM_ADSP_SIZE	0x02800000
 
-#define PMEM_KERNEL_EBI0_SIZE   	0x00500000       /* 7MB -> 9MB*/
-#define MSM_PMEM_SF_SIZE        	0x01F00000
+#define PMEM_KERNEL_EBI0_SIZE   0x00700000
+#define MSM_PMEM_SF_SIZE     0x01E00000
+#define MSM_PMEM_AUDIO_SIZE 	0x00200000
 
-#define MSM_FB_BASE			0x2FB00000
-#define MSM_FB_SIZE			0x00500000
+#define MSM_PMEM_CAMERA_BASE 0x2DD00000
+#define MSM_PMEM_CAMERA_SIZE 0x00C00000
 
-#ifdef CONFIG_ION_MSM
-#define MSM_ION_CAMERA_SIZE		MSM_PMEM_ADSP_SIZE
-#define MSM_ION_SF_SIZE			MSM_PMEM_SF_SIZE
-#define MSM_ION_HEAP_NUM		3
+#define MSM_PMEM_MDP_SIZE		0x02000000
+
+#define MSM_FB_SIZE				0x00465000
+
+#define MSM_ION_CAMERA_SIZE	MSM_PMEM_ADSP_SIZE
+#define MSM_ION_SF_SIZE		MSM_PMEM_SF_SIZE
+#define MSM_ION_AUDIO_SIZE	MSM_PMEM_AUDIO_SIZE
+
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+#define MSM_ION_HEAP_NUM 4
+#else
+#define MSM_ION_HEAP_NUM 1
 #endif
-
 
 /* GPIO definition */
 #if 1
@@ -245,8 +254,8 @@
 #endif
 
 
-extern struct platform_device msm_device_mdp;
-extern struct platform_device msm_device_mddi0;
+extern struct platform_device msm_mdp_device;
+extern struct platform_device msm_mddi_device;
 extern int panel_type;
 
 int vivo_panel_sleep_in(void);

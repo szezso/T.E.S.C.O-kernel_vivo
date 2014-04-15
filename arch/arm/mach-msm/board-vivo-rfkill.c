@@ -214,21 +214,6 @@ static int bluetooth_set_power(void *data, bool blocked)
 	return 0;
 }
 
-#if 0
-
-static int bluetooth_set_power(void *data, bool blocked)
-{
-        if (!blocked) {
-                gpio_direction_output(VIVO_GPIO_BT_RESET_N, 1);
-                gpio_direction_output(VIVO_GPIO_BT_SHUTDOWN_N, 1);
-        } else {
-                gpio_direction_output(VIVO_GPIO_BT_SHUTDOWN_N, 0);
-                gpio_direction_output(VIVO_GPIO_BT_RESET_N, 0);
-        }
-        return 0;
-}
-#endif
-
 static struct rfkill_ops vivo_rfkill_ops = {
 	.set_block = bluetooth_set_power,
 };
@@ -242,15 +227,6 @@ static int vivo_rfkill_probe(struct platform_device *pdev)
 	/* htc_wifi_bt_sleep_clk_ctl(CLK_ON, ID_BT); */
 	mdelay(2);
 
-#if 0
-        rc = gpio_request(VIVO_GPIO_BT_RESET_N, "bt_reset");
-        if (rc)
-                goto err_gpio_reset;
-        rc = gpio_request(VIVO_GPIO_BT_SHUTDOWN_N, "bt_shutdown");
-        if (rc)
-                goto err_gpio_shutdown;
-
-#endif
 	bluetooth_set_power(NULL, default_state);
 
 	bt_rfk = rfkill_alloc(bt_name, &pdev->dev, RFKILL_TYPE_BLUETOOTH,
@@ -274,27 +250,12 @@ err_rfkill_reg:
 	rfkill_destroy(bt_rfk);
 err_rfkill_alloc:
 	return rc;
-
-#if 0
-err_rfkill_reg:
-        rfkill_destroy(bt_rfk);
-err_rfkill_alloc:
-        gpio_free(VIVO_GPIO_BT_SHUTDOWN_N);
-err_gpio_shutdown:
-        gpio_free(VIVO_GPIO_BT_RESET_N);
-err_gpio_reset:
-        return rc;
-#endif
 }
 
 static int vivo_rfkill_remove(struct platform_device *dev)
 {
 	rfkill_unregister(bt_rfk);
 	rfkill_destroy(bt_rfk);
-#if 0
-        gpio_free(VIVO_GPIO_BT_SHUTDOWN_N);
-        gpio_free(VIVO_GPIO_BT_RESET_N);
-#endif
 	return 0;
 }
 

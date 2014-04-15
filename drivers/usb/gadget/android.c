@@ -2345,7 +2345,7 @@ static void android_usb_init_work(struct work_struct *data)
 	if (ret)
 		pr_err("android_usb: Cannot enable '%s'", "mass_storage");
 
-#if 1
+#if 0
 	ret = android_enable_function(dev, "adb");
 	if (ret)
 		pr_err("android_usb: Cannot enable '%s'", "adb");

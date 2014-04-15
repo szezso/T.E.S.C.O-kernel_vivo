@@ -3134,10 +3134,7 @@ static inline void rdev_init_debugfs(struct regulator_dev *rdev)
 {
 	return;
 }
-int __init htc_vreg_status_debug_init(void)
-{
-	return 0;
-}
+int __init htc_vreg_status_debug_init(void) {}
 #endif
 
 /**

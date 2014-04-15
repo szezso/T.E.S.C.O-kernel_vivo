@@ -17,7 +17,6 @@
 #include <linux/task_io_accounting_ops.h>
 #include <linux/pagevec.h>
 #include <linux/pagemap.h>
-#include <linux/swap.h>
 
 /*
  * Initialise a struct file's readahead state.  Assumes that the caller has
@@ -108,7 +107,7 @@ int read_cache_pages(struct address_space *mapping, struct list_head *pages,
 EXPORT_SYMBOL(read_cache_pages);
 
 static int read_pages(struct address_space *mapping, struct file *filp,
-		struct list_head *pages, unsigned nr_pages, int tail)
+		struct list_head *pages, unsigned nr_pages)
 {
 	struct blk_plug plug;
 	unsigned page_idx;
@@ -126,8 +125,8 @@ static int read_pages(struct address_space *mapping, struct file *filp,
 	for (page_idx = 0; page_idx < nr_pages; page_idx++) {
 		struct page *page = list_to_page(pages);
 		list_del(&page->lru);
-		if (!__add_to_page_cache_lru(page, mapping,
-					page->index, GFP_KERNEL, tail)) {
+		if (!add_to_page_cache_lru(page, mapping,
+					page->index, GFP_KERNEL)) {
 			mapping->a_ops->readpage(filp, page);
 		}
 		page_cache_release(page);
@@ -138,28 +137,6 @@ out:
 	blk_finish_plug(&plug);
 
 	return ret;
-}
-
-static inline int nr_mapped(void)
-{
-	return global_page_state(NR_FILE_MAPPED) +
-		global_page_state(NR_ANON_PAGES);
-}
-
-/*
- * This examines how large in pages a file size is and returns 1 if it is
- * more than half the unmapped ram. Avoid doing read_page_state which is
- * expensive unless we already know it is likely to be large enough.
- */
-static int large_isize(unsigned long nr_pages)
-{
-	if (nr_pages * 6 > vm_total_pages) {
-		 unsigned long unmapped_ram = vm_total_pages - nr_mapped();
-
-		if (nr_pages * 2 > unmapped_ram)
-			return 1;
-	}
-	return 0;
 }
 
 /*
@@ -207,9 +184,6 @@ __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 		if (!page)
 			break;
 		page->index = page_offset;
-
-		page->flags |= (1L << PG_readahead);
-
 		list_add(&page->lru, &page_pool);
 		if (page_idx == nr_to_read - lookahead_size)
 			SetPageReadahead(page);
@@ -222,8 +196,7 @@ __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 	 * will then handle the error.
 	 */
 	if (ret)
-		read_pages(mapping, filp, &page_pool, ret,
-			   large_isize(end_index));
+		read_pages(mapping, filp, &page_pool, ret);
 	BUG_ON(!list_empty(&page_pool));
 out:
 	return ret;

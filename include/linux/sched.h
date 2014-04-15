@@ -39,8 +39,6 @@
 #define SCHED_BATCH		3
 /* SCHED_ISO: reserved but not implemented yet */
 #define SCHED_IDLE		5
-#define SCHED_IDLEPRIO		SCHED_IDLE
-
 /* Can be ORed in to make sure the process is reverted back to SCHED_NORMAL on fork */
 #define SCHED_RESET_ON_FORK     0x40000000
 
@@ -122,12 +120,12 @@ struct blk_plug;
 extern unsigned long avenrun[];		/* Load averages */
 extern void get_avenrun(unsigned long *loads, unsigned long offset, int shift);
 
-#define FSHIFT 11 /* bits of precision */
-#define LOAD_FREQ	(4*HZ+122)	/* 4.61 sec intervals */
-#define FIXED_1		(1UL<<FSHIFT)	/* 1.0 as fixed-point */
-#define EXP_1           1896		/* 1/exp(4.61sec/1min) as fixed-point */
-#define EXP_5		2017		/* 1/exp(4.61sec/5min) */
-#define EXP_15		2038		/* 1/exp(4.61sec/15min) */
+#define FSHIFT		11		/* nr of bits of precision */
+#define FIXED_1		(1<<FSHIFT)	/* 1.0 as fixed-point */
+#define LOAD_FREQ	(5*HZ+1)	/* 5 sec intervals */
+#define EXP_1		1884		/* 1/exp(5sec/1min) as fixed-point */
+#define EXP_5		2014		/* 1/exp(5sec/5min) */
+#define EXP_15		2037		/* 1/exp(5sec/15min) */
 
 #define CALC_LOAD(load,exp,n) \
 	load *= exp; \
@@ -269,6 +267,8 @@ extern void sched_init_smp(void);
 extern asmlinkage void schedule_tail(struct task_struct *prev);
 extern void init_idle(struct task_struct *idle, int cpu);
 extern void init_idle_bootup_task(struct task_struct *idle);
+
+extern int runqueue_is_locked(int cpu);
 
 extern cpumask_var_t nohz_cpu_mask;
 #if defined(CONFIG_SMP) && defined(CONFIG_NO_HZ)
@@ -1226,12 +1226,9 @@ struct task_struct {
 
 #ifdef CONFIG_SMP
 	struct task_struct *wake_entry;
+	int on_cpu;
 #endif
-#if defined(CONFIG_SMP)
-	bool on_cpu;
-#endif
-#endif
-	bool on_rq;
+	int on_rq;
 
 	int prio, static_prio, normal_prio;
 	unsigned int rt_priority;
@@ -1578,42 +1575,6 @@ struct task_struct {
 #endif
 };
 
-extern int runqueue_is_locked(int cpu);
-static inline void cpu_scaling(int cpu)
-{
-}
-
-static inline void cpu_nonscaling(int cpu)
-{
-}
-#define tsk_seruntime(t)	((t)->se.sum_exec_runtime)
-#define tsk_rttimeout(t)	((t)->rt.timeout)
-
-static inline void tsk_cpus_current(struct task_struct *p)
-{
-	p->rt.nr_cpus_allowed = current->rt.nr_cpus_allowed;
-}
-
-static inline void print_scheduler_version(void)
-{
-	printk(KERN_INFO"CFS CPU scheduler.\n");
-}
-
-static inline bool iso_task(struct task_struct *p)
-{
-	return false;
-}
-
-static inline void remove_cpu(int cpu)
-{
-}
-
-/* Anyone feel like implementing this? */
-static inline int above_background_load(void)
-{
-	return 1;
-}
-
 /* Future-safe accessor for struct task_struct's cpus_allowed. */
 #define tsk_cpus_allowed(tsk) (&(tsk)->cpus_allowed)
 
@@ -1631,11 +1592,10 @@ static inline int above_background_load(void)
  */
 
 #define MAX_USER_RT_PRIO	100
-#define MAX_RT_PRIO		(MAX_USER_RT_PRIO + 1)
-#define DEFAULT_PRIO		(MAX_RT_PRIO + 20)
+#define MAX_RT_PRIO		MAX_USER_RT_PRIO
 
 #define MAX_PRIO		(MAX_RT_PRIO + 40)
-#define NORMAL_PRIO		DEFAULT_PRIO
+#define DEFAULT_PRIO		(MAX_RT_PRIO + 20)
 
 static inline int rt_prio(int prio)
 {
@@ -1988,7 +1948,7 @@ extern unsigned long long
 task_sched_runtime(struct task_struct *task);
 
 /* sched_exec is called by processes performing an exec */
-#if defined(CONFIG_SMP)
+#ifdef CONFIG_SMP
 extern void sched_exec(void);
 #else
 #define sched_exec()   {}
@@ -2610,23 +2570,14 @@ static inline void thread_group_cputime_init(struct signal_struct *sig)
 extern void recalc_sigpending_and_wake(struct task_struct *t);
 extern void recalc_sigpending(void);
 
-extern void signal_wake_up_state(struct task_struct *t, unsigned int state);
-
-static inline void signal_wake_up(struct task_struct *t, bool resume)
-{
-	signal_wake_up_state(t, resume ? TASK_WAKEKILL : 0);
-}
-static inline void ptrace_signal_wake_up(struct task_struct *t, bool resume)
-{
-	signal_wake_up_state(t, resume ? __TASK_TRACED : 0);
-}
+extern void signal_wake_up(struct task_struct *t, int resume_stopped);
 
 /*
  * Wrappers for p->thread_info->cpu access. No-op on UP.
  */
 #ifdef CONFIG_SMP
 
-static inline int task_cpu(const struct task_struct *p)
+static inline unsigned int task_cpu(const struct task_struct *p)
 {
 	return task_thread_info(p)->cpu;
 }
@@ -2635,12 +2586,12 @@ extern void set_task_cpu(struct task_struct *p, unsigned int cpu);
 
 #else
 
-static inline int task_cpu(const struct task_struct *p)
+static inline unsigned int task_cpu(const struct task_struct *p)
 {
 	return 0;
 }
 
-static inline void set_task_cpu(struct task_struct *p, int cpu)
+static inline void set_task_cpu(struct task_struct *p, unsigned int cpu)
 {
 }
 
@@ -2754,3 +2705,5 @@ static inline unsigned long rlimit_max(unsigned int limit)
 }
 
 #endif /* __KERNEL__ */
+
+#endif

@@ -155,9 +155,13 @@ static int setup_vsync(struct panel_info *panel, int init)
 		ret = 0;
 		goto uninit;
 	}
-	ret = gpio_request_one(gpio, GPIOF_IN, "vsync");
+	ret = gpio_request(gpio, "vsync");
 	if (ret)
 		goto err_request_gpio_failed;
+
+	ret = gpio_direction_input(gpio);
+	if (ret)
+		goto err_gpio_direction_input_failed;
 
 	ret = irq = gpio_to_irq(gpio);
 	if (ret < 0)
@@ -176,6 +180,7 @@ uninit:
 	free_irq(gpio_to_irq(gpio), panel->client_data);
 err_request_irq_failed:
 err_get_irq_num_failed:
+err_gpio_direction_input_failed:
 	gpio_free(gpio);
 err_request_gpio_failed:
 	return ret;
@@ -189,9 +194,8 @@ static int mddi_nt35399_probe(struct platform_device *pdev)
 
 	int ret;
 
-	struct panel_info *panel = devm_kzalloc(&pdev->dev,
-						sizeof(struct panel_info),
-						GFP_KERNEL);
+	struct panel_info *panel = kzalloc(sizeof(struct panel_info),
+					   GFP_KERNEL);
 
 	printk(KERN_DEBUG "%s: enter.\n", __func__);
 
@@ -234,6 +238,7 @@ static int mddi_nt35399_remove(struct platform_device *pdev)
 	struct panel_info *panel = platform_get_drvdata(pdev);
 
 	setup_vsync(panel, 0);
+	kfree(panel);
 	return 0;
 }
 

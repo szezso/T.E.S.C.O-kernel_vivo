@@ -74,9 +74,9 @@ static struct snd_pcm_hardware msm_pcm_capture_hardware = {
 	.channels_min =         1,
 	.channels_max =         2,
 	.buffer_bytes_max =     MAX_BUFFER_CAPTURE_SIZE,
-	.period_bytes_min =		4096,
+	.period_bytes_min =		2048,
 	.period_bytes_max =     4096,
-	.periods_min =          4,
+	.periods_min =          2,
 	.periods_max =          4,
 	.fifo_size =            0,
 };

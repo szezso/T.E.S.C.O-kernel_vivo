@@ -346,14 +346,6 @@ err_register_lcd_bl:
 
 /* ------------------------------------------------------------------- */
 
-static struct resource resources_msm_fb[] = {
-	{
-		.start = MSM_FB_BASE,
-		.end = MSM_FB_BASE + MSM_FB_SIZE - 1,
-		.flags = IORESOURCE_MEM,
-	},
-};
-
 #define REG_WAIT (0xffff)
 
 struct nov_regs {
@@ -662,8 +654,8 @@ static struct msm_mddi_bridge_platform_data novatec_client_data = {
 	.fb_data = {
 		.xres = 480,
 		.yres = 800,
-		.width = 52,
-		.height = 86,
+		.width = 36,
+		.height = 108,
 		.output_format = 0,
 	},
 	.panel_conf = {
@@ -680,8 +672,8 @@ static struct msm_mddi_bridge_platform_data renesas_client_data = {
 	.fb_data = {
 		.xres = 480,
 		.yres = 800,
-		.width = 52,
-		.height = 86,
+		.width = 48,
+		.height = 80,
 		.output_format = 0,
 	},
 	.panel_conf = {
@@ -773,7 +765,7 @@ static void mddi_fixup(uint16_t *mfr_name, uint16_t *product_code)
 static struct msm_mddi_platform_data mddi_pdata = {
 	.fixup = mddi_fixup,
 	.power_client = mddi_power,
-	.fb_resource = resources_msm_fb,
+	.fb_resource = msm_fb_resources,
 	.num_clients = 2,
 	.client_platform_data = {
 		{
@@ -830,12 +822,15 @@ int __init vivo_init_panel(void)
 	int rc;
 
 	B(KERN_INFO "%s(%d): enter. panel_type 0x%08x\n", __func__, __LINE__, panel_type);
-	if (panel_type == PANEL_VIVOW_HITACHI)
-		msm_device_mdp.dev.platform_data = &mdp_pdata;
-	else
-		msm_device_mdp.dev.platform_data = &mdp_pdata_sony;
+	
+		msm_fb_resources[0].flags = IORESOURCE_MEM;
 
-	rc = platform_device_register(&msm_device_mdp);
+	if (panel_type == PANEL_VIVOW_HITACHI)
+		msm_mdp_device.dev.platform_data = &mdp_pdata;
+	else
+		msm_mdp_device.dev.platform_data = &mdp_pdata_sony;
+
+	rc = platform_device_register(&msm_mdp_device);
 	if (rc)
 		return rc;
 
@@ -852,8 +847,8 @@ int __init vivo_init_panel(void)
 		return PTR_ERR(axi_clk);
 	}
 
-	msm_device_mddi0.dev.platform_data = &mddi_pdata;
-	rc = platform_device_register(&msm_device_mddi0);
+	msm_mddi_device.dev.platform_data = &mddi_pdata;
+	rc = platform_device_register(&msm_mddi_device);
 	if (rc)
 		return rc;
 

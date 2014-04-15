@@ -26,7 +26,6 @@
 */
 
 #include <linux/module.h>
-#include <linux/interrupt.h>
 
 #include <linux/kernel.h>
 #include <linux/sched.h>
@@ -57,8 +56,8 @@
 
 #define VERSION "1.3"
 
-static bool compress_src = 1;
-static bool compress_dst = 1;
+static int compress_src = 1;
+static int compress_dst = 1;
 
 static LIST_HEAD(bnep_session_list);
 static DECLARE_RWSEM(bnep_session_sem);

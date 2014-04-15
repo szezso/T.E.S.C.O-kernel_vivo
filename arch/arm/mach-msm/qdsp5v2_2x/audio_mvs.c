@@ -29,7 +29,11 @@
 
 #define MVS_WR 0
 #define MVS_PROG 0x30000014
+#if (CONFIG_MSM_AMSS_VERSION >= 2000)
 #define MVS_VERS 0x00030001
+#else
+#define MVS_VERS 0x00010001
+#endif
 
 #define MVS_CLIENT_ID_VOIP 0x00000003
 

@@ -1072,7 +1072,7 @@ endchoice
 
 choice
 	depends on EXPERIMENTAL
-	prompt "Memory split"
+	prompt "Memory split" if EXPERT
 	default VMSPLIT_3G
 	depends on X86_32
 	---help---
@@ -1092,17 +1092,17 @@ choice
 	  option alone!
 
 	config VMSPLIT_3G
-		bool "Default 896MB lowmem (3G/1G user/kernel split)"
+		bool "3G/1G user/kernel split"
 	config VMSPLIT_3G_OPT
 		depends on !X86_PAE
-		bool "1GB lowmem (3G/1G user/kernel split)"
+		bool "3G/1G user/kernel split (for full 1G low memory)"
 	config VMSPLIT_2G
-		bool "2GB lowmem (2G/2G user/kernel split)"
+		bool "2G/2G user/kernel split"
 	config VMSPLIT_2G_OPT
 		depends on !X86_PAE
-		bool "2GB lowmem (2G/2G user/kernel split)"
+		bool "2G/2G user/kernel split (for full 2G low memory)"
 	config VMSPLIT_1G
-		bool "3GB lowmem (1G/3G user/kernel split)"
+		bool "1G/3G user/kernel split"
 endchoice
 
 config PAGE_OFFSET
@@ -1216,6 +1216,10 @@ config NODES_SHIFT
 	  system.  Increases memory reserved to accommodate various tables.
 
 config HAVE_ARCH_BOOTMEM
+	def_bool y
+	depends on X86_32 && NUMA
+
+config HAVE_ARCH_ALLOC_REMAP
 	def_bool y
 	depends on X86_32 && NUMA
 

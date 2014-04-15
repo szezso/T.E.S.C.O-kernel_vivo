@@ -32,8 +32,11 @@
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 
-void msm_gemini_platform_p2v(struct file  *file);
-uint32_t msm_gemini_platform_v2p(int fd, uint32_t len, struct file **file);
+#include <linux/ion.h>
+void msm_gemini_platform_p2v(struct file  *file,
+				struct ion_handle **ionhandle);
+uint32_t msm_gemini_platform_v2p(int fd, uint32_t len, struct file **file,
+				struct ion_handle **ionhandle);
 
 int msm_gemini_platform_clk_enable(void);
 int msm_gemini_platform_clk_disable(void);
