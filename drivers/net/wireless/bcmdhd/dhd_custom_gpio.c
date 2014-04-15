@@ -245,8 +245,6 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"PS", "XW", 0},
 	{"SD", "XW", 0},
 	{"TL", "XW", 0},
-	{"US", "US", 69}, /* input ISO "US" to : US regrev 69 */
-	{"TW", "TW", 3},
 #endif /* EXMAPLE_TABLE */
 };
 
@@ -257,7 +255,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 */
 void get_customized_country_code(char *country_iso_code, wl_country_t *cspec)
 {
-#if 0 && defined(CUSTOMER_HW2) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 39))
+#if defined(CUSTOMER_HW2) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 39))
 
 	struct cntry_locales_custom *cloc_ptr;
 

@@ -15,6 +15,7 @@
 
 #include <linux/types.h>
 #include <linux/input.h>
+#include <linux/platform_device.h>
 
 /*
  * Macros for clients to convert their data to ib and ab
@@ -82,6 +83,12 @@ int msm_bus_axi_porthalt(int master_port);
 int msm_bus_axi_portunhalt(int master_port);
 
 #else
+static inline struct msm_bus_scale_pdata
+*msm_bus_cl_get_pdata(struct platform_device *pdev)
+{
+	return NULL;
+}
+
 static inline uint32_t
 msm_bus_scale_register_client(struct msm_bus_scale_pdata *pdata)
 {

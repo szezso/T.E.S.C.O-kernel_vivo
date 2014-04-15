@@ -1897,14 +1897,15 @@ wl_cfgp2p_register_ndev(struct wl_priv *wl)
 
 	return ret;
 fail:
-	/* HTC_CSP_START*/
-	if (net != NULL)
-		net->netdev_ops = NULL;
-	/* HTC_CSP_END*/
+
+	net->netdev_ops = NULL;
+
+
 	if (net) {
 		unregister_netdev(net);
 		free_netdev(net);
 	}
+
 	return -ENODEV;
 }
 
