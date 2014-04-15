@@ -31,7 +31,6 @@
 
 #include <media/msm_gemini_8x60.h>
 #include "msm_gemini_hw_reg.h"
-#include <linux/ion.h>
 
 struct msm_gemini_hw_buf {
 	struct msm_gemini_buf vbuf;
@@ -42,7 +41,6 @@ struct msm_gemini_hw_buf {
 	uint32_t cbcr_buffer_addr;
 	uint32_t cbcr_len;
 	uint32_t num_of_mcu_rows;
-	struct ion_handle *handle;
 };
 
 struct msm_gemini_hw_pingpong {

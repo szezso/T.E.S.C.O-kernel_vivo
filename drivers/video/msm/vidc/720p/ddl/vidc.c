@@ -15,13 +15,11 @@
 #include <media/msm/vidc_type.h>
 #include "vidc.h"
 
-/*HTC_START*/
-extern u32 vidc_msg_debug;
-#define DBG(x...)				\
-	if (vidc_msg_debug) {			\
-		printk(KERN_DEBUG "[VID] " x);	\
-	}
-/*HTC_END*/
+#if DEBUG
+#define DBG(x...) printk(KERN_DEBUG x)
+#else
+#define DBG(x...)
+#endif
 
 #define VIDC_720P_VERSION_STRING "VIDC_V1.0"
 u8 *vidc_base_addr;

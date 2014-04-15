@@ -4159,7 +4159,6 @@ static struct platform_device *devices[] __initdata = {
     &ion_dev,
 #endif
 	&msm_device_uart_dm1,
-#endif
 #ifdef CONFIG_BT
 	&vivo_rfkill,
 #endif

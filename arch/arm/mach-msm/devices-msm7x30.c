@@ -25,6 +25,9 @@
 #include <mach/dma.h>
 #include <mach/board.h>
 #include <asm/clkdev.h>
+#ifdef CONFIG_ION_MSM
+#include <linux/ion.h>
+#endif
 
 #include "devices.h"
 #include "gpio_hw.h"
@@ -39,8 +42,6 @@
 #endif
 #include <mach/dal_axi.h>
 #include <mach/msm_memtypes.h>
-
-#include <linux/ion.h>
 
 /* EBI THERMAL DRIVER */
 static struct resource msm_ebi0_thermal_resources[] = {
@@ -790,6 +791,73 @@ int __init msm_add_sdcc(unsigned int controller, struct mmc_platform_data *plat)
 	return platform_device_register(pdev);
 }
 
+static struct resource resources_mddi0[] = {
+	{
+		.start	= MSM_PMDH_PHYS,
+		.end	= MSM_PMDH_PHYS + MSM_PMDH_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_MDDI_PRI,
+		.end	= INT_MDDI_PRI,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct resource resources_mddi1[] = {
+	{
+		.start	= MSM_EMDH_PHYS,
+		.end	= MSM_EMDH_PHYS + MSM_EMDH_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_MDDI_EXT,
+		.end	= INT_MDDI_EXT,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm_device_mddi0 = {
+	.name = "msm_mddi",
+	.id = 0,
+	.num_resources = ARRAY_SIZE(resources_mddi0),
+	.resource = resources_mddi0,
+	.dev            = {
+		.coherent_dma_mask      = 0xffffffff,
+	},
+};
+
+struct platform_device msm_device_mddi1 = {
+	.name = "msm_mddi",
+	.id = 1,
+	.num_resources = ARRAY_SIZE(resources_mddi1),
+	.resource = resources_mddi1,
+	.dev            = {
+		.coherent_dma_mask      = 0xffffffff,
+	}
+};
+
+static struct resource resources_mdp[] = {
+	{
+		.start	= MSM_MDP_PHYS,
+		.end	= MSM_MDP_PHYS + MSM_MDP_SIZE - 1,
+		.name	= "mdp",
+		.flags	= IORESOURCE_MEM
+	},
+	{
+		.start	= INT_MDP,
+		.end	= INT_MDP,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm_device_mdp = {
+	.name = "msm_mdp",
+	.id = 0,
+	.num_resources = ARRAY_SIZE(resources_mdp),
+	.resource = resources_mdp,
+};
+
 static struct resource msm_vidc_720p_resources[] = {
 	{
 		.start	= 0xA3B00000,
@@ -804,13 +872,9 @@ static struct resource msm_vidc_720p_resources[] = {
 };
 
 struct msm_vidc_platform_data vidc_platform_data = {
-#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	.memtype = ION_CAMERA_HEAP_ID,
+	.memtype_pmem = MEMTYPE_EBI0,
 	.enable_ion = 1,
-#else
-	.memtype = MEMTYPE_EBI0,
-	.enable_ion = 0,
-#endif
 	.disable_dmx = 0
 };
 
@@ -856,13 +920,7 @@ static struct resource msm_mddi_resources[] = {
 		.start  = PMDH_BASE,
 		.end    = PMDH_BASE + PAGE_SIZE - 1,
 		.flags  = IORESOURCE_MEM,
-	},
-	{
-		.start	= INT_MDDI_PRI,
-		.end	= INT_MDDI_PRI,
-		.flags	= IORESOURCE_IRQ,
-	},
-
+	}
 };
 
 static struct resource msm_mddi_ext_resources[] = {
@@ -871,12 +929,7 @@ static struct resource msm_mddi_ext_resources[] = {
 		.start  = EMDH_BASE,
 		.end    = EMDH_BASE + PAGE_SIZE - 1,
 		.flags  = IORESOURCE_MEM,
-	},
-	{
-		.start	= INT_MDDI_EXT,
-		.end	= INT_MDDI_EXT,
-		.flags	= IORESOURCE_IRQ,
-	},
+	}
 };
 
 static struct resource msm_ebi2_lcd_resources[] = {
@@ -920,14 +973,14 @@ static struct resource tvout_device_resources[] = {
 };
 #endif
 
-struct platform_device msm_mdp_device = {
+static struct platform_device msm_mdp_device = {
 	.name   = "mdp",
 	.id     = 0,
 	.num_resources  = ARRAY_SIZE(msm_mdp_resources),
 	.resource       = msm_mdp_resources,
 };
 
-struct platform_device msm_mddi_device = {
+static struct platform_device msm_mddi_device = {
 	.name   = "mddi",
 	.id     = 0,
 	.num_resources  = ARRAY_SIZE(msm_mddi_resources),
@@ -1080,12 +1133,6 @@ static void __init msm_register_device(struct platform_device *pdev, void *data)
 			  __func__, ret);
 }
 
-struct resource msm_fb_resources[] = {
-	{
-		.flags  = IORESOURCE_DMA,
-	}
-};
-
 void __init msm_fb_register_device(char *name, void *data)
 {
 	if (!strncmp(name, "mdp", 3))
@@ -1142,15 +1189,15 @@ struct resource kgsl_3d0_resources[] = {
 static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 	.pwrlevel = {
 		{
-			.gpu_freq = 245760000,
+			.gpu_freq = 353280000,
 			.bus_freq = 192000000,
 		},
 		{
-			.gpu_freq = 192000000,
+			.gpu_freq = 299520000,
 			.bus_freq = 152000000,
 		},
 		{
-			.gpu_freq = 192000000,
+			.gpu_freq = 245760000,
 			.bus_freq = 0,
 		},
 	},
@@ -1158,7 +1205,8 @@ static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 	.num_levels = 3,
 	.set_grp_async = set_grp3d_async,
 	.idle_timeout = HZ/20,
-	.nap_allowed = true,
+	.nap_allowed = false,
+	.idle_needed = true,
 	.clk_map = KGSL_CLK_SRC | KGSL_CLK_CORE |
 		KGSL_CLK_IFACE | KGSL_CLK_MEM,
 };
@@ -1200,7 +1248,7 @@ static struct kgsl_device_platform_data kgsl_2d0_pdata = {
 	/* HW workaround, run Z180 SYNC @ 192 MHZ */
 	.set_grp_async = NULL,
 	.idle_timeout = HZ/10,
-	.nap_allowed = true,
+	.nap_allowed = false,
 	.clk_map = KGSL_CLK_CORE | KGSL_CLK_IFACE,
 };
 
