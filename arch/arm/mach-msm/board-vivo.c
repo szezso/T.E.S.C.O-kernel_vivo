@@ -18,9 +18,6 @@
 #include <linux/delay.h>
 #include <linux/bootmem.h>
 #include <linux/io.h>
-#ifdef CONFIG_ION_MSM
-#include <linux/ion.h>
-#endif
 #ifdef CONFIG_SPI_QSD
 #include <linux/spi/spi.h>
 #endif
@@ -99,9 +96,6 @@
 #include "acpuclock.h"
 #include <mach/dal_axi.h>
 #include <mach/msm_serial_hs.h>
-#ifdef CONFIG_SERIAL_MSM_HS_PURE_ANDROID
-#include <mach/bcm_bt_lpm.h>
-#endif
 #include <mach/qdsp5v2_2x/mi2s.h>
 #include <mach/qdsp5v2_2x/audio_dev_ctl.h>
 #include <mach/sdio_al.h>
@@ -122,6 +116,14 @@
 #ifdef CONFIG_BT
 #include <mach/htc_bdaddress.h>
 #endif
+
+#include <linux/ion.h>
+#include <mach/ion.h>
+
+#ifdef CONFIG_SERIAL_BCM_BT_LPM
+#include <mach/bcm_bt_lpm.h>
+#endif
+
 int htc_get_usb_accessory_adc_level(uint32_t *buffer);
 
 #define GPS_EN_GPIO -1
@@ -145,6 +147,11 @@ int htc_get_usb_accessory_adc_level(uint32_t *buffer);
 #define PM8058_IRQ_BASE			   (NR_MSM_IRQS + NR_GPIO_IRQS)
 
 #define	PM_FLIP_MPP 5 /* PMIC MPP 06 */
+
+#ifdef CONFIG_ION_MSM
+static struct platform_device ion_dev;
+#define MSM_ION_HEAP_NUM       3
+#endif
 
 struct pm8xxx_gpio_init_info {
 	unsigned			gpio;
@@ -173,9 +180,6 @@ unsigned int vivo_get_engineerid(void)
 		(((pull) & 0x3) << 15)          | \
 		(((drvstr) & 0xF) << 17))
 
-#ifdef CONFIG_ION_MSM
-static struct platform_device ion_dev;
-#endif
 
 static void config_gpio_table(uint32_t *table, int len)
 {
@@ -3417,10 +3421,23 @@ static int msm_hsusb_ldo_set_voltage(int mV)
 static int phy_init_seq[] = { 0x06, 0x36, 0x0C, 0x31, 0x31, 0x32, 0x1, 0x0D, 0x1, 0x10, -1 };
 static struct msm_otg_platform_data msm_otg_pdata = {
 	.phy_init_seq		= phy_init_seq,
-	.mode			= USB_PERIPHERAL,
+	.mode			= USB_OTG,
 	.otg_control		= OTG_PMIC_CONTROL,
 	.power_budget		= 750,
 	.phy_type		= CI_45NM_INTEGRATED_PHY,
+};
+
+static struct android_pmem_platform_data android_pmem_pdata = {
+	.name = "pmem",
+	.allocator_type = PMEM_ALLOCATORTYPE_ALLORNOTHING,
+	.cached = 1,
+	.memory_type = MEMTYPE_EBI0,
+};
+
+static struct platform_device android_pmem_device = {
+	.name = "android_pmem",
+	.id = 0,
+	.dev = { .platform_data = &android_pmem_pdata },
 };
 
 #if defined(CONFIG_FB_MSM_HDMI_ADV7520_PANEL) || defined(CONFIG_BOSCH_BMA150)
@@ -3533,18 +3550,15 @@ adapter_put:
 fs_initcall_sync(fluid_i2c_address_fixup);
 #endif
 
+static struct resource msm_fb_resources[] = {
+	{
+		.flags  = IORESOURCE_DMA,
+	}
+};
+
 static struct platform_device msm_migrate_pages_device = {
 	.name   = "msm_migrate_pages",
 	.id     = -1,
-};
-
-#ifdef CONFIG_ANDROID_PMEM
-#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
-static struct android_pmem_platform_data android_pmem_pdata = {
-	.name = "pmem",
-	.allocator_type = PMEM_ALLOCATORTYPE_ALLORNOTHING,
-	.cached = 1,
-	.memory_type = MEMTYPE_EBI0,
 };
 
 static struct android_pmem_platform_data android_pmem_adsp_pdata = {
@@ -3553,35 +3567,28 @@ static struct android_pmem_platform_data android_pmem_adsp_pdata = {
        .cached = 0,
 	.memory_type = MEMTYPE_EBI0,
 };
-/*
+
+#if 0
 static struct android_pmem_platform_data android_pmem_audio_pdata = {
        .name = "pmem_audio",
        .allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
        .cached = 0,
-	.memory_type = MEMTYPE_EBI1,
+	.memory_type = MEMTYPE_EBI0,
 };
-*/
-static struct platform_device android_pmem_device = {
-	.name = "android_pmem",
-	.id = 0,
-	.dev = { .platform_data = &android_pmem_pdata },
-};
-
+#endif
 static struct platform_device android_pmem_adsp_device = {
        .name = "android_pmem",
        .id = 2,
        .dev = { .platform_data = &android_pmem_adsp_pdata },
 };
-/*
+
+#if 0
 static struct platform_device android_pmem_audio_device = {
        .name = "android_pmem",
        .id = 4,
        .dev = { .platform_data = &android_pmem_audio_pdata },
 };
-*/
 #endif
-#endif
-
 #if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
 		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE) || \
 		defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
@@ -3751,36 +3758,40 @@ static struct platform_device msm_adc_device = {
 	},
 };
 
-#ifdef CONFIG_SERIAL_MSM_HS
+#if defined(CONFIG_SERIAL_MSM_HS) || defined(CONFIG_SERIAL_MSM_HS_LPM)
 static struct msm_serial_hs_platform_data msm_uart_dm1_pdata = {
+	.rx_wakeup_irq = -1,
 	.inject_rx_on_wakeup = 0,
-	.cpu_lock_supported = 1,
-#ifdef CONFIG_SERIAL_MSM_HS_PURE_ANDROID
-        .exit_lpm_cb = bcm_bt_lpm_exit_lpm_locked,
-#endif
+
+#ifdef CONFIG_SERIAL_BCM_BT_LPM
+	.exit_lpm_cb = bcm_bt_lpm_exit_lpm_locked,
+#else
 	/* for brcm BT */
 	.bt_wakeup_pin_supported = 1,
 	.bt_wakeup_pin = VIVO_GPIO_BT_CHIP_WAKE,
 	.host_wakeup_pin = VIVO_GPIO_BT_HOST_WAKE,
+#endif
 };
 
-#ifdef CONFIG_SERIAL_MSM_HS_PURE_ANDROID
+#ifdef CONFIG_SERIAL_BCM_BT_LPM
 static struct bcm_bt_lpm_platform_data bcm_bt_lpm_pdata = {
-  .gpio_wake = VIVO_GPIO_BT_CHIP_WAKE,
-  .gpio_host_wake = VIVO_GPIO_BT_HOST_WAKE,
-  .request_clock_off_locked = msm_hs_request_clock_off_locked,
-  .request_clock_on_locked = msm_hs_request_clock_on_locked,
+	.gpio_wake = VIVO_GPIO_BT_CHIP_WAKE,
+	.gpio_host_wake = VIVO_GPIO_BT_HOST_WAKE,
+	.request_clock_off_locked = msm_hs_request_clock_off_locked,
+	.request_clock_on_locked = msm_hs_request_clock_on_locked,
 };
 
-struct platform_device vivo_bcm_bt_lpm_device = {
-  .name = "bcm_bt_lpm",
-  .id = 0,
-  .dev = {
-    .platform_data = &bcm_bt_lpm_pdata,
-  },
+struct platform_device bcm_bt_lpm_device = {
+	.name = "bcm_bt_lpm",
+	.id = 0,
+	.dev = {
+		.platform_data = &bcm_bt_lpm_pdata,
+	},
 };
 #endif
+
 #endif
+
 
 #ifdef CONFIG_BT
 static struct platform_device vivo_rfkill = {
@@ -4010,27 +4021,27 @@ static struct platform_device *headset_devices[] = {
 static struct headset_adc_config htc_headset_mgr_config[] = {
 	{
 		.type = HEADSET_MIC,
-		.adc_max = 55426,
-		.adc_min = 38237,
+		.adc_max = 27713,
+		.adc_min = 22092,
 	},
 	{
 		.type = HEADSET_BEATS,
-		.adc_max = 38236,
-		.adc_min = 30586,
+		.adc_max = 22091,
+		.adc_min = 16271,
 	},
 	{
 		.type = HEADSET_BEATS_SOLO,
-		.adc_max = 30585,
-		.adc_min = 20292,
+		.adc_max = 16270,
+		.adc_min = 10045,
 	},
 	{
-		.type = HEADSET_NO_MIC, /* HEADSET_INDICATOR */
-		.adc_max = 20291,
-		.adc_min = 7285,
+    		.type = HEADSET_INDICATOR,
+    		.adc_max = 10044,
+    		.adc_min = 4523, 
 	},
 	{
 		.type = HEADSET_NO_MIC,
-		.adc_max = 7284,
+		.adc_max = 4522,
 		.adc_min = 0,
 	},
 };
@@ -4057,9 +4068,6 @@ static struct platform_device *devices[] __initdata = {
 #if defined(CONFIG_SERIAL_MSM) || defined(CONFIG_MSM_SERIAL_DEBUGGER)
 	&msm_device_uart2,
 #endif
-#ifdef CONFIG_SERIAL_MSM_HS_PURE_ANDROID
-        &vivo_bcm_bt_lpm_device,
-#endif
 #ifdef CONFIG_MSM_PROC_COMM_REGULATOR
 	&msm_proccomm_regulator_dev,
 #endif
@@ -4079,6 +4087,7 @@ static struct platform_device *devices[] __initdata = {
 	&msm_device_nand,
 #endif
 	&msm_device_otg,
+	&msm_device_hsusb_host,
 	&qsd_device_spi,
 #ifdef CONFIG_MSM_SSBI
 	&msm_device_ssbi_pmic1,
@@ -4087,18 +4096,13 @@ static struct platform_device *devices[] __initdata = {
 	/*&msm_device_ssbi6,*/
 	&msm_device_ssbi7,
 #endif
-	
+	&android_pmem_device,
 	&msm_migrate_pages_device,
 #ifdef CONFIG_MSM_ROTATOR
 	&msm_rotator_device,
 #endif
-#ifdef CONFIG_ANDROID_PMEM
-#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
-	&android_pmem_device,
 	&android_pmem_adsp_device,
 	//&android_pmem_audio_device,
-#endif
-#endif
 	&msm_device_i2c,
 	&msm_device_i2c_2,
 	&hs_device,
@@ -4119,6 +4123,7 @@ static struct platform_device *devices[] __initdata = {
 
 	&msm_device_adspdec,
 	&qup_device_i2c,
+
 	&msm_kgsl_3d0,
 	&msm_kgsl_2d0,
 	&msm_device_vidc_720p,
@@ -4150,9 +4155,12 @@ static struct platform_device *devices[] __initdata = {
 	&msm_ebi0_thermal,
 	&msm_ebi1_thermal,
 #ifdef CONFIG_ION_MSM
-	&ion_dev,
+    &ion_dev,
 #endif
-#ifdef CONFIG_SERIAL_MSM_HS
+#ifdef CONFIG_SERIAL_BCM_BT_LPM
+	&bcm_bt_lpm_device,
+#endif
+#if defined(CONFIG_SERIAL_MSM_HS) || defined(CONFIG_SERIAL_MSM_HS_LPM)
 	&msm_device_uart_dm1,
 #endif
 #ifdef CONFIG_BT
@@ -5522,15 +5530,18 @@ static void __init vivo_init(void)
 	perflock_init(&vivo_perflock_data);
 #endif
 
+#if defined(CONFIG_SERIAL_MSM_HS) || defined(CONFIG_SERIAL_MSM_HS_LPM)
+#ifndef CONFIG_SERIAL_BCM_BT_LPM
+	msm_uart_dm1_pdata.rx_wakeup_irq = gpio_to_irq(VIVO_GPIO_BT_HOST_WAKE);
+#endif
 #ifdef CONFIG_SERIAL_MSM_HS
-#ifdef CONFIG_SERIAL_MSM_HS_PURE_ANDROID
-        msm_uart_dm1_pdata.rx_wakeup_irq = -1;
-#else
-        msm_uart_dm1_pdata.rx_wakeup_irq = gpio_to_irq(VIVO_GPIO_BT_HOST_WAKE);
-        msm_device_uart_dm1.name = "msm_serial_hs_brcm";
+	msm_device_uart_dm1.name = "msm_serial_hs_brcm";
 #endif
+#ifdef CONFIG_SERIAL_MSM_HS_LPM
+	msm_device_uart_dm1.name = "msm_serial_hs_brcm_lpm";
 #endif
-msm_device_uart_dm1.dev.platform_data = &msm_uart_dm1_pdata;
+	msm_device_uart_dm1.dev.platform_data = &msm_uart_dm1_pdata;
+#endif
 
 #ifdef CONFIG_USB_MSM_OTG_72K
 	if (SOCINFO_VERSION_MAJOR(soc_version) >= 2 &&
@@ -5691,57 +5702,7 @@ msm_device_uart_dm1.dev.platform_data = &msm_uart_dm1_pdata;
 		pm8058_leds_data.num_leds = ARRAY_SIZE(pm_led_config);
 	}
 }
-
-static unsigned fb_size = MSM_FB_SIZE;
-static int __init fb_size_setup(char *p)
-{
-	fb_size = memparse(p, NULL);
-	return 0;
-}
-early_param("fb_size", fb_size_setup);
-
-#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-static unsigned ion_sf_size = MSM_ION_SF_SIZE;
-static int __init ion_sf_size_setup(char *p)
-{
-	ion_sf_size = memparse(p, NULL);
-	return 0;
-}
-
-early_param("ion_sf_size", ion_sf_size_setup);
-
-static unsigned ion_camera_size = MSM_ION_CAMERA_SIZE;
-static int __init ion_camera_size_setup(char *p)
-{
-	ion_camera_size = memparse(p, NULL);
-	return 0;
-}
-early_param("ion_camera_size", ion_camera_size_setup);
-
-static unsigned ion_audio_size = MSM_ION_AUDIO_SIZE;
-static int __init ion_audio_size_setup(char *p)
-{
-	ion_audio_size = memparse(p, NULL);
-	return 0;
-}
-early_param("ion_audio_size", ion_audio_size_setup);
-#else
-static unsigned pmem_adsp_size = MSM_PMEM_ADSP_SIZE;
-static int __init pmem_adsp_size_setup(char *p)
-{
-	pmem_adsp_size = memparse(p, NULL);
-	return 0;
-}
-early_param("pmem_adsp_size", pmem_adsp_size_setup);
 /*
-static unsigned pmem_audio_size = MSM_PMEM_AUDIO_SIZE;
-static int __init pmem_audio_size_setup(char *p)
-{
-	pmem_audio_size = memparse(p, NULL);
-	return 0;
-}
-early_param("pmem_audio_size", pmem_audio_size_setup);
-*/
 static unsigned pmem_sf_size = MSM_PMEM_SF_SIZE;
 static int __init pmem_sf_size_setup(char *p)
 {
@@ -5750,13 +5711,28 @@ static int __init pmem_sf_size_setup(char *p)
 }
 
 early_param("pmem_sf_size", pmem_sf_size_setup);
-#endif
+*/
+static unsigned fb_size = MSM_FB_SIZE;
+static int __init fb_size_setup(char *p)
+{
+	fb_size = memparse(p, NULL);
+	return 0;
+}
+early_param("fb_size", fb_size_setup);
+
+static unsigned pmem_adsp_size = MSM_PMEM_ADSP_SIZE;
+static int __init pmem_adsp_size_setup(char *p)
+{
+	pmem_adsp_size = memparse(p, NULL);
+	return 0;
+}
+early_param("pmem_adsp_size", pmem_adsp_size_setup);
 
 #ifdef CONFIG_ION_MSM
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 static struct ion_co_heap_pdata co_ion_pdata = {
-	.adjacent_mem_id = INVALID_HEAP_ID,
-	.align = PAGE_SIZE,
+  .adjacent_mem_id = INVALID_HEAP_ID,
+  .align = PAGE_SIZE,
 };
 #endif
 
@@ -5765,49 +5741,40 @@ static struct ion_co_heap_pdata co_ion_pdata = {
  * Don't swap the order unless you know what you are doing!
  */
 static struct ion_platform_data ion_pdata = {
-	.nr = MSM_ION_HEAP_NUM,
-	.heaps = {
-		{
-			.id	= ION_SYSTEM_HEAP_ID,
-			.type	= ION_HEAP_TYPE_SYSTEM,
-			.name	= ION_VMALLOC_HEAP_NAME,
-		},
+  .nr = MSM_ION_HEAP_NUM,
+  .heaps = {
+    {
+      .id  = ION_SYSTEM_HEAP_ID,
+      .type  = ION_HEAP_TYPE_SYSTEM,
+      .name  = ION_VMALLOC_HEAP_NAME,
+    },
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-		/* PMEM_ADSP = CAMERA */
-		{
-			.id	= ION_CAMERA_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CARVEOUT,
-			.name	= ION_CAMERA_HEAP_NAME,
-			.memory_type = ION_EBI_TYPE,
-			.has_outer_cache = 1,
-			.extra_data = (void *)&co_ion_pdata,
-		},
-		/* PMEM_AUDIO */
-		{
-			.id	= ION_AUDIO_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CARVEOUT,
-			.name	= ION_AUDIO_HEAP_NAME,
-			.memory_type = ION_EBI_TYPE,
-			.has_outer_cache = 1,
-			.extra_data = (void *)&co_ion_pdata,
-		},
-		/* PMEM_MDP = SF */
-		{
-			.id	= ION_SF_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CARVEOUT,
-			.name	= ION_SF_HEAP_NAME,
-			.memory_type = ION_EBI_TYPE,
-			.has_outer_cache = 1,
-			.extra_data = (void *)&co_ion_pdata,
-		},
+    /* CAMERA */
+    {
+      .id    = ION_CAMERA_HEAP_ID,
+      .type  = ION_HEAP_TYPE_CARVEOUT,
+      .name  = ION_CAMERA_HEAP_NAME,
+      .memory_type = ION_EBI_TYPE,
+      .has_outer_cache = 1,
+      .extra_data = (void *)&co_ion_pdata,
+    },
+    /* PMEM_MDP = SF */
+    {
+      .id  = ION_SF_HEAP_ID,
+      .type  = ION_HEAP_TYPE_CARVEOUT,
+      .name  = ION_SF_HEAP_NAME,
+      .memory_type = ION_EBI_TYPE,
+      .has_outer_cache = 1,
+      .extra_data = (void *)&co_ion_pdata,
+    },
 #endif
-	}
+  }
 };
 
 static struct platform_device ion_dev = {
-	.name = "ion-msm",
-	.id = 1,
-	.dev = { .platform_data = &ion_pdata },
+  .name = "ion-msm",
+  .id = 1,
+  .dev = { .platform_data = &ion_pdata },
 };
 #endif
 
@@ -5822,53 +5789,66 @@ static struct memtype_reserve msm7x30_reserve_table[] __initdata = {
 	},
 };
 
+unsigned long msm_ion_camera_size;
+static void fix_sizes(void)
+{
+#ifdef CONFIG_ION_MSM
+  msm_ion_camera_size = pmem_adsp_size;
+#endif
+}
+
 static void __init size_pmem_devices(void)
 {
 #ifdef CONFIG_ANDROID_PMEM
+        android_pmem_adsp_pdata.size = pmem_adsp_size;
 #ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
-	android_pmem_adsp_pdata.size = pmem_adsp_size;
-	//android_pmem_audio_pdata.size = pmem_audio_size;
-	android_pmem_pdata.size = pmem_sf_size;
+        android_pmem_pdata.size = pmem_sf_size;
 #endif
 #endif
 }
 
+#ifdef CONFIG_ANDROID_PMEM
+static void __init reserve_memory_for(struct android_pmem_platform_data *p)
+{
+	pr_info("%s: reserve %lu bytes from memory %d for %s.\n", __func__, p->size, p->memory_type, p->name);
+	msm7x30_reserve_table[p->memory_type].size += p->size;
+}
+#endif
+
 static void __init reserve_pmem_memory(void)
 {
 #ifdef CONFIG_ANDROID_PMEM
+	reserve_memory_for(&android_pmem_adsp_pdata);
+        msm7x30_reserve_table[MEMTYPE_EBI0].size += PMEM_KERNEL_EBI0_SIZE;
 #ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
-	msm7x30_reserve_table[MEMTYPE_EBI0].size += pmem_adsp_size;
-	//msm7x30_reserve_table[MEMTYPE_EBI0].size += pmem_audio_size;
-	msm7x30_reserve_table[MEMTYPE_EBI0].size += pmem_sf_size;
+	reserve_memory_for(&android_pmem_pdata);
 #endif
-	msm7x30_reserve_table[MEMTYPE_EBI0].size += PMEM_KERNEL_EBI0_SIZE;
 #endif
 }
 
 static void __init size_ion_devices(void)
 {
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-	ion_pdata.heaps[1].size = ion_camera_size;
-	ion_pdata.heaps[2].size = ion_audio_size;
-	ion_pdata.heaps[3].size = ion_sf_size;
+  ion_pdata.heaps[1].size = MSM_ION_CAMERA_SIZE;
+  ion_pdata.heaps[2].size = MSM_ION_SF_SIZE;
 #endif
 }
 
 static void __init reserve_ion_memory(void)
 {
-#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-	msm7x30_reserve_table[MEMTYPE_EBI0].size += ion_camera_size;
-	msm7x30_reserve_table[MEMTYPE_EBI0].size += ion_audio_size;
-	msm7x30_reserve_table[MEMTYPE_EBI0].size += ion_sf_size;
+#if defined(CONFIG_ION_MSM) && defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
+  msm7x30_reserve_table[MEMTYPE_EBI0].size += MSM_ION_CAMERA_SIZE;
+  msm7x30_reserve_table[MEMTYPE_EBI0].size += MSM_ION_SF_SIZE;
 #endif
 }
 
 static void __init msm7x30_calculate_reserve_sizes(void)
 {
+        fix_sizes();
 	size_pmem_devices();
 	reserve_pmem_memory();
-	size_ion_devices();
-	reserve_ion_memory();
+  	size_ion_devices();
+  	reserve_ion_memory();
 }
 
 static int msm7x30_paddr_to_memtype(unsigned int paddr)
@@ -5894,15 +5874,13 @@ static void __init vivo_reserve(void)
 
 static void __init vivo_allocate_memory_regions(void)
 {
-	void *addr;
 	unsigned long size;
 
-	size = fb_size ? : MSM_FB_SIZE;
-	addr = alloc_bootmem_align(size, 0x1000);
-	msm_fb_resources[0].start = __pa(addr);
+	size = MSM_FB_SIZE;
+	msm_fb_resources[0].start = MSM_FB_BASE;
 	msm_fb_resources[0].end = msm_fb_resources[0].start + size - 1;
-	printk("allocating %lu bytes at %p (%lx physical) for fb\n",
-			size, addr, __pa(addr));
+	pr_info("allocating %lu bytes at 0x%p (0x%lx physical) for fb\n",
+		size, __va(MSM_FB_BASE), (unsigned long) MSM_FB_BASE);
 }
 
 static void __init vivo_map_io(void)
@@ -5926,7 +5904,7 @@ static void __init vivo_fixup(struct machine_desc *desc, struct tag *tags,
 
 	mi->nr_banks = 2;
 	mi->bank[0].start = MSM_LINUX_BASE1;
-	mi->bank[0].size = MSM_LINUX_SIZE1 + MSM_MEM_256MB_OFFSET;
+	mi->bank[0].size = MSM_LINUX_SIZE1;
 	mi->bank[1].start = MSM_LINUX_BASE2;
 	mi->bank[1].size = MSM_LINUX_SIZE2;
 }
