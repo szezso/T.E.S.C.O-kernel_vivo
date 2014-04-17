@@ -42,5 +42,3 @@ obj-$(CONFIG_FB_MSM_LCDC) += mdp_lcdc.o
 obj-$(CONFIG_FB_MSM_DTV) += mdp_dtv.o
 obj-$(CONFIG_FB_MSM_TVOUT) += tvenc.o tvfb.o
 
-obj-$(CONFIG_MSM_VIDC_720P) += vidc/
-

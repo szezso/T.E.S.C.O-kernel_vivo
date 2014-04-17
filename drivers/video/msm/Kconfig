@@ -1,5 +1,3 @@
-source "drivers/video/msm/sii9234/Kconfig"
-
 config FB_MSM
 	tristate
 	depends on FB && ARCH_MSM
