@@ -382,6 +382,7 @@ struct msmfb_info {
 	spinlock_t update_lock;
 	struct mutex panel_init_lock;
 	wait_queue_head_t frame_wq;
+	struct workqueue_struct *resume_workqueue;
 	struct work_struct resume_work;
 	struct msmfb_callback dma_callback;
 	struct msmfb_callback vsync_callback;
