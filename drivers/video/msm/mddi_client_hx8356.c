@@ -259,15 +259,15 @@ err_request_gpio_failed:
 static int mddi_himax_probe(struct platform_device *pdev)
 {
 	int ret, err = -EINVAL;
-	struct panel_info *panel;
 	struct msm_mddi_client_data *client_data = pdev->dev.platform_data;
 	struct msm_mddi_bridge_platform_data *bridge_data =
 	    client_data->private_client_data;
 	struct panel_data *panel_data = &bridge_data->panel_conf;
-
+	struct panel_info *panel = devm_kzalloc(&pdev->dev,
+						sizeof(struct panel_info),
+						GFP_KERNEL);
 	B(KERN_DEBUG "%s: enter\n", __func__);
 
-	panel = kzalloc(sizeof(struct panel_info), GFP_KERNEL);
 	if (!panel) {
 		err = -ENOMEM;
 		goto err_out;
@@ -328,7 +328,6 @@ static int mddi_himax_remove(struct platform_device *pdev)
 	struct panel_info *panel = platform_get_drvdata(pdev);
 
 	setup_vsync(panel, 0);
-	kfree(panel);
 	return 0;
 }
 

@@ -29,6 +29,7 @@
 #include <mach/msm_iomap.h>
 #include <mach/msm_fb-7x30.h>
 #include <linux/platform_device.h>
+#include <linux/export.h>
 
 #include "mdp_hw.h"
 #include "mdp_ppp.h"
@@ -397,7 +398,7 @@ int mdp_wait(struct mdp_info *mdp, uint32_t mask, wait_queue_head_t *wq)
 	int ret = 0;
 	unsigned long irq_flags = 0;
 
-	wait_event_timeout(*wq, !mdp_check_mask(mdp, mask), HZ);
+	wait_event_timeout(*wq, !mdp_check_mask(mdp, mask), 5*HZ);
 
 	spin_lock_irqsave(&mdp->lock, irq_flags);
 	if (mdp_irq_mask & mask) {
@@ -1324,7 +1325,7 @@ int mdp_probe(struct platform_device *pdev)
 		goto error_get_mdp_clk;
 	}
 #endif
-	ret = request_irq(mdp->irq, mdp_isr, IRQF_DISABLED, "mdp", mdp);
+	ret = request_irq(mdp->irq, mdp_isr, 0, "msm_mdp", mdp);
 	if (ret)
 		goto error_request_irq;
 	disable_irq(mdp->irq);
@@ -1417,7 +1418,7 @@ error_get_irq:
 
 static struct platform_driver msm_mdp_driver = {
 	.probe = mdp_probe,
-	.driver = {.name = "mdp"},
+	.driver = {.name = "msm_mdp"},
 };
 
 static int __init mdp_lateinit(void)
@@ -1433,7 +1434,7 @@ static int __init mdp_lateinit(void)
 
 static int __init mdp_init(void)
 {
-	mdp_class = class_create(THIS_MODULE, "mdp");
+	mdp_class = class_create(THIS_MODULE, "msm_mdp");
 	if (IS_ERR(mdp_class)) {
 		PR_DISP_ERR("Error creating mdp class\n");
 		return PTR_ERR(mdp_class);
