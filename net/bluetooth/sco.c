@@ -25,6 +25,7 @@
 
 /* Bluetooth SCO sockets. */
 
+#include <linux/interrupt.h>
 #include <linux/module.h>
 
 #include <linux/types.h>
@@ -51,7 +52,7 @@
 #include <net/bluetooth/hci_core.h>
 #include <net/bluetooth/sco.h>
 
-static int disable_esco;
+static bool disable_esco;
 
 static const struct proto_ops sco_sock_ops;
 
@@ -393,16 +394,6 @@ static void __sco_sock_close(struct sock *sk)
 
 	case BT_CONNECTED:
 	case BT_CONFIG:
-		if (sco_pi(sk)->conn) {
-			sk->sk_state = BT_DISCONN;
-			sco_sock_set_timer(sk, SCO_DISCONN_TIMEOUT);
-			hci_conn_put(sco_pi(sk)->conn->hcon);
-			sco_pi(sk)->conn->hcon = NULL;
-		} else
-			sco_chan_del(sk, ECONNRESET);
-		break;
-
-	case BT_CONNECT2:
 	case BT_CONNECT:
 	case BT_DISCONN:
 		sco_chan_del(sk, ECONNRESET);
@@ -812,9 +803,6 @@ static int sco_sock_shutdown(struct socket *sock, int how)
 		if (sock_flag(sk, SOCK_LINGER) && sk->sk_lingertime)
 			err = bt_sock_wait_state(sk, BT_CLOSED,
 							sk->sk_lingertime);
-		else
-			err = bt_sock_wait_state(sk, BT_CLOSED,
-							SCO_DISCONN_TIMEOUT);
 	}
 	release_sock(sk);
 	return err;
@@ -835,11 +823,6 @@ static int sco_sock_release(struct socket *sock)
 	if (sock_flag(sk, SOCK_LINGER) && sk->sk_lingertime) {
 		lock_sock(sk);
 		err = bt_sock_wait_state(sk, BT_CLOSED, sk->sk_lingertime);
-		release_sock(sk);
-	} else {
-		lock_sock(sk);
-		err = bt_sock_wait_state(sk, BT_CLOSED,
-							SCO_DISCONN_TIMEOUT);
 		release_sock(sk);
 	}
 
@@ -874,9 +857,7 @@ static void sco_chan_del(struct sock *sk, int err)
 		conn->sk = NULL;
 		sco_pi(sk)->conn = NULL;
 		sco_conn_unlock(conn);
-
-		if (conn->hcon)
-			hci_conn_put(conn->hcon);
+		hci_conn_put(conn->hcon);
 	}
 
 	sk->sk_state = BT_CLOSED;

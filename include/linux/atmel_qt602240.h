@@ -2,7 +2,6 @@
 #define _LINUX_ATMEL_H
 
 #include <linux/bitops.h>
-
 #ifdef CONFIG_TOUCHSCREEN_ATMEL_SWEEP2WAKE
 #include <linux/input.h>
 #include <linux/leds-pm8058.h>

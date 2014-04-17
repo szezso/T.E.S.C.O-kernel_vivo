@@ -1314,15 +1314,6 @@ config SERIAL_MSM_HS
 	  Choose M here to compile it as a module. The module will be
 	  called msm_serial_hs.
 
-config SERIAL_MSM_HS_PURE_ANDROID
-	tristate "PURE ANDROID MSM UART High Speed: Serial Driver"
-	depends on ARM && ARCH_MSM && SERIAL_MSM_HS
-	select SERIAL_CORE
-	select SERIAL_BCM_BT_LPM
-	default n
-	help
-	  Select this module to enable PURE ANDROID MSM high speed UART driver.
-
 config SERIAL_MSM_HS_IMC
         tristate "MSM UART High Speed: Serial Driver for IMC modem"
         depends on ARCH_MSM
@@ -1364,6 +1355,19 @@ config SERIAL_MSM_HSL_CONSOLE
 	depends on SERIAL_MSM_HSL=y
 	select SERIAL_CORE_CONSOLE
 	default n
+
+config SERIAL_MSM_HS_LPM
+	tristate "MSM UART High Speed: Serial Driver for LPM"
+	depends on ARCH_MSM
+	select SERIAL_CORE
+	select SERIAL_BCM_BT_LPM
+	help
+	  If you have a machine based on MSM family of SoCs, you
+	  can enable its onboard high speed serial port by enabling
+	  this option. This works only when using also SERIAL_BCM_BT_LPM
+
+	  Choose M here to compile it as a module. The module will be
+	  called msm_serial_hs.
 
 config SERIAL_BCM_BT_LPM
 	tristate "Broadcom Bluetooth Low Power Mode"

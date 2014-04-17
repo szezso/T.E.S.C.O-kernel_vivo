@@ -2041,11 +2041,7 @@ repeat:
 		group = ac->ac_g_ex.fe_group;
 
 		for (i = 0; i < ngroups; group++, i++) {
-			/*
-			 * Artificially restricted ngroups for non-extent
-			 * files makes group > ngroups possible on first loop.
-			 */
-			if (group >= ngroups)
+			if (group == ngroups)
 				group = 0;
 
 			/* This now checks without needing the buddy page */
@@ -2838,8 +2834,8 @@ ext4_mb_mark_diskspace_used(struct ext4_allocation_context *ac,
 	if (sbi->s_log_groups_per_flex) {
 		ext4_group_t flex_group = ext4_flex_group(sbi,
 							  ac->ac_b_ex.fe_group);
-		atomic_sub(ac->ac_b_ex.fe_len,
-			   &sbi->s_flex_groups[flex_group].free_blocks);
+		atomic64_sub(ac->ac_b_ex.fe_len,
+			     &sbi->s_flex_groups[flex_group].free_blocks);
 	}
 
 	err = ext4_handle_dirty_metadata(handle, NULL, bitmap_bh);
@@ -4638,7 +4634,7 @@ do_more:
 
 	if (sbi->s_log_groups_per_flex) {
 		ext4_group_t flex_group = ext4_flex_group(sbi, block_group);
-		atomic_add(count, &sbi->s_flex_groups[flex_group].free_blocks);
+		atomic64_add(count, &sbi->s_flex_groups[flex_group].free_blocks);
 	}
 
 	ext4_mb_unload_buddy(&e4b);
@@ -4769,8 +4765,8 @@ void ext4_add_groupblocks(handle_t *handle, struct super_block *sb,
 
 	if (sbi->s_log_groups_per_flex) {
 		ext4_group_t flex_group = ext4_flex_group(sbi, block_group);
-		atomic_add(blocks_freed,
-			   &sbi->s_flex_groups[flex_group].free_blocks);
+		atomic64_add(blocks_freed,
+			     &sbi->s_flex_groups[flex_group].free_blocks);
 	}
 
 	ext4_mb_unload_buddy(&e4b);

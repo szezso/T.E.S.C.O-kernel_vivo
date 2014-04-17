@@ -562,9 +562,9 @@ int can_request_irq(unsigned int irq, unsigned long irqflags)
 		return 0;
 
 	if (irq_settings_can_request(desc)) {
-		if (!desc->action ||
-		    irqflags & desc->action->flags & IRQF_SHARED)
-			canrequest = 1;
+		if (desc->action)
+			if (irqflags & desc->action->flags & IRQF_SHARED)
+				canrequest =1;
 	}
 	irq_put_desc_unlock(desc, flags);
 	return canrequest;
@@ -921,8 +921,6 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
 
 	if (desc->irq_data.chip == &no_irq_chip)
 		return -ENOSYS;
-	if (!try_module_get(desc->owner))
-		return -ENODEV;
 
 	/*
 	 * Check whether the interrupt nests into another interrupt

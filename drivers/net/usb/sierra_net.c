@@ -678,7 +678,7 @@ static int sierra_net_get_fw_attr(struct usbnet *dev, u16 *datap)
 		return -EIO;
 	}
 
-	*datap = le16_to_cpu(*attrdata);
+	*datap = *attrdata;
 
 	kfree(attrdata);
 	return result;

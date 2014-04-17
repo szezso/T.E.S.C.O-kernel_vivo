@@ -18,10 +18,4 @@
 #define _LINUX_MSM_ION_H
 
 #include <linux/ion.h>
-
-#define ION_SET_CACHED(__cache)		(__cache | ION_FLAG_CACHED)
-#define ION_SET_UNCACHED(__cache)	(__cache & ~ION_FLAG_CACHED)
-
-#define ION_IS_CACHED(__flags)	((__flags) & ION_FLAG_CACHED)
-
 #endif

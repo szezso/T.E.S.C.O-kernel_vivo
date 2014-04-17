@@ -13067,11 +13067,8 @@ static void __devinit tg3_read_vpd(struct tg3 *tp)
 		if (j + len > block_end)
 			goto partno;
 
-		if (len >= sizeof(tp->fw_ver))
-			len = sizeof(tp->fw_ver) - 1;
-		memset(tp->fw_ver, 0, sizeof(tp->fw_ver));
-		snprintf(tp->fw_ver, sizeof(tp->fw_ver), "%.*s bc ", len,
-			 &vpd_data[j]);
+		memcpy(tp->fw_ver, &vpd_data[j], len);
+		strncat(tp->fw_ver, " bc ", TG3_NVM_VPD_LEN - len - 1);
 	}
 
 partno:
@@ -13665,13 +13662,9 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
 	if (tg3_flag(tp, HW_TSO_1) ||
 	    tg3_flag(tp, HW_TSO_2) ||
 	    tg3_flag(tp, HW_TSO_3) ||
-	    tp->fw_needed) {
-		/* For firmware TSO, assume ASF is disabled.
-		 * We'll disable TSO later if we discover ASF
-		 * is enabled in tg3_get_eeprom_hw_cfg().
-		 */
+	    (tp->fw_needed && !tg3_flag(tp, ENABLE_ASF)))
 		tg3_flag_set(tp, TSO_CAPABLE);
-	} else {
+	else {
 		tg3_flag_clear(tp, TSO_CAPABLE);
 		tg3_flag_clear(tp, TSO_BUG);
 		tp->fw_needed = NULL;
@@ -13909,12 +13902,6 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
 	 * are not used to switch power.
 	 */
 	tg3_get_eeprom_hw_cfg(tp);
-
-	if (tp->fw_needed && tg3_flag(tp, ENABLE_ASF)) {
-		tg3_flag_clear(tp, TSO_CAPABLE);
-		tg3_flag_clear(tp, TSO_BUG);
-		tp->fw_needed = NULL;
-	}
 
 	if (tg3_flag(tp, ENABLE_APE)) {
 		/* Allow reads and writes to the

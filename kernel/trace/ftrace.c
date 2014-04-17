@@ -936,14 +936,14 @@ static struct pid * const ftrace_swapper_pid = &init_struct_pid;
 static loff_t
 ftrace_filter_lseek(struct file *file, loff_t offset, int whence)
 {
-	loff_t ret;
-
-	if (file->f_mode & FMODE_READ)
-		ret = seq_lseek(file, offset, whence);
-	else
-		file->f_pos = ret = 1;
-
-	return ret;
+       loff_t ret;
+ 
+       if (file->f_mode & FMODE_READ)
+               ret = seq_lseek(file, offset, whence);
+       else
+               file->f_pos = ret = 1;
+ 
+       return ret;
 }
 
 #ifdef CONFIG_DYNAMIC_FTRACE
@@ -3335,7 +3335,7 @@ static const struct file_operations ftrace_graph_fops = {
 	.open		= ftrace_graph_open,
 	.read		= seq_read,
 	.write		= ftrace_graph_write,
-	.llseek		= ftrace_filter_lseek,
+	.llseek         = ftrace_filter_lseek,
 	.release	= ftrace_graph_release,
 };
 #endif /* CONFIG_FUNCTION_GRAPH_TRACER */
@@ -3822,7 +3822,7 @@ static const struct file_operations ftrace_pid_fops = {
 	.open		= ftrace_pid_open,
 	.write		= ftrace_pid_write,
 	.read		= seq_read,
-	.llseek		= ftrace_filter_lseek,
+	.llseek         = ftrace_filter_lseek,
 	.release	= ftrace_pid_release,
 };
 

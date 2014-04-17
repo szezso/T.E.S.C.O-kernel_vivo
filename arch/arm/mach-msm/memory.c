@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/memory.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -87,29 +87,67 @@ void write_to_strongly_ordered_memory(void)
 }
 EXPORT_SYMBOL(write_to_strongly_ordered_memory);
 
-/* These cache related routines make the assumption (if outer cache is
- * available) that the associated physical memory is contiguous.
- * They will operate on all (L1 and L2 if present) caches.
+void flush_axi_bus_buffer(void)
+{
+#if defined(CONFIG_ARCH_MSM7X27) && !defined(CONFIG_ARCH_MSM7X27A)
+	__asm__ __volatile__ ("mcr p15, 0, %0, c7, c10, 5" \
+				    : : "r" (0) : "memory");
+	write_to_strongly_ordered_memory();
+#endif
+}
+
+#define CACHE_LINE_SIZE 32
+
+/* These cache related routines make the assumption that the associated
+ * physical memory is contiguous. They will operate on all (L1
+ * and L2 if present) caches.
  */
 void clean_and_invalidate_caches(unsigned long vstart,
 	unsigned long length, unsigned long pstart)
 {
-	dmac_flush_range((void *)vstart, (void *) (vstart + length));
+	unsigned long vaddr;
+
+	for (vaddr = vstart; vaddr < vstart + length; vaddr += CACHE_LINE_SIZE)
+		asm ("mcr p15, 0, %0, c7, c14, 1" : : "r" (vaddr));
+#ifdef CONFIG_OUTER_CACHE
 	outer_flush_range(pstart, pstart + length);
+#endif
+	asm ("mcr p15, 0, %0, c7, c10, 4" : : "r" (0));
+	asm ("mcr p15, 0, %0, c7, c5, 0" : : "r" (0));
+
+	flush_axi_bus_buffer();
 }
 
 void clean_caches(unsigned long vstart,
 	unsigned long length, unsigned long pstart)
 {
-	dmac_clean_range((void *)vstart, (void *) (vstart + length));
+	unsigned long vaddr;
+
+	for (vaddr = vstart; vaddr < vstart + length; vaddr += CACHE_LINE_SIZE)
+		asm ("mcr p15, 0, %0, c7, c10, 1" : : "r" (vaddr));
+#ifdef CONFIG_OUTER_CACHE
 	outer_clean_range(pstart, pstart + length);
+#endif
+	asm ("mcr p15, 0, %0, c7, c10, 4" : : "r" (0));
+	asm ("mcr p15, 0, %0, c7, c5, 0" : : "r" (0));
+
+	flush_axi_bus_buffer();
 }
 
 void invalidate_caches(unsigned long vstart,
 	unsigned long length, unsigned long pstart)
 {
-	dmac_inv_range((void *)vstart, (void *) (vstart + length));
+	unsigned long vaddr;
+
+	for (vaddr = vstart; vaddr < vstart + length; vaddr += CACHE_LINE_SIZE)
+		asm ("mcr p15, 0, %0, c7, c6, 1" : : "r" (vaddr));
+#ifdef CONFIG_OUTER_CACHE
 	outer_inv_range(pstart, pstart + length);
+#endif
+	asm ("mcr p15, 0, %0, c7, c10, 4" : : "r" (0));
+	asm ("mcr p15, 0, %0, c7, c5, 0" : : "r" (0));
+
+	flush_axi_bus_buffer();
 }
 
 void *alloc_bootmem_aligned(unsigned long size, unsigned long alignment)
@@ -192,25 +230,6 @@ static unsigned long stable_size(struct membank *mb,
 	return unstable_limit - mb->start;
 }
 
-/* stable size of all memory banks contiguous to and below this one */
-static unsigned long total_stable_size(unsigned long bank)
-{
-	int i;
-	struct membank *mb = &meminfo.bank[bank];
-	int memtype = reserve_info->paddr_to_memtype(mb->start);
-	unsigned long size;
-
-	size = stable_size(mb, reserve_info->low_unstable_address);
-	for (i = bank - 1, mb = &meminfo.bank[bank - 1]; i >= 0; i--, mb--) {
-		if (mb->start + mb->size != (mb + 1)->start)
-			break;
-		if (reserve_info->paddr_to_memtype(mb->start) != memtype)
-			break;
-		size += stable_size(mb, reserve_info->low_unstable_address);
-	}
-	return size;
-}
-
 static void __init calculate_reserve_limits(void)
 {
 	int i;
@@ -227,7 +246,7 @@ static void __init calculate_reserve_limits(void)
 			continue;
 		}
 		mt = &reserve_info->memtype_reserve_table[memtype];
-		size = total_stable_size(i);
+		size = stable_size(mb, reserve_info->low_unstable_address);
 		mt->limit = max(mt->limit, size);
 	}
 }
@@ -262,11 +281,10 @@ static void __init reserve_memory_for_mempools(void)
 		if (mt->flags & MEMTYPE_FLAGS_FIXED || !mt->size)
 			continue;
 
-		/* We know we will find memory bank(s) of the proper size
+		/* We know we will find a memory bank of the proper size
 		 * as we have limited the size of the memory pool for
-		 * each memory type to the largest total size of the memory
-		 * banks which are contiguous and of the correct memory type.
-		 * Choose the memory bank with the highest physical
+		 * each memory type to the size of the largest memory
+		 * bank. Choose the memory bank with the highest physical
 		 * address which is large enough, so that we will not
 		 * take memory from the lowest memory bank which the kernel
 		 * is in (and cause boot problems) and so that we might
@@ -279,14 +297,9 @@ static void __init reserve_memory_for_mempools(void)
 				reserve_info->paddr_to_memtype(mb->start);
 			if (memtype != membank_type)
 				continue;
-			size = total_stable_size(i);
+			size = stable_size(mb,
+				reserve_info->low_unstable_address);
 			if (size >= mt->size) {
-				size = stable_size(mb,
-					reserve_info->low_unstable_address);
-				/* mt->size may be larger than size, all this
-				 * means is that we are carving the memory pool
-				 * out of multiple contiguous memory banks.
-				 */
 				mt->start = mb->start + (size - mt->size);
 				ret = memblock_remove(mt->start, mt->size);
 				BUG_ON(ret);

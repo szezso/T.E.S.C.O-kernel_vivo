@@ -120,7 +120,7 @@
 #include <linux/ion.h>
 #include <mach/ion.h>
 
-#ifdef CONFIG_SERIAL_MSM_HS_PURE_ANDROID
+#ifdef CONFIG_SERIAL_BCM_BT_LPM
 #include <mach/bcm_bt_lpm.h>
 #endif
 
@@ -3421,7 +3421,7 @@ static int msm_hsusb_ldo_set_voltage(int mV)
 static int phy_init_seq[] = { 0x06, 0x36, 0x0C, 0x31, 0x31, 0x32, 0x1, 0x0D, 0x1, 0x10, -1 };
 static struct msm_otg_platform_data msm_otg_pdata = {
 	.phy_init_seq		= phy_init_seq,
-	.mode			= USB_PERIPHERAL,
+	.mode			= USB_OTG,
 	.otg_control		= OTG_PMIC_CONTROL,
 	.power_budget		= 750,
 	.phy_type		= CI_45NM_INTEGRATED_PHY,
@@ -3758,20 +3758,22 @@ static struct platform_device msm_adc_device = {
 	},
 };
 
-#ifdef CONFIG_SERIAL_MSM_HS
+#if defined(CONFIG_SERIAL_MSM_HS) || defined(CONFIG_SERIAL_MSM_HS_LPM)
 static struct msm_serial_hs_platform_data msm_uart_dm1_pdata = {
+	.rx_wakeup_irq = -1,
 	.inject_rx_on_wakeup = 0,
-	.cpu_lock_supported = 1,
-#ifdef CONFIG_SERIAL_MSM_HS_PURE_ANDROID
-        .exit_lpm_cb = bcm_bt_lpm_exit_lpm_locked,
-#endif
+
+#ifdef CONFIG_SERIAL_BCM_BT_LPM
+	.exit_lpm_cb = bcm_bt_lpm_exit_lpm_locked,
+#else
 	/* for brcm BT */
 	.bt_wakeup_pin_supported = 1,
 	.bt_wakeup_pin = VIVO_GPIO_BT_CHIP_WAKE,
 	.host_wakeup_pin = VIVO_GPIO_BT_HOST_WAKE,
+#endif
 };
 
-#ifdef CONFIG_SERIAL_MSM_HS_PURE_ANDROID
+#ifdef CONFIG_SERIAL_BCM_BT_LPM
 static struct bcm_bt_lpm_platform_data bcm_bt_lpm_pdata = {
 	.gpio_wake = VIVO_GPIO_BT_CHIP_WAKE,
 	.gpio_host_wake = VIVO_GPIO_BT_HOST_WAKE,
@@ -3779,12 +3781,12 @@ static struct bcm_bt_lpm_platform_data bcm_bt_lpm_pdata = {
 	.request_clock_on_locked = msm_hs_request_clock_on_locked,
 };
 
-struct platform_device vivo_bcm_bt_lpm_device = {
-  .name = "bcm_bt_lpm",
-  .id = 0,
-  .dev = {
-    .platform_data = &bcm_bt_lpm_pdata,
-  }
+struct platform_device bcm_bt_lpm_device = {
+	.name = "bcm_bt_lpm",
+	.id = 0,
+	.dev = {
+		.platform_data = &bcm_bt_lpm_pdata,
+	},
 };
 #endif
 
@@ -4066,9 +4068,6 @@ static struct platform_device *devices[] __initdata = {
 #if defined(CONFIG_SERIAL_MSM) || defined(CONFIG_MSM_SERIAL_DEBUGGER)
 	&msm_device_uart2,
 #endif
-#ifdef CONFIG_SERIAL_MSM_HS_PURE_ANDROID
-        &vivo_bcm_bt_lpm_device,
-#endif
 #ifdef CONFIG_MSM_PROC_COMM_REGULATOR
 	&msm_proccomm_regulator_dev,
 #endif
@@ -4158,7 +4157,12 @@ static struct platform_device *devices[] __initdata = {
 #ifdef CONFIG_ION_MSM
     &ion_dev,
 #endif
+#ifdef CONFIG_SERIAL_BCM_BT_LPM
+	&bcm_bt_lpm_device,
+#endif
+#if defined(CONFIG_SERIAL_MSM_HS) || defined(CONFIG_SERIAL_MSM_HS_LPM)
 	&msm_device_uart_dm1,
+#endif
 #ifdef CONFIG_BT
 	&vivo_rfkill,
 #endif
@@ -5526,15 +5530,18 @@ static void __init vivo_init(void)
 	perflock_init(&vivo_perflock_data);
 #endif
 
-#ifdef CONFIG_SERIAL_MSM_HS
-#ifdef CONFIG_SERIAL_MSM_HS_PURE_ANDROID
-        msm_uart_dm1_pdata.rx_wakeup_irq = -1;
-#else
-        msm_uart_dm1_pdata.rx_wakeup_irq = gpio_to_irq(VIVO_GPIO_BT_HOST_WAKE);
-        msm_device_uart_dm1.name = "msm_serial_hs_brcm";
+#if defined(CONFIG_SERIAL_MSM_HS) || defined(CONFIG_SERIAL_MSM_HS_LPM)
+#ifndef CONFIG_SERIAL_BCM_BT_LPM
+	msm_uart_dm1_pdata.rx_wakeup_irq = gpio_to_irq(VIVO_GPIO_BT_HOST_WAKE);
 #endif
+#ifdef CONFIG_SERIAL_MSM_HS
+	msm_device_uart_dm1.name = "msm_serial_hs_brcm";
+#endif
+#ifdef CONFIG_SERIAL_MSM_HS_LPM
+	msm_device_uart_dm1.name = "msm_serial_hs_brcm_lpm";
 #endif
 	msm_device_uart_dm1.dev.platform_data = &msm_uart_dm1_pdata;
+#endif
 
 #ifdef CONFIG_USB_MSM_OTG_72K
 	if (SOCINFO_VERSION_MAJOR(soc_version) >= 2 &&

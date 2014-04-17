@@ -310,7 +310,7 @@ int __msm_adsp_write(struct msm_adsp_module *module, unsigned dsp_queue_addr,
 		if (cnt > 50) {
 			pr_aud_err("timeout waiting for DSP write ready\n");
 			ret_status = -EIO;
-			//BUG();
+			BUG();
 			goto fail;
 		}
 		MM_DBG("waiting for DSP write ready\n");
@@ -348,7 +348,7 @@ int __msm_adsp_write(struct msm_adsp_module *module, unsigned dsp_queue_addr,
 		if (cnt > 2500) {
 			pr_aud_err("timeout waiting for adsp ack\n");
 			ret_status = -EIO;
-			//BUG();
+			BUG();
 			goto fail;
 		}
 		udelay(2);
@@ -825,7 +825,7 @@ static irqreturn_t adsp_irq_handler(int irq, void *data)
 int adsp_set_clkrate(struct msm_adsp_module *module, unsigned long clk_rate)
 {
 	if (module->clk && clk_rate)
-		return clk_set_rate(module->clk, clk_rate);
+		return clk_set_min_rate(module->clk, clk_rate);
 
 	return -EINVAL;
 }
@@ -989,7 +989,8 @@ static int msm_adsp_probe(struct platform_device *pdev)
 		else
 			mod->clk = NULL;
 		if (mod->clk && adsp_info.module[i].clk_rate)
-			clk_set_rate(mod->clk, adsp_info.module[i].clk_rate);
+			clk_set_min_rate(mod->clk,
+						adsp_info.module[i].clk_rate);
 		mod->verify_cmd = adsp_info.module[i].verify_cmd;
 		mod->patch_event = adsp_info.module[i].patch_event;
 		INIT_HLIST_HEAD(&mod->pmem_regions);

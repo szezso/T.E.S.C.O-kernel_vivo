@@ -18,7 +18,6 @@
 #else
 #include <media/msm_camera-7x30.h>
 #endif
-#include <linux/ion.h>
 
 #ifdef CONFIG_MSM_CAMERA_DEBUG
 #define CDBG(fmt, args...) printk(KERN_INFO "[CAM] msm_camera: " fmt, ##args)
@@ -352,7 +351,6 @@ struct msm_pmem_region {
 	unsigned long len;
 	struct file *file;
 	struct msm_pmem_info info;
-	struct ion_handle *handle;
 };
 
 struct axidata {

@@ -16,6 +16,7 @@ config ARM
 	select HAVE_KERNEL_GZIP
 	select HAVE_KERNEL_LZO
 	select HAVE_KERNEL_LZMA
+	select HAVE_KERNEL_XZ
 	select HAVE_IRQ_WORK
 	select HAVE_PERF_EVENTS
 	select PERF_USE_VMALLOC
@@ -29,6 +30,9 @@ config ARM
 	  manufactured, but legacy ARM-based PC hardware remains popular in
 	  Europe.  There is an ARM Linux project with a web page at
 	  <http://www.arm.linux.org.uk/>.
+
+config ARM_HAS_SG_CHAIN
+	bool
 
 config HAVE_PWM
 	bool
@@ -140,7 +144,8 @@ config RWSEM_GENERIC_SPINLOCK
 	bool
 
 config RWSEM_XCHGADD_ALGORITHM
-	def_bool y
+	bool
+	default y
 
 config ARCH_HAS_ILOG2_U32
 	bool
@@ -1252,29 +1257,6 @@ config ARM_ERRATA_754327
 	  continuously polls a memory location waiting to observe an update.
 	  This workaround defines cpu_relax() as smp_mb(), preventing correctly
 	  written polling loops from denying visibility of updates to memory.
-
-config PL310_ERRATA_727915
-	bool "Background Clean & Invalidate by Way operation can cause data corruption"
-	depends on CACHE_L2X0
-	help
-	  PL310 implements the Clean & Invalidate by Way L2 cache maintenance
-	  operation (offset 0x7FC). This operation runs in background so that
-	  PL310 can handle normal accesses while it is in progress. Under very
-	  rare circumstances, due to this erratum, write data can be lost when
-	  PL310 treats a cacheable write transaction during a Clean &
-	  Invalidate by Way operation.
-
-config KSAPI
-        tristate "KSAPI support (EXPERIMENTAL)"
-	depends on ARCH_MSM_SCORPION || ARCH_MSM_KRAIT
-        default n
-        help
-          KSAPI: Performance monitoring tool for linux.
-          KSAPI records performance statistics for Snapdragon linux platform.
-          It uses the /proc FS as a means to exchange configuration data and
-          counter statistics. It can monitor the counter statistics for
-          Scorpion processor supported hardware performance counters on a per
-          thread basis or AXI counters on an overall system basis.
 
 config ARM_ERRATA_764369
 	bool "ARM errata: Data cache line maintenance operation by MVA may not succeed"

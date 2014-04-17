@@ -67,13 +67,6 @@ config CPU_FREQ_DEFAULT_GOV_POWERSAVE
 	  the frequency statically to the lowest frequency supported by
 	  the CPU.
 
-config CPU_FREQ_DEFAULT_GOV_SMARTASS2
-	bool "smartass2"
-	select CPU_FREQ_GOV_SMARTASS2
-	select CPU_FREQ_GOV_PERFORMANCE
-	help
-	  Use the CPUFreq governor 'smartass2' as default.
-
 config CPU_FREQ_DEFAULT_GOV_USERSPACE
 	bool "userspace"
 	select CPU_FREQ_GOV_USERSPACE
@@ -116,21 +109,14 @@ config CPU_FREQ_DEFAULT_GOV_INTERACTIVE
 	  loading your cpufreq low-level hardware driver, using the
 	  'interactive' governor for latency-sensitive workloads.
 
-config CPU_FREQ_DEFAULT_GOV_LAGFREE
-	bool "lagfree"
-	select CPU_FREQ_GOV_LAGFREE
-	help
-	  Use the CPUFreq governor 'lagfree' as default.
+
+config CPU_FREQ_DEFAULT_GOV_SMARTMAX
+  	bool "smartmax"
+  	select CPU_FREQ_GOV_SMARTMAX
+  	help
+   	  Use the CPUFreq governor 'smartmax' as default
 
 endchoice
-
-config CPU_FREQ_GOV_SMARTASS2
-	tristate "'smartass2' cpufreq governor"
-	depends on CPU_FREQ
-	help
-  	  smartass2' - a "slightly more agressive smart" optimized governor!
-
-	  If in doubt, say Y.
 
 config CPU_FREQ_GOV_PERFORMANCE
 	tristate "'performance' governor"
@@ -210,6 +196,44 @@ config CPU_FREQ_GOV_INTERACTIVE
 
 	  If in doubt, say N.
 
+config CPU_FREQ_GOV_SMARTASS2
+	tristate "'smartassV2' cpufreq governor"
+	depends on CPU_FREQ
+	help
+          'Use smartass2 governer'
+
+config CPU_FREQ_GOV_LIONHEART
+	tristate "'Lionheart' cpufreq governor"
+	depends on CPU_FREQ
+	help
+	  'Use Lionheart' 
+
+config CPU_FREQ_GOV_SMARTMAX
+	tristate "'smartmax' cpufreq policy governor"
+	select CPU_FREQ_TABLE
+	help
+	  'smartmax' combined ondemand and smartass2
+
+config CPU_FREQ_GOV_SMARTMAX_TEGRA
+	bool "'smartmax' for tegra"
+	depends on CPU_FREQ_GOV_SMARTMAX
+
+config CPU_FREQ_GOV_SMARTMAX_30
+	bool "'smartmax' for 3.0 and 3.1 kernels"
+	depends on CPU_FREQ_GOV_SMARTMAX
+
+config CPU_FREQ_GOV_SMARTMAX_ENRC2B
+	bool "'smartmax' defaults for enrc2b"
+	depends on CPU_FREQ_GOV_SMARTMAX
+
+config CPU_FREQ_GOV_SMARTMAX_PRIMOU
+	bool "'smartmax' defaults for primou"
+	depends on CPU_FREQ_GOV_SMARTMAX
+
+config CPU_FREQ_GOV_SMARTMAX_M7
+	bool "'smartmax' defaults for m7"
+	depends on CPU_FREQ_GOV_SMARTMAX
+
 config CPU_FREQ_GOV_CONSERVATIVE
 	tristate "'conservative' cpufreq governor"
 	depends on CPU_FREQ
@@ -233,11 +257,6 @@ config CPU_FREQ_GOV_CONSERVATIVE
 
 	  If in doubt, say N.
 
-config CPU_FREQ_GOV_LAGFREE
-	tristate "'lagfree' cpufreq policy governor"	
-	help	
-	  'lagfree' - lagfree CPU governor.
-
 config CPU_FREQ_MIN_TICKS
 	int "Ticks between governor polling interval."
 	default 10
@@ -256,12 +275,5 @@ depends on X86
 source "drivers/cpufreq/Kconfig.x86"
 endmenu
 
-config VDD_SYSFS_INTERFACE
-	bool "VDD SYSFS Interface"
-	depends on CPU_FREQ_STAT
-	depends on ARCH_MSM7X30
-	default n
-	help
-	  Creates a sysfs interface for VDD entries
 endif
 endmenu

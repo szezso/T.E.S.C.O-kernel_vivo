@@ -201,7 +201,7 @@ struct swap_list_t {
 	int next;	/* swapfile to be used next */
 };
 
-/* Swap 50% full? Release swapcache more aggressively.. */
+/* Swap 50% full? */
 #define vm_swap_full() (nr_swap_pages*2 < total_swap_pages)
 
 /* linux/mm/page_alloc.c */
@@ -215,6 +215,7 @@ extern unsigned int nr_free_pagecache_pages(void);
 
 
 /* linux/mm/swap.c */
+extern void ____lru_cache_add(struct page *, enum lru_list lru, int tail);
 extern void __lru_cache_add(struct page *, enum lru_list lru);
 extern void lru_cache_add_lru(struct page *, enum lru_list lru);
 extern void lru_add_page_tail(struct zone* zone,
@@ -238,9 +239,14 @@ static inline void lru_cache_add_anon(struct page *page)
 	__lru_cache_add(page, LRU_INACTIVE_ANON);
 }
 
+static inline void lru_cache_add_file_tail(struct page *page, int tail)
+{
+	____lru_cache_add(page, LRU_INACTIVE_FILE, tail);
+}
+
 static inline void lru_cache_add_file(struct page *page)
 {
-	__lru_cache_add(page, LRU_INACTIVE_FILE);
+	____lru_cache_add(page, LRU_INACTIVE_FILE, 0);
 }
 
 /* linux/mm/vmscan.c */
@@ -345,9 +351,10 @@ extern void grab_swap_token(struct mm_struct *);
 extern void __put_swap_token(struct mm_struct *);
 extern void disable_swap_token(struct mem_cgroup *memcg);
 
+/* Only allow swap token to have effect if swap is full */
 static inline int has_swap_token(struct mm_struct *mm)
 {
-	return (mm == swap_token_mm);
+	return (mm == swap_token_mm && vm_swap_full());
 }
 
 static inline void put_swap_token(struct mm_struct *mm)

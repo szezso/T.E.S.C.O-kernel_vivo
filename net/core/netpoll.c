@@ -927,14 +927,15 @@ EXPORT_SYMBOL_GPL(__netpoll_cleanup);
 
 void netpoll_cleanup(struct netpoll *np)
 {
-	rtnl_lock();
 	if (!np->dev)
-		goto out;
+		return;
+
+	rtnl_lock();
 	__netpoll_cleanup(np);
+	rtnl_unlock();
+
 	dev_put(np->dev);
 	np->dev = NULL;
-out:
-	rtnl_unlock();
 }
 EXPORT_SYMBOL(netpoll_cleanup);
 

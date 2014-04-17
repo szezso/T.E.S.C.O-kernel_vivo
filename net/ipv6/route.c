@@ -1407,18 +1407,17 @@ static int __ip6_del_rt(struct rt6_info *rt, struct nl_info *info)
 	struct fib6_table *table;
 	struct net *net = dev_net(rt->rt6i_dev);
 
-	if (rt == net->ipv6.ip6_null_entry) {
-		err = -ENOENT;
-		goto out;
-	}
+	if (rt == net->ipv6.ip6_null_entry)
+		return -ENOENT;
 
 	table = rt->rt6i_table;
 	write_lock_bh(&table->tb6_lock);
+
 	err = fib6_del(rt, info);
+	dst_release(&rt->dst);
+
 	write_unlock_bh(&table->tb6_lock);
 
-out:
-	dst_release(&rt->dst);
 	return err;
 }
 
@@ -2421,12 +2420,8 @@ static int rt6_fill_node(struct net *net,
 
 	rcu_read_lock();
 	n = dst_get_neighbour(&rt->dst);
-	if (n) {
-		if (nla_put(skb, RTA_GATEWAY, 16, &n->primary_key) < 0) {
-			rcu_read_unlock();
-			goto nla_put_failure;
-		}
-	}
+	if (n)
+		NLA_PUT(skb, RTA_GATEWAY, 16, &n->primary_key);
 	rcu_read_unlock();
 
 	if (rt->dst.dev)
