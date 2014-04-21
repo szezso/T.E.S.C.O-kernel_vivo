@@ -48,34 +48,6 @@ config TOUCHSCREEN_ATMEL_SWEEP2WAKE
 	help
 	  This will enable sweep2wake for ATMEL touchscreen
 
-choice
-	prompt "Default ATMEL SWEEP2WAKE setting"
-	help
-		This option sets the ATMEL sweep2wake startup settings.
-		If in doubt, select 'disabled'.
-
-config TOUCHSCREEN_ATMEL_SWEEP2WAKE_DISABLED
-	bool "disabled"
-	depends on TOUCHSCREEN_ATMEL_SWEEP2WAKE
-	help
-		Build ATMEL sweep2wake into kernel, but leave disabled by
-		default.
-
-config TOUCHSCREEN_ATMEL_SWEEP2WAKE_ENABLED
-	bool "enabled"
-	depends on TOUCHSCREEN_ATMEL_SWEEP2WAKE
-	help
-		Build ATMEL sweep2wake into kernel, and enable by default.
-
-config TOUCHSCREEN_ATMEL_SWEEP2WAKE_ENABLED_WITH_BACKLIGHT
-	bool "enabled_with_backlight"
-	depends on TOUCHSCREEN_ATMEL_SWEEP2WAKE
-	help
-		Build ATMEL sweep2wake into kernel, and enable by default
-		with backlight.
-
-endchoice
-
 config TOUCHSCREEN_NTRIG
 	tristate "N-trig spi touchscreen"
 	depends on SPI_TOUCHSCREEN_NTRIG
