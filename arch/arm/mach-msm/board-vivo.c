@@ -5701,16 +5701,15 @@ static void __init vivo_init(void)
 		pm8058_leds_data.num_leds = ARRAY_SIZE(pm_led_config);
 	}
 }
-/*
+
 static unsigned pmem_sf_size = MSM_PMEM_SF_SIZE;
 static int __init pmem_sf_size_setup(char *p)
 {
 	pmem_sf_size = memparse(p, NULL);
 	return 0;
 }
-
 early_param("pmem_sf_size", pmem_sf_size_setup);
-*/
+
 static unsigned fb_size = MSM_FB_SIZE;
 static int __init fb_size_setup(char *p)
 {
