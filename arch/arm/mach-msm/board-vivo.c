@@ -116,10 +116,9 @@
 #ifdef CONFIG_BT
 #include <mach/htc_bdaddress.h>
 #endif
-
-#include <linux/ion.h>
-#include <mach/ion.h>
-
+#ifdef CONFIG_ION_MSM
+#include <linux/msm_ion.h>
+#endif
 #ifdef CONFIG_SERIAL_BCM_BT_LPM
 #include <mach/bcm_bt_lpm.h>
 #endif
