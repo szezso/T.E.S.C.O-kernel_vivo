@@ -194,9 +194,6 @@ static void config_gpio_table(uint32_t *table, int len)
 }
 
 #if 0
-#endif
-
-#if 0
 void wl_chip_awake(struct uart_port *uport)
 {
 	ti_msm_hs_request_clock_on(uport);
