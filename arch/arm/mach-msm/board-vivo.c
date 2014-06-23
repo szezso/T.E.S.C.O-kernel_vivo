@@ -123,6 +123,12 @@
 #include <mach/bcm_bt_lpm.h>
 #endif
 
+#ifdef CONFIG_SZEZSO_CAN_FIX_EVERYTHING
+#define DDR2_BANK_BASE 0X40000000
+unsigned long ebi1_phys_offset = DDR2_BANK_BASE;
+EXPORT_SYMBOL(ebi1_phys_offset);
+#endif
+
 int htc_get_usb_accessory_adc_level(uint32_t *buffer);
 
 #define GPS_EN_GPIO -1
