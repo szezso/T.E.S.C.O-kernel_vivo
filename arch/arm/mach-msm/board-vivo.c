@@ -5738,13 +5738,11 @@ static struct ion_co_heap_pdata co_ion_pdata = {
  * These heaps are listed in the order they will be allocated.
  * Don't swap the order unless you know what you are doing!
  */
-static struct ion_platform_data ion_pdata = {
-  .nr = MSM_ION_HEAP_NUM,
-  .heaps = {
+struct ion_platform_heap msm7x30_heaps[] = {
     {
-      	.id  = ION_SYSTEM_HEAP_ID,
-      	.type  = ION_HEAP_TYPE_SYSTEM,
-      	.name  = ION_VMALLOC_HEAP_NAME,
+      .id    = ION_SYSTEM_HEAP_ID,
+      .type  = ION_HEAP_TYPE_SYSTEM,
+      .name  = ION_VMALLOC_HEAP_NAME,
     },
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
     /* CAMERA */
@@ -5764,7 +5762,11 @@ static struct ion_platform_data ion_pdata = {
       	.extra_data = (void *)&co_ion_pdata,
     },
 #endif
-  }
+};
+
+static struct ion_platform_data ion_pdata = {
+   	.nr = MSM_ION_HEAP_NUM,
+   	.heaps = msm7x30_heaps,
 };
 
 static struct platform_device ion_dev = {
