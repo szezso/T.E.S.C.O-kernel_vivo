@@ -18,6 +18,7 @@
 #include <linux/msm_rotator.h>
 #include <linux/dma-mapping.h>
 #include <linux/msm_kgsl.h>
+#include <mach/kgsl.h>
 #include <linux/android_pmem.h>
 #include <linux/regulator/machine.h>
 #include <mach/irqs.h>
@@ -27,6 +28,7 @@
 #include <asm/clkdev.h>
 #ifdef CONFIG_ION_MSM
 #include <linux/ion.h>
+#include <linux/msm_ion.h>
 #endif
 
 #include "devices.h"

@@ -463,6 +463,10 @@ struct venc_ioctl_msg{
 #define VEN_IOCTL_SET_SPS_PPS_FOR_IDR \
 	_IOW(VEN_IOCTLBASE_ENC, 51, struct venc_ioctl_msg)
 
+/*IOCTL params:GET: InputData - NULL, OutputData - unsigned int.*/
+#define VEN_IOCTL_GET_PERF_LEVEL \
+	_IOR(VEN_IOCTLBASE_ENC, 53, struct venc_ioctl_msg)
+
 struct venc_switch{
 	unsigned char	status;
 };
@@ -494,6 +498,8 @@ struct venc_buffer{
  long long	timestamp;
  unsigned long	flags;
  void	*clientdata;
+ unsigned long	metadata_len;
+ unsigned long	metadata_offset;
 };
 
 struct venc_basecfg{
@@ -545,7 +551,7 @@ struct venc_capability{
 };
 
 struct venc_entropycfg{
-	unsigned longentropysel;
+	unsigned long	entropysel;
 	unsigned long	cabacmodel;
 };
 
