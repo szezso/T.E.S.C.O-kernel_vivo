@@ -27,7 +27,6 @@ obj-y += mddi.o
 
 # MDDI client/panel drivers
 #
-ifndef CONFIG_MACH_PRIMOTD
 ifdef CONFIG_ARCH_MSM7X30
 obj-y += mddi_client_dummy.o
 obj-y += mddi_client_toshiba.o
@@ -36,11 +35,9 @@ obj-y += mddi_client_novb9f6_5560.o
 obj-y += mddi_client_renesas_R61408.o
 obj-y += mddi_client_hx8356.o mddi_himax_cabc.o
 endif
-endif
+
 # MDP LCD controller driver
 obj-$(CONFIG_FB_MSM_LCDC) += mdp_lcdc.o
 obj-$(CONFIG_FB_MSM_DTV) += mdp_dtv.o
 obj-$(CONFIG_FB_MSM_TVOUT) += tvenc.o tvfb.o
-
-obj-$(CONFIG_MSM_VIDC_720P) += vidc/
 

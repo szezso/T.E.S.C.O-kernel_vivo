@@ -89,19 +89,7 @@
 #define OVERLAY_UPDATE_SCREEN_EN	1
 #define OVERLAY_UPDATE_SCREEN_DIS	0
 
-#ifdef CONFIG_PANEL_SELF_REFRESH
-extern struct panel_icm_info *panel_icm;
-extern wait_queue_head_t panel_update_wait_queue;
-#endif
-
-static int is_mdp_clock_192HZ = 0;
 static int z_order_change = 0;
-#ifdef CONFIG_FB_MSM_LCDC
-static void mdp4_reset_mdp_clk(struct work_struct *w);
-struct workqueue_struct *reset_mdp_clk_wq = NULL;
-static DECLARE_DELAYED_WORK(reset_mdp_clk_work, mdp4_reset_mdp_clk);
-struct clk *mdp_clk = NULL;
-#endif
 
 struct mdp4_overlay_ctrl {
 	struct mdp4_pipe_desc ov_pipe[OVERLAY_PIPE_MAX];/* 4 */
@@ -738,9 +726,9 @@ int mdp4_overlay_format2pipe(struct mdp4_overlay_pipe *pipe)
 		pipe->unpack_tight = 1;
 		pipe->unpack_align_msb = 0;
 		pipe->unpack_count = 2;
-		pipe->element2 = C1_B_Cb;	/* B */
+		pipe->element2 = C2_R_Cr;	/* R */
 		pipe->element1 = C0_G_Y;	/* G */
-		pipe->element0 = C2_R_Cr;	/* R */
+		pipe->element0 = C1_B_Cb;	/* B */
 		pipe->bpp = 3;	/* 3 bpp */
 		break;
 	case MDP_BGR_565:
@@ -770,10 +758,10 @@ int mdp4_overlay_format2pipe(struct mdp4_overlay_pipe *pipe)
 		pipe->unpack_tight = 1;
 		pipe->unpack_align_msb = 0;
 		pipe->unpack_count = 3;
-		pipe->element3 = C1_B_Cb;	/* B */
-		pipe->element2 = C0_G_Y;	/* G */
-		pipe->element1 = C2_R_Cr;	/* R */
-		pipe->element0 = C3_ALPHA;	/* alpha */
+		pipe->element3 = C3_ALPHA;	/* alpha */
+		pipe->element2 = C2_R_Cr;	/* R */
+		pipe->element1 = C0_G_Y;	/* G */
+		pipe->element0 = C1_B_Cb;	/* B */
 		pipe->bpp = 4;		/* 4 bpp */
 		break;
 	case MDP_ARGB_8888:
@@ -787,10 +775,10 @@ int mdp4_overlay_format2pipe(struct mdp4_overlay_pipe *pipe)
 		pipe->unpack_tight = 1;
 		pipe->unpack_align_msb = 0;
 		pipe->unpack_count = 3;
-		pipe->element3 = C1_B_Cb;	/* B */
-		pipe->element2 = C0_G_Y;	/* G */
-		pipe->element1 = C2_R_Cr;	/* R */
-		pipe->element0 = C3_ALPHA;	/* alpha */
+		pipe->element3 = C3_ALPHA;	/* alpha */
+		pipe->element2 = C2_R_Cr;	/* R */
+		pipe->element1 = C0_G_Y;	/* G */
+		pipe->element0 = C1_B_Cb;	/* B */
 		pipe->bpp = 4;		/* 4 bpp */
 		break;
 	case MDP_RGBA_8888:
@@ -876,21 +864,23 @@ int mdp4_overlay_format2pipe(struct mdp4_overlay_pipe *pipe)
 		pipe->unpack_tight = 1;
 		pipe->unpack_align_msb = 0;
 		pipe->unpack_count = 1;		/* 2 */
+		pipe->element3 = C0_G_Y;	/* not used */
+		pipe->element2 = C0_G_Y;	/* not used */
 		if (pipe->src_format == MDP_Y_CRCB_H2V1) {
-			pipe->element1 = C1_B_Cb;
-			pipe->element0 = C2_R_Cr;
+			pipe->element1 = C2_R_Cr;	/* R */
+			pipe->element0 = C1_B_Cb;	/* B */
 			pipe->chroma_sample = MDP4_CHROMA_H2V1;
 		} else if (pipe->src_format == MDP_Y_CBCR_H2V1) {
-			pipe->element1 = C2_R_Cr;
-			pipe->element0 = C1_B_Cb;
+			pipe->element1 = C1_B_Cb;	/* B */
+			pipe->element0 = C2_R_Cr;	/* R */
 			pipe->chroma_sample = MDP4_CHROMA_H2V1;
 		} else if (pipe->src_format == MDP_Y_CRCB_H2V2) {
-			pipe->element1 = C1_B_Cb;
-			pipe->element0 = C2_R_Cr;
+			pipe->element1 = C2_R_Cr;	/* R */
+			pipe->element0 = C1_B_Cb;	/* B */
 			pipe->chroma_sample = MDP4_CHROMA_420;
 		} else if (pipe->src_format == MDP_Y_CBCR_H2V2) {
-			pipe->element1 = C2_R_Cr;
-			pipe->element0 = C1_B_Cb;
+			pipe->element1 = C1_B_Cb;	/* B */
+			pipe->element0 = C2_R_Cr;	/* R */
 			pipe->chroma_sample = MDP4_CHROMA_420;
 		}
 		pipe->bpp = 2;	/* 2 bpp */
@@ -907,13 +897,15 @@ int mdp4_overlay_format2pipe(struct mdp4_overlay_pipe *pipe)
 		pipe->unpack_tight = 1;
 		pipe->unpack_align_msb = 0;
 		pipe->unpack_count = 1;		/* 2 */
+		pipe->element3 = C0_G_Y;	/* not used */
+		pipe->element2 = C0_G_Y;	/* not used */
 		if (pipe->src_format == MDP_Y_CRCB_H2V2_TILE) {
-			pipe->element1 = C1_B_Cb;	/* B */
-			pipe->element0 = C2_R_Cr;	/* R */
-			pipe->chroma_sample = MDP4_CHROMA_420;
-		} else if (pipe->src_format == MDP_Y_CBCR_H2V2_TILE) {
 			pipe->element1 = C2_R_Cr;	/* R */
 			pipe->element0 = C1_B_Cb;	/* B */
+			pipe->chroma_sample = MDP4_CHROMA_420;
+		} else if (pipe->src_format == MDP_Y_CBCR_H2V2_TILE) {
+			pipe->element1 = C1_B_Cb;	/* B */
+			pipe->element0 = C2_R_Cr;	/* R */
 			pipe->chroma_sample = MDP4_CHROMA_420;
 		}
 		pipe->bpp = 2;	/* 2 bpp */
@@ -1509,10 +1501,6 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 	if (req->id == MSMFB_NEW_REQUEST) /* new request */
 	{
 		pipe = mdp4_overlay_pipe_alloc(ptype, true);
-#ifdef CONFIG_FB_MSM_LCDC
-		if(pipe && reset_mdp_clk_wq) /* do not slow down mdp clk when overlay create */
-			cancel_delayed_work_sync(&reset_mdp_clk_work);
-#endif
 	}
 	else
 		pipe = mdp4_overlay_ndx2pipe(req->id);
@@ -1737,69 +1725,42 @@ static int mdp4_pull_mode(struct mdp4_overlay_pipe *pipe)
 	return lcdc;
 }
 
+#ifdef CONFIG_MACH_PRIMOTD
 /* Temporary workaround before QCT release formal fix. */
 int mdp4_overlay_alter_req(struct mdp_overlay *req)
 {
 
 	/*1280*720 portrait play*/
-    int video_size = 0;
-    video_size = req->src.width * req->src.height / 10000;
+	if ((req->src.format == MDP_Y_CRCB_H2V2_TILE || req->src.format == MDP_Y_CR_CB_GH2V2)&&
+		(req->src.width == 1280 || req->src.height == 720)
+		) {
+		if (req->dst_rect.w == 480) {
+			if (req->dst_rect.h >= 320 ||
+			(req->dst_rect.h >= 180 &&
+			req->user_data[0] == 0)) {
+			/*1280*720 fix fullscreen cut*/
+			req->src_rect.x = 40;
+            req->src_rect.y = 10;
+			req->src_rect.w = 1120;
+            req->src_rect.h = 680;
 
-	//PR_DISP_ERR("======req->dst_rect.h %d,req->dst_rect.w %d=======\n",req->dst_rect.h,req->dst_rect.w);
-	if (req->user_data[0] == 0 && video_size > 46){ //Cut src to small size when it is big than 480*960.
-        if (req->dst_rect.w == 480){
-            if (req->src.width == 1280){ //For 720P video, we need to cut both src width and height size.
-                if (req->src.height >= 640) {
-                    /*1280*720 fix fullscreen cut*/
-#ifdef CONFIG_MACH_PRIMOTD
-			req->src_rect.x = 80;
-			req->src_rect.y = (req->src.height - 640) / 2;
-			req->src_rect.w = req->src.width - 160;
-			req->src_rect.h = 640;
-#else
-#ifdef CONFIG_MACH_SPADE
-			req->src_rect.x = 60;
-			req->src_rect.y = 90;
-			req->src_rect.w = 800;
-			req->src_rect.h = 480;
-#else
-			req->src_rect.x = 60;
-			req->src_rect.y = 90;
-			req->src_rect.w = 960;
-			req->src_rect.h = 540;
-#endif
-#endif
+		} else {
+			req->src_rect.x = 40;
+            req->src_rect.y = 10;
+			req->src_rect.w = 1120;
+            req->src_rect.h = 680;
 		}
-                else {// If it's big enough, like 1280*544, we still need to cut it to smaller size.
-                    req->src_rect.x = 80;
-                    req->src_rect.w = req->src.width - 160;
-                }
-            }
-            else if(video_size >= 64){
-                req->src_rect.x = 80;
-                req->src_rect.y = 20;
-                req->src_rect.w = req->src.width - 160;
-                req->src_rect.h = req->src.height - 40;
-            }
-        }
-    }
-	else if (req->dst_rect.h == 426 && req->dst_rect.w == 240) {
-		if (req->src.width == 1280 || req->src.height == 720) {
-			/*720*1280 video trim */
-			req->src_rect.x = 60;
-			req->src_rect.y = 90;
-			req->src_rect.w = 800;
-			req->src_rect.h = 480;
-		} else if (req->src.height == 1280) {
-			/*1280*720 video trim*/
-			req->src_rect.x = 90;
-			req->src_rect.y = 60;
-			req->src_rect.w = 480;
-			req->src_rect.h = 800;
+	} else if (req->dst_rect.h == 135 && req->dst_rect.w == 240) {
+	/*720*1280 video trim */
+		req->src_rect.x = 60;
+		req->src_rect.y = 90;
+		req->src_rect.w = 800;
+		req->src_rect.h = 480;
 		}
-        }
+	}
 	return 0;
 }
+#endif
 
 void mdp4_dump_ov(struct mdp_overlay *ov);
 
@@ -1818,8 +1779,10 @@ int mdp4_overlay_set(struct mdp_device *mdp_dev, struct fb_info *info, struct md
 #ifdef DEBUG_OVERLAY
 	mdp4_dump_ov(req);
 #endif
-	if(mdp->out_if[MSM_LCDC_INTERFACE].registered == 1)//Workaround: Reduce src size to avoid MDP underrun in LCDC panel
-		mdp4_overlay_alter_req(req);
+
+#ifdef CONFIG_MACH_PRIMOTD
+	mdp4_overlay_alter_req(req);
+#endif
 
 #ifdef CONFIG_PANEL_SELF_REFRESH
 	if (mdp->mdp_dev.overrides & MSM_MDP_RGB_PANEL_SELE_REFRESH) {
@@ -1924,23 +1887,8 @@ int mdp4_overlay_unset(struct mdp_device *mdp_dev, struct fb_info *info, int ndx
 
 	clk_disable(mdp->clk);
 
-#ifdef CONFIG_FB_MSM_LCDC
-	if(reset_mdp_clk_wq && mdp->out_if[MSM_LCDC_INTERFACE].registered == 1) /* slow down the mdp clk after unset overlay */
-		queue_delayed_work(reset_mdp_clk_wq, &reset_mdp_clk_work, HZ/10);
-#endif
 	return 0;
 }
-
-#ifdef CONFIG_FB_MSM_LCDC
-static void mdp4_reset_mdp_clk(struct work_struct *w)
-{
-    if(mdp_clk && is_mdp_clock_192HZ) {
-        clk_set_rate(mdp_clk, 122880000);
-	is_mdp_clock_192HZ = 0;
-        PR_DISP_INFO("%s reset mdp clk\n", __func__);
-    }
-}
-#endif
 
 struct tile_desc {
 	uint32_t width;  /* tile's width */
@@ -2046,10 +1994,6 @@ int mdp4_overlay_play(struct mdp_device *mdp_dev, struct fb_info *info, struct m
 	ulong len = 0;
 	struct file *p_src_file = 0;
 	int pull;
-#ifdef CONFIG_FB_MSM_LCDC
-    int video_size = 0;
-#endif
-
 #ifdef CONFIG_PANEL_SELF_REFRESH
 	unsigned long irq_flags = 0;
 #endif
@@ -2099,32 +2043,9 @@ int mdp4_overlay_play(struct mdp_device *mdp_dev, struct fb_info *info, struct m
 	mutex_unlock(&snapshot_lock);
 #endif
 
-#ifdef CONFIG_FB_MSM_LCDC
-
-    video_size = pipe->src_width * pipe->src_height / 10000;
-    if(mdp->out_if[MSM_LCDC_INTERFACE].registered == 1 && !is_mdp_clock_192HZ &&
-    ((pipe->req_data.user_data[0] == 0 && video_size > 46 )||
-	(321 == pipe->dst_w && 192 == pipe->dst_h) ||
-	(240 == pipe->dst_w && 426 == pipe->dst_h))) {
-        clk_set_rate(mdp->ebi1_clk, 192000000);
-        clk_set_rate(mdp->clk, 192000000);
-        clk_enable(mdp->clk);
-	PR_DISP_INFO("%s raise mdp clk\n", __func__);
-	is_mdp_clock_192HZ = 1;
-    }
-    else {
-        clk_set_rate(mdp->ebi1_clk, 153000000);
-        clk_enable(mdp->clk);
-    }
-#else
-#ifdef CONFIG_MDP_RAISE_CLOCK
-	clk_set_rate(mdp->ebi1_clk, 192000000);
-	clk_enable(mdp->clk);
-#else
 	clk_set_rate(mdp->ebi1_clk, 153000000);
 	clk_enable(mdp->clk);
-#endif
-#endif
+
 	if (pipe->fetch_plane == OVERLAY_PLANE_PSEUDO_PLANAR) {
 		if (pipe->frame_format == MDP4_FRAME_FORMAT_VIDEO_SUPERTILE) {
 			struct tile_desc tile;

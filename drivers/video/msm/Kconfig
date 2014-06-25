@@ -1,5 +1,3 @@
-source "drivers/video/msm/sii9234/Kconfig"
-
 config FB_MSM
 	tristate
 	depends on FB && ARCH_MSM
@@ -21,7 +19,7 @@ config FB_MSM_MDP_PPP
 config FB_MSM_LCDC
 	bool "Support for integrated LCD controller in qsd8x50 ,MSM7x27 and MSM7x30"
 	depends on FB_MSM && (MSM_MDP31 || MSM_MDP302 || MSM_MDP40)
-	default n
+	default y
 
 config FB_MSM_DTV
 	bool "Support for TV-Out in qsd8x50"
@@ -96,10 +94,5 @@ config MDP_UNDERRUN_WORKAROUND_DISABLED
 
 config MDP4_HW_VSYNC
 	bool "QCT hardware TE"
-	depends on MSM_MDP40
-	default n
-
-config MDP_RAISE_CLOCK
-	bool "Raise MDP clock when qhd"
 	depends on MSM_MDP40
 	default n

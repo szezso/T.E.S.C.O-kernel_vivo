@@ -77,9 +77,6 @@ struct mdp_lcdc_info {
 	struct clk			*mdp_pclk;
 	struct clk			*pclk;
 	struct clk			*pad_pclk;
-#ifdef CONFIG_MACH_PRIMOTD
-    struct clk          *lcdc_clk;
-#endif
 	struct msm_panel_data		fb_panel_data;
 	struct platform_device		fb_pdev;
 	struct msm_lcdc_platform_data	*pdata;
