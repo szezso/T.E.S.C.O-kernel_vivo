@@ -200,11 +200,14 @@ void mdp4_overlay_update_lcd(struct mdp_info *mdp, uint32_t addr, uint32_t strid
 
 	mddi_mdp = mdp;		/* keep it */
 
-
 	if (mddi_pipe == NULL) {
 
 		ptype = mdp4_overlay_format2type(MDP_RGB_565);
 		pipe = mdp4_overlay_pipe_alloc(ptype, false);
+		if (pipe == NULL) {
+			PR_DISP_ERR("%s: pipe_alloc failed\n", __func__);
+			return;
+		}
 
 		pipe->pipe_type = ptype;
 		pipe->pipe_used = 1;

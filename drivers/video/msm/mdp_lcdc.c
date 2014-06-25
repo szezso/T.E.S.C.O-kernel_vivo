@@ -179,6 +179,7 @@ static int icm_init(struct mdp_lcdc_info *lcdc)
 	panel_icm->lcdc = lcdc;
 	panel_icm->force_leave = icm_force_leave;
 	panel_icm->icm_suspend = false;
+	spin_lock_init(&panel_icm->lock);
 	mutex_init(&panel_icm->icm_lock);
 	th_display = kthread_run(icm_thread, lcdc, "panel-enterIdle");
 	if (IS_ERR(th_display)) {
@@ -210,6 +211,20 @@ void mdp4_lcdc_overlay_blt(ulong addr)
 }
 #endif
 
+void mdp_color_enhancement(const struct mdp_reg *reg_seq, int size)
+{
+       int i;
+       struct mdp_info *mdp = container_of(mdp_dev, struct mdp_info, mdp_dev);
+
+       printk(KERN_INFO "%s\n", __func__);
+
+       for (i = 0; i < size; i++) {
+                     writel(reg_seq[i].val ,  mdp->base + reg_seq[i].reg);
+       }
+
+       return ;
+
+}
 static int lcdc_unblank(struct msm_panel_data *fb_panel)
 {
 	struct mdp_lcdc_info *lcdc = panel_to_lcdc(fb_panel);
@@ -219,6 +234,7 @@ static int lcdc_unblank(struct msm_panel_data *fb_panel)
 
 	if (panel_ops->unblank)
 		panel_ops->unblank(panel_ops);
+
 
 	return 0;
 }
@@ -289,6 +305,9 @@ static int lcdc_suspend(struct msm_panel_data *fb_panel)
 	clk_disable(lcdc->pad_pclk);
 	clk_disable(lcdc->pclk);
 	clk_disable(lcdc->mdp_clk);
+#ifdef CONFIG_MACH_PRIMOTD
+    clk_disable(lcdc->lcdc_clk);
+#endif
 #endif
 	if (panel_ops->uninit)
 		panel_ops->uninit(panel_ops);
@@ -311,6 +330,9 @@ static int lcdc_resume(struct msm_panel_data *fb_panel)
 	clk_enable(lcdc->mdp_clk);
 	clk_enable(lcdc->pclk);
 	clk_enable(lcdc->pad_pclk);
+#ifdef CONFIG_MACH_PRIMOTD
+    clk_enable(lcdc->lcdc_clk);
+#endif
 #if defined(CONFIG_ARCH_MSM7227)
 	writel(0x1, LCDC_MUX_CTL);
 	D("resume_lcdc_mux_ctl = %x\n", readl(LCDC_MUX_CTL));
@@ -577,7 +599,13 @@ static int mdp_lcdc_probe(struct platform_device *pdev)
 		ret = PTR_ERR(lcdc->pad_pclk);
 		goto err_get_pad_pclk;
 	}
-
+#ifdef CONFIG_MACH_PRIMOTD
+    lcdc->lcdc_clk = clk_get(NULL, "ebi1_lcdc_clk");
+	if (IS_ERR(lcdc->lcdc_clk)) {
+		PR_DISP_ERR("%s: failed to get ebi1_lcdc_clk\n", __func__);
+		ret = PTR_ERR(lcdc->lcdc_clk);
+	}
+#endif
 	init_waitqueue_head(&lcdc->vsync_waitq);
 	lcdc->pdata = pdata;
 	lcdc->frame_start_cb.func = lcdc_frame_start;
@@ -641,6 +669,10 @@ static int mdp_lcdc_probe(struct platform_device *pdev)
 	lcdc->fb_panel_data.fb_data = pdata->fb_data;
 	lcdc->fb_panel_data.interface_type = MSM_LCDC_INTERFACE;
 	lcdc->fb_panel_data.shutdown = lcdc_shutdown;
+
+	if(lcdc->pdata->panel_ops->mdp_color_enhance)
+	        lcdc->pdata->panel_ops->mdp_color_enhance();
+
 	ret = lcdc_hw_init(lcdc);
 	if (ret) {
 		PR_DISP_ERR("%s: Cannot initialize the mdp_lcdc\n", __func__);

@@ -29,6 +29,7 @@
 #include <mach/msm_iomap.h>
 #include <mach/msm_fb-7x30.h>
 #include <linux/platform_device.h>
+#include <linux/export.h>
 
 #include "mdp_hw.h"
 #include "mdp_ppp.h"
@@ -52,8 +53,11 @@ static struct  mdp_blit_req *timeout_req;
 static uint32_t mdp_reg_addr = 0;
 static uint32_t mdp_reg_val = 0;
 
+#ifdef CONFIG_FB_MSM_LCDC
+extern struct workqueue_struct *reset_mdp_clk_wq;
+extern struct clk *mdp_clk;
+#endif
 #ifdef CONFIG_FB_MSM_OVERLAY
-
 #include "mdp4.h"
 #endif
 #ifdef CONFIG_MSM_MDP40
@@ -75,15 +79,16 @@ static unsigned int mdp_hist_g[MDP_HIST_MAX_BIN];
 static unsigned int mdp_hist_b[MDP_HIST_MAX_BIN];
 #endif
 
-#if defined(CONFIG_USB_FUNCTION_PROJECTOR) || defined(CONFIG_USB_ANDROID_PROJECTOR)
-extern char *get_fb_addr(void);
-#endif //defined(CONFIG_USB_FUNCTION_PROJECTOR) || defined(CONFIG_USB_ANDROID_PROJECTOR)
 
 static void mdp_do_standby_timer(unsigned long data)
 {
 	struct mdp_info *mdp = (struct mdp_info *) data;
 	if (!mdp_irq_mask) {
+#ifdef CONFIG_MACH_PRIMOTD
+		clk_set_rate(mdp->ebi1_clk, 24576000);
+#else
 		clk_set_rate(mdp->ebi1_clk, 0);
+#endif
 		mdp->state |= MDP_STATE_STANDBY;
 	} else {
 		mod_timer(&mdp->standby_timer,
@@ -110,25 +115,12 @@ static int locked_enable_mdp_irq(struct mdp_info *mdp, uint32_t mask)
 		enable_irq(mdp->irq);
 		if (mdp->state & MDP_STATE_STANDBY) {
 #ifdef CONFIG_MSM_MDP40
-			#if defined(CONFIG_USB_FUNCTION_PROJECTOR) || defined(CONFIG_USB_ANDROID_PROJECTOR)
-			static int mdp_in_high_speed = 0;
-			if (get_fb_addr() && !mdp_in_high_speed) {
-				/* In car mode and MDP clock was in low speed, speed up EBI and MDP clock to workaround MDP hang problem */
-				clk_set_rate(mdp->ebi1_clk, 192000000);
-				clk_set_rate(mdp->clk, 192000000);
-				mdp_in_high_speed = 1;
-			} else if (!get_fb_addr() && mdp_in_high_speed) {
-				/* Leave car mode and MDP clock was in high speed, restore original EBI and MDP clock */
-				clk_set_rate(mdp->ebi1_clk, 153000000);
-				clk_set_rate(mdp->clk, 122880000);
-				mdp_in_high_speed = 0;
-			} else {
-				if (mdp_in_high_speed) clk_set_rate(mdp->ebi1_clk, 192000000);
-				else clk_set_rate(mdp->ebi1_clk, 153000000);
-			}
-			#else
+#ifdef CONFIG_MDP_RAISE_CLOCK
+			clk_set_rate(mdp->ebi1_clk, 192000000);
+			clk_set_rate(mdp->clk, 192000000);
+#else
 			clk_set_rate(mdp->ebi1_clk, 153000000);
-			#endif //defined(CONFIG_USB_FUNCTION_PROJECTOR) || defined(CONFIG_USB_ANDROID_PROJECTOR)
+#endif
 #else
 			clk_set_rate(mdp->ebi1_clk, 128000000);
 #endif
@@ -406,7 +398,7 @@ int mdp_wait(struct mdp_info *mdp, uint32_t mask, wait_queue_head_t *wq)
 	int ret = 0;
 	unsigned long irq_flags = 0;
 
-	wait_event_timeout(*wq, !mdp_check_mask(mdp, mask), HZ);
+	wait_event_timeout(*wq, !mdp_check_mask(mdp, mask), 5*HZ);
 
 	spin_lock_irqsave(&mdp->lock, irq_flags);
 	if (mdp_irq_mask & mask) {
@@ -1312,7 +1304,13 @@ int mdp_probe(struct platform_device *pdev)
 		goto error_get_mdp_clk;
 	}
 
-	mdp->ebi1_clk = clk_get(NULL, "ebi1_mddi_clk");
+	if (mdp_readl(mdp, 0x0018) & 0x20) {
+		mdp->ebi1_clk = clk_get(NULL, "ebi1_lcdc_clk");
+		PR_DISP_INFO("mdp: lcdc interface");
+	} else {
+		mdp->ebi1_clk = clk_get(NULL, "ebi1_mddi_clk");
+		PR_DISP_INFO("mdp: mddi interface");
+	}
 
 	if (IS_ERR(mdp->ebi1_clk)) {
 			PR_DISP_ERR("mdp: failed to get ebi1 clk\n");
@@ -1327,16 +1325,28 @@ int mdp_probe(struct platform_device *pdev)
 		goto error_get_mdp_clk;
 	}
 #endif
-	ret = request_irq(mdp->irq, mdp_isr, IRQF_DISABLED, "msm_mdp", mdp);
+	ret = request_irq(mdp->irq, mdp_isr, 0, "msm_mdp", mdp);
 	if (ret)
 		goto error_request_irq;
 	disable_irq(mdp->irq);
 
 	clk_enable(mdp->clk);
+#ifdef CONFIG_MACH_PRIMOTD
+		clk_enable(mdp->ebi1_clk);
+#endif
 	mdp_clk_to_disable_later = mdp->clk;
 #ifdef CONFIG_MDP4_HW_VSYNC
 	clk_enable(mdp->vsync_clk);
 	mdp_vsync_clk_to_disable_later = mdp->vsync_clk;
+#endif
+
+#ifdef CONFIG_FB_MSM_LCDC
+    reset_mdp_clk_wq = create_workqueue("reset_mdp_clk_wq");
+    if(reset_mdp_clk_wq == NULL) {
+        PR_DISP_ERR("%s reset_mdp_clk_wq work queue create fail\n", __func__);
+    }else {
+        mdp_clk = mdp->clk;
+    }
 #endif
 
 #ifdef CONFIG_MSM_MDP40

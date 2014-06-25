@@ -377,7 +377,7 @@ static long mddi_wait_interrupt_timeout(struct mddi_info *mddi,
 static void mddi_wait_interrupt(struct mddi_info *mddi, uint32_t intmask)
 {
 	if (mddi_wait_interrupt_timeout(mddi, intmask, HZ/10) == 0)
-		printk(KERN_INFO KERN_ERR "mddi_wait_interrupt %d, timeout "
+		printk(KERN_INFO "mddi_wait_interrupt %d, timeout "
 		       "waiting for %x, INT = %x, STAT = %x gotint = %x\n",
 		       current->pid, intmask, mddi_readl(INT), mddi_readl(STAT),
 		       mddi->got_int);
@@ -531,7 +531,7 @@ static void mddi_resume(struct msm_mddi_client_data *cdata)
 	wake_unlock(&mddi->idle_lock);
 }
 
-static int __init mddi_get_client_caps(struct mddi_info *mddi)
+static int __devinit mddi_get_client_caps(struct mddi_info *mddi)
 {
 #if !defined(CONFIG_ARCH_MSM7X30)
 	int i, j;
@@ -582,8 +582,7 @@ static int __init mddi_get_client_caps(struct mddi_info *mddi)
 
 			if (mddi->flags & FLAG_HAVE_CAPS)
 				break;
-			printk(KERN_INFO KERN_ERR "mddi_init, timeout waiting for "
-				"caps\n");
+			printk(KERN_INFO "mddi_init, timeout waiting for caps\n");
 		}
 		return (mddi->flags & FLAG_HAVE_CAPS);
 	} else
@@ -839,9 +838,9 @@ void mddi_send_powerdown(struct msm_mddi_client_data *cdata)
 
 static struct mddi_info mddi_info[2];
 
-static int __init mddi_clk_setup(struct platform_device *pdev,
-				 struct mddi_info *mddi,
-				 unsigned long clk_rate)
+static int __devinit mddi_clk_setup(struct platform_device *pdev,
+				    struct mddi_info *mddi,
+				    unsigned long clk_rate)
 {
 	int ret;
 #ifdef CONFIG_MSM_MDP40
@@ -993,7 +992,7 @@ int mddi_reg_debugfs_init(struct mddi_info *mddi)
 	return 0;
 }
 
-static int mddi_probe(struct platform_device *pdev)
+static int __devinit mddi_probe(struct platform_device *pdev)
 {
 	struct msm_mddi_platform_data *pdata = pdev->dev.platform_data;
 	struct mddi_info *mddi = &mddi_info[pdev->id];
@@ -1005,7 +1004,7 @@ static int mddi_probe(struct platform_device *pdev)
 		PR_DISP_ERR("mddi: no associated mem resource!\n");
 		return -ENOMEM;
 	}
-	mddi->base = ioremap(resource->start, resource->end - resource->start);
+	mddi->base = ioremap(resource->start, resource_size(resource));
 	if (!mddi->base) {
 		PR_DISP_ERR("mddi: failed to remap base!\n");
 		ret = -EINVAL;
@@ -1047,7 +1046,7 @@ static int mddi_probe(struct platform_device *pdev)
 
 	mddi->int_enable = 0;
 	mddi_writel(mddi->int_enable, INTEN);
-	ret = request_irq(mddi->irq, mddi_isr, IRQF_DISABLED, "mddi",
+	ret = request_irq(mddi->irq, mddi_isr, 0, "mddi",
 			  &mddi->client_data);
 	if (ret) {
 		PR_DISP_ERR("mddi: failed to request enable irq!\n");
