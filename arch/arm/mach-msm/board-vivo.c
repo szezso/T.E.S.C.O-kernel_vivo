@@ -123,12 +123,6 @@
 #include <mach/bcm_bt_lpm.h>
 #endif
 
-#ifdef CONFIG_SZEZSO_CAN_FIX_EVERYTHING
-#define DDR2_BANK_BASE 0X40000000
-unsigned long ebi1_phys_offset = DDR2_BANK_BASE;
-EXPORT_SYMBOL(ebi1_phys_offset);
-#endif
-
 int htc_get_usb_accessory_adc_level(uint32_t *buffer);
 
 #define GPS_EN_GPIO -1
@@ -5744,11 +5738,13 @@ static struct ion_co_heap_pdata co_ion_pdata = {
  * These heaps are listed in the order they will be allocated.
  * Don't swap the order unless you know what you are doing!
  */
-struct ion_platform_heap msm7x30_heaps[] = {
+static struct ion_platform_data ion_pdata = {
+  .nr = MSM_ION_HEAP_NUM,
+  .heaps = {
     {
-      .id    = ION_SYSTEM_HEAP_ID,
-      .type  = ION_HEAP_TYPE_SYSTEM,
-      .name  = ION_VMALLOC_HEAP_NAME,
+      	.id  = ION_SYSTEM_HEAP_ID,
+      	.type  = ION_HEAP_TYPE_SYSTEM,
+      	.name  = ION_VMALLOC_HEAP_NAME,
     },
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
     /* CAMERA */
@@ -5768,11 +5764,7 @@ struct ion_platform_heap msm7x30_heaps[] = {
       	.extra_data = (void *)&co_ion_pdata,
     },
 #endif
-};
-
-static struct ion_platform_data ion_pdata = {
-   	.nr = MSM_ION_HEAP_NUM,
-   	.heaps = msm7x30_heaps,
+  }
 };
 
 static struct platform_device ion_dev = {
