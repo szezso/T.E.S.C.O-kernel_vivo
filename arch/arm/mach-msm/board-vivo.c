@@ -5740,6 +5740,7 @@ static struct ion_co_heap_pdata co_ion_pdata = {
  */
 static struct ion_platform_data ion_pdata = {
   .nr = MSM_ION_HEAP_NUM,
+  .has_outer_cache = 1,
   .heaps = {
     {
       	.id  = ION_SYSTEM_HEAP_ID,
