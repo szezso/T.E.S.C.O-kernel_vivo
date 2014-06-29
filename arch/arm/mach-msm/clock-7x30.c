@@ -22,6 +22,7 @@
 #include <linux/clk.h>
 #include <linux/clkdev.h>
 #include <linux/string.h>
+#include <asm/div64.h>
 
 #include <mach/msm_iomap.h>
 #include <mach/clk.h>
@@ -1276,7 +1277,7 @@ static struct rcg_clk grp_2d_clk = {
 	.c = {
 		.dbg_name = "grp_2d_clk",
 		.ops = &clk_ops_rcg_7x30,
-		VDD_DIG_FMAX_MAP2(NOMINAL, 245760000, HIGH, 299520000),
+		VDD_DIG_FMAX_MAP2(NOMINAL, 192000000, HIGH, 245760000),
 		CLK_INIT(grp_2d_clk.c),
 		.depends = &axi_grp_2d_clk.c,
 	},
@@ -1296,7 +1297,7 @@ static struct rcg_clk grp_3d_src_clk = {
 	.c = {
 		.dbg_name = "grp_3d_src_clk",
 		.ops = &clk_ops_rcg_7x30,
-		VDD_DIG_FMAX_MAP2(NOMINAL, 192000000, HIGH, 353280000),
+		VDD_DIG_FMAX_MAP2(NOMINAL, 192000000, HIGH, 245760000),
 		CLK_INIT(grp_3d_src_clk.c),
 		.depends = &axi_li_grp_clk.c,
 	},
@@ -2321,7 +2322,7 @@ static DEFINE_CLK_PCOM(usb_phy_clk, USB_PHY_CLK, CLKFLAG_MIN);
 static DEFINE_CLK_PCOM(p_grp_2d_clk, GRP_2D_CLK, CLKFLAG_SKIP_AUTO_OFF);
 static DEFINE_CLK_PCOM(p_grp_2d_p_clk, GRP_2D_P_CLK, CLKFLAG_SKIP_AUTO_OFF);
 static DEFINE_CLK_PCOM(p_hdmi_clk, HDMI_CLK, CLKFLAG_SKIP_AUTO_OFF);
-static DEFINE_CLK_PCOM(p_jpeg_clk, JPEG_CLK, 0);
+static DEFINE_CLK_PCOM(p_jpeg_clk, JPEG_CLK, CLKFLAG_MIN);
 static DEFINE_CLK_PCOM(p_jpeg_p_clk, JPEG_P_CLK, 0);
 static DEFINE_CLK_PCOM(p_lpa_codec_clk, LPA_CODEC_CLK, CLKFLAG_SKIP_AUTO_OFF);
 static DEFINE_CLK_PCOM(p_lpa_core_clk, LPA_CORE_CLK, CLKFLAG_SKIP_AUTO_OFF);
@@ -2338,7 +2339,7 @@ static DEFINE_CLK_PCOM(p_mi2s_codec_tx_s_clk, MI2S_CODEC_TX_S_CLK,
 		CLKFLAG_SKIP_AUTO_OFF);
 static DEFINE_CLK_PCOM(p_sdac_clk, SDAC_CLK, 0);
 static DEFINE_CLK_PCOM(p_sdac_m_clk, SDAC_M_CLK, 0);
-static DEFINE_CLK_PCOM(p_vfe_clk, VFE_CLK, 0);
+static DEFINE_CLK_PCOM(p_vfe_clk, VFE_CLK, CLKFLAG_SKIP_AUTO_OFF);
 static DEFINE_CLK_PCOM(p_vfe_camif_clk, VFE_CAMIF_CLK, 0);
 static DEFINE_CLK_PCOM(p_vfe_mdc_clk, VFE_MDC_CLK, 0);
 static DEFINE_CLK_PCOM(p_vfe_p_clk, VFE_P_CLK, 0);
@@ -2386,16 +2387,16 @@ static DEFINE_CLK_PCOM(p_uart2dm_clk, UART2DM_CLK, CLKFLAG_SKIP_AUTO_OFF);
 static DEFINE_CLK_PCOM(p_usb_hs_clk, USB_HS_CLK, 0);
 static DEFINE_CLK_PCOM(p_usb_hs_core_clk, USB_HS_CORE_CLK, 0);
 static DEFINE_CLK_PCOM(p_usb_hs_p_clk, USB_HS_P_CLK, 0);
-static DEFINE_CLK_PCOM(p_cam_m_clk, CAM_M_CLK, 0);
+static DEFINE_CLK_PCOM(p_cam_m_clk, CAM_M_CLK, CLKFLAG_SKIP_AUTO_OFF);
 static DEFINE_CLK_PCOM(p_camif_pad_p_clk, CAMIF_PAD_P_CLK, 0);
 static DEFINE_CLK_PCOM(p_csi0_clk, CSI0_CLK, CLKFLAG_SKIP_AUTO_OFF);
-static DEFINE_CLK_PCOM(p_csi0_vfe_clk, CSI0_VFE_CLK, 0);
+static DEFINE_CLK_PCOM(p_csi0_vfe_clk, CSI0_VFE_CLK, CLKFLAG_SKIP_AUTO_OFF);
 static DEFINE_CLK_PCOM(p_csi0_p_clk, CSI0_P_CLK, CLKFLAG_SKIP_AUTO_OFF);
-static DEFINE_CLK_PCOM(p_mdp_clk, MDP_CLK, 0);
+static DEFINE_CLK_PCOM(p_mdp_clk, MDP_CLK, CLKFLAG_MIN);
 static DEFINE_CLK_PCOM(p_mfc_clk, MFC_CLK, CLKFLAG_SKIP_AUTO_OFF);
 static DEFINE_CLK_PCOM(p_mfc_div2_clk, MFC_DIV2_CLK, CLKFLAG_SKIP_AUTO_OFF);
 static DEFINE_CLK_PCOM(p_mfc_p_clk, MFC_P_CLK, CLKFLAG_SKIP_AUTO_OFF);
-static DEFINE_CLK_PCOM(p_vpe_clk, VPE_CLK, 0);
+static DEFINE_CLK_PCOM(p_vpe_clk, VPE_CLK, CLKFLAG_SKIP_AUTO_OFF);
 static DEFINE_CLK_PCOM(p_adm_clk, ADM_CLK, CLKFLAG_SKIP_AUTO_OFF);
 static DEFINE_CLK_PCOM(p_ce_clk, CE_CLK, CLKFLAG_SKIP_AUTO_OFF);
 static DEFINE_CLK_PCOM(p_axi_rotator_clk, AXI_ROTATOR_CLK,
@@ -2762,12 +2763,12 @@ static struct clk_local_ownership {
 	{ CLK_LOOKUP("phy_clk",	usb_phy_clk.c,	"msm_otg") },
 
 	/* Voters */
-	{ CLK_LOOKUP("ebi1_dtv_clk",	ebi_dtv_clk.c,	NULL) },
+	{ CLK_LOOKUP("mem_clk",	ebi_dtv_clk.c,	"dtv.0") },
 	{ CLK_LOOKUP("bus_clk",		ebi_grp_2d_clk.c, "kgsl-2d0.0") },
 	{ CLK_LOOKUP("bus_clk",		ebi_grp_3d_clk.c, "kgsl-3d0.0") },
-	{ CLK_LOOKUP("ebi1_lcdc_clk",	ebi_lcdc_clk.c,	NULL) },
-	{ CLK_LOOKUP("ebi1_mddi_clk",	ebi_mddi_clk.c,	NULL) },
-	{ CLK_LOOKUP("ebi1_tv_clk",	ebi_tv_clk.c,	NULL) },
+	{ CLK_LOOKUP("mem_clk",	ebi_lcdc_clk.c,	"lcdc.0") },
+	{ CLK_LOOKUP("mem_clk",	ebi_mddi_clk.c,	"mddi.0") },
+	{ CLK_LOOKUP("mem_clk",	ebi_tv_clk.c,	"tvenc.0") },
 	{ CLK_LOOKUP("mem_clk",		ebi_vcd_clk.c,	"msm_vidc.0") },
 	{ CLK_LOOKUP("ebi1_vfe_clk",	ebi_vfe_clk.c,	NULL) },
 	{ CLK_LOOKUP("mem_clk",		ebi_adm_clk.c,	"msm_dmov") },
@@ -2783,7 +2784,7 @@ static struct clk_local_ownership {
 	OWN(APPS1,  6, "core_clk",	grp_2d_clk,	"footswitch-pcom.0"),
 	OWN(APPS1,  6, "iface_clk",	grp_2d_p_clk,	"kgsl-2d0.0"),
 	OWN(APPS1,  6, "iface_clk",	grp_2d_p_clk,	"footswitch-pcom.0"),
-	OWN(APPS1, 31, "hdmi_clk",	hdmi_clk,	NULL),
+	OWN(APPS1, 31, "hdmi_clk",	hdmi_clk,	"dtv.0"),
 	OWN(APPS1,  0, "jpeg_clk",	jpeg_clk,	NULL),
 	OWN(APPS1,  0, "jpeg_pclk",	jpeg_p_clk,	NULL),
 	OWN(APPS1, 23, "lpa_codec_clk", lpa_codec_clk,	NULL),
@@ -2813,25 +2814,25 @@ static struct clk_local_ownership {
 	{ CLK_LOOKUP("src_clk",     grp_3d_src_clk.c, "footswitch-pcom.2"),
 		O(APPS2), BIT(0), &p_grp_3d_clk.c },
 	OWN(APPS2,  0, "mem_clk",	imem_clk,	"kgsl-3d0.0"),
-	OWN(APPS2,  4, "mdp_lcdc_pad_pclk_clk", mdp_lcdc_pad_pclk_clk, NULL),
-	OWN(APPS2,  4, "mdp_lcdc_pclk_clk", mdp_lcdc_pclk_clk, NULL),
-	OWN(APPS2,  4, "mdp_pclk",	mdp_p_clk,	NULL),
+	OWN(APPS2, 4, "lcdc_clk", mdp_lcdc_pad_pclk_clk, "lcdc.0"),
+	OWN(APPS2,  4, "mdp_clk", mdp_lcdc_pclk_clk, "lcdc.0"),
+	OWN(APPS2,  4, "iface_clk",	mdp_p_clk,	"mdp.0"),
 	OWN(APPS2,  4, "iface_clk",	mdp_p_clk,	"footswitch-pcom.4"),
-	OWN(APPS2, 28, "mdp_vsync_clk", mdp_vsync_clk,	NULL),
+	OWN(APPS2, 28, "vsync_clk", mdp_vsync_clk,	"mdp.0"),
 	OWN(APPS2,  5, "ref_clk",	tsif_ref_clk,	"msm_tsif.0"),
 	OWN(APPS2,  5, "iface_clk",	tsif_p_clk,	"msm_tsif.0"),
-	{ CLK_LOOKUP("tv_src_clk",      tv_clk.c,       NULL),
+	{ CLK_LOOKUP("src_clk",      tv_clk.c,       "dtv.0"),
 		O(APPS2), BIT(2), &p_tv_enc_clk.c },
 	OWN(APPS2,  2, "tv_dac_clk",	tv_dac_clk,	NULL),
 	OWN(APPS2,  2, "tv_enc_clk",	tv_enc_clk,	NULL),
 
-	OWN(ROW1,  7, "emdh_clk",	emdh_clk,	"msm_mddi.1"),
-	OWN(ROW1,  7, "emdh_pclk",	emdh_p_clk,	"msm_mddi.1"),
+	OWN(ROW1,  7, "core_clk",	emdh_clk,	"msm_mddi.1"),
+	OWN(ROW1,  7, "iface_clk",	emdh_p_clk,	"msm_mddi.1"),
 	OWN(ROW1, 11, "core_clk",	i2c_clk,	"msm_i2c.0"),
 	OWN(ROW1, 12, "core_clk",	i2c_2_clk,	"msm_i2c.2"),
 	OWN(ROW1, 17, "mdc_clk",	mdc_clk,	NULL),
-	OWN(ROW1, 19, "mddi_clk",	pmdh_clk,	NULL),
-	OWN(ROW1, 19, "mddi_pclk",	pmdh_p_clk,	NULL),
+	OWN(ROW1, 19, "core_clk",	pmdh_clk,	"mddi.0"),
+	OWN(ROW1, 19, "iface_clk",	pmdh_p_clk,	"mddi.0"),
 	OWN(ROW1, 23, "core_clk",	sdc1_clk,	"msm_sdcc.1"),
 	OWN(ROW1, 23, "iface_clk",	sdc1_p_clk,	"msm_sdcc.1"),
 	OWN(ROW1, 25, "core_clk",	sdc2_clk,	"msm_sdcc.2"),
@@ -2853,12 +2854,7 @@ static struct clk_local_ownership {
 	OWN(ROW2,  1, "iface_clk",	spi_p_clk,	"spi_qsd.0"),
 	OWN(ROW2,  9, "core_clk",	uart1_clk,	"msm_serial.0"),
 	OWN(ROW2,  6, "core_clk",	uart1dm_clk,	"msm_serial_hs.0"),
-#ifdef CONFIG_SERIAL_MSM_HS
 	OWN(ROW2,  6, "core_clk",	uart1dm_clk,	"msm_serial_hs_brcm.0"),/* for brcm BT */
-#endif
-#ifdef CONFIG_SERIAL_MSM_HS_LPM
-  	OWN(ROW2,  6, "core_clk",  uart1dm_clk,  "msm_serial_hs_brcm_lpm.0"),/* for brcm BT */
-#endif
 	OWN(ROW2,  8, "core_clk",	uart2dm_clk,	"msm_serial_hs.1"),
 	OWN(ROW2, 11, "alt_core_clk",	usb_hs_clk,	"msm_otg"),
 	OWN(ROW2, 11, "core_clk",	usb_hs_core_clk, "msm_otg"),
@@ -2870,7 +2866,7 @@ static struct clk_local_ownership {
 	OWN(APPS3, 11, "csi_clk",	csi0_clk,	NULL),
 	OWN(APPS3, 11, "csi_vfe_clk",	csi0_vfe_clk,	NULL),
 	OWN(APPS3, 11, "csi_pclk",	csi0_p_clk,	NULL),
-	OWN(APPS3,  0, "mdp_clk",	mdp_clk,	NULL),
+	OWN(APPS3,  0, "core_clk",	mdp_clk,	"mdp.0"),
 	OWN(APPS3,  0, "core_clk",	mdp_clk,	"footswitch-pcom.4"),
 	OWN(APPS3,  2, "core_clk",	mfc_clk,	"msm_vidc.0"),
 	OWN(APPS3,  2, "core_clk",	mfc_clk,	"footswitch-pcom.5"),
@@ -3014,7 +3010,6 @@ static struct clk_ops clk_ops_rcg_7x30 = {
 	.disable = rcg_clk_disable,
 	.auto_off = rcg_clk_disable,
 	.set_rate = rcg_clk_set_rate,
-	.set_min_rate = rcg_clk_set_min_rate,
 	.get_rate = rcg_clk_get_rate,
 	.list_rate = rcg_clk_list_rate,
 	.is_enabled = rcg_clk_is_enabled,
