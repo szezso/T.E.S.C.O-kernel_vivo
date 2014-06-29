@@ -85,20 +85,14 @@ static ssize_t tz_governor_store(struct kgsl_device *device,
 				struct kgsl_pwrscale *pwrscale,
 				 const char *buf, size_t count)
 {
-	char str[20];
 	struct tz_priv *priv = pwrscale->priv;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	int ret;
-
-	ret = sscanf(buf, "%20s", str);
-	if (ret != 1)
-		return -EINVAL;
 
 	mutex_lock(&device->mutex);
 
-	if (!strncmp(str, "ondemand", 8))
+	if (!strncmp(buf, "ondemand", 8))
 		priv->governor = TZ_GOVERNOR_ONDEMAND;
-	else if (!strncmp(str, "performance", 11))
+	else if (!strncmp(buf, "performance", 11))
 		priv->governor = TZ_GOVERNOR_PERFORMANCE;
 
 	if (priv->governor == TZ_GOVERNOR_PERFORMANCE)
@@ -123,7 +117,7 @@ static void tz_wake(struct kgsl_device *device, struct kgsl_pwrscale *pwrscale)
 {
 	struct tz_priv *priv = pwrscale->priv;
 	if (device->state != KGSL_STATE_NAP &&
-	priv->governor == TZ_GOVERNOR_ONDEMAND)
+		priv->governor == TZ_GOVERNOR_ONDEMAND)
 		kgsl_pwrctrl_pwrlevel_change(device,
 					device->pwrctrl.default_pwrlevel);
 }
