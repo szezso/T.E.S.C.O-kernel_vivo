@@ -5744,20 +5744,20 @@ static struct ion_co_heap_pdata co_ion_pdata = {
  * Don't swap the order unless you know what you are doing!
  */
 struct ion_platform_heap msm7x30_heaps[] = {
-    {
-      .id    = ION_SYSTEM_HEAP_ID,
-      .type  = ION_HEAP_TYPE_SYSTEM,
-      .name  = ION_VMALLOC_HEAP_NAME,
-    },
+    	{
+      	.id    = ION_SYSTEM_HEAP_ID,
+      	.type  = ION_HEAP_TYPE_SYSTEM,
+      	.name  = ION_VMALLOC_HEAP_NAME,
+    	},
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-    /* PMEM_MDP = SF */
-    {
-      	.id  = ION_SF_HEAP_ID,
-      	.type  = ION_HEAP_TYPE_CARVEOUT,
-      	.name  = ION_SF_HEAP_NAME,
-      	.memory_type = ION_EBI_TYPE,
-      	.extra_data = (void *)&co_ion_pdata,
-    },
+    	/* PMEM_MDP = SF */
+    	{
+      		.id  = ION_SF_HEAP_ID,
+      		.type  = ION_HEAP_TYPE_CARVEOUT,
+      		.name  = ION_SF_HEAP_NAME,
+      		.memory_type = ION_EBI_TYPE,
+      		.extra_data = (void *)&co_ion_pdata,
+    	},
 #endif
 };
 
