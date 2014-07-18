@@ -164,6 +164,10 @@
 
 #define CP_SET_PROTECTED_MODE  0x5f /* sets the register protection mode */
 
+/*
+ * for a3xx
+ */
+
 #define CP_LOAD_STATE 0x30 /* load high level sequencer command */
 
 /* Conditionally load a IB based on a flag */

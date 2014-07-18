@@ -18,6 +18,7 @@
 #include <linux/msm_rotator.h>
 #include <linux/dma-mapping.h>
 #include <linux/msm_kgsl.h>
+#include <mach/kgsl.h>
 #include <linux/android_pmem.h>
 #include <linux/regulator/machine.h>
 #include <mach/irqs.h>
@@ -27,6 +28,7 @@
 #include <asm/clkdev.h>
 #ifdef CONFIG_ION_MSM
 #include <linux/ion.h>
+#include <linux/msm_ion.h>
 #endif
 
 #include "devices.h"
@@ -1106,7 +1108,6 @@ static struct msm_rotator_platform_data rotator_pdata = {
 	.number_of_clocks = ARRAY_SIZE(rotator_clocks),
 	.hardware_version_number = 0x1000303,
 	.rotator_clks = rotator_clocks,
-	.regulator_name = "fs_rot",
 };
 
 struct platform_device msm_rotator_device = {

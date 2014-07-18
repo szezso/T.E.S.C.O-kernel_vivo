@@ -480,6 +480,13 @@ config MACH_VIVO
        help
          Support for the Qualcomm Vivo board.
 
+config SZEZSO_CAN_FIX_EVERYTHING
+       depends on MACH_VIVO
+       default n
+       bool "Vivo"
+       help
+         Needed to fix build with new KGSL (kitkat-2.7)
+
 config MACH_VIVOW
        depends on ARCH_MSM7X30
        default n
