@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,7 +11,9 @@
  *
  */
 
+#include <linux/export.h>
 #include <media/msm/vidc_type.h>
+#include <media/msm/vidc_init.h>
 #include "vcd.h"
 
 u32 vcd_init(struct vcd_init_config *config, s32 *driver_handle)
@@ -110,40 +112,25 @@ static int vcd_get_clients_security_info(struct client_security_info *sec_info)
 	return count;
 }
 
-static int is_session_invalid(u32 decoding, u32 flags) {
+static int is_session_invalid(u32 decoding, u32 flags)
+{
 	int is_secure;
 	struct client_security_info sec_info;
 	int client_count = 0;
-	int secure_session_running = 0;
-	is_secure = (flags & VCD_CP_SESSION) ? 1:0;
+	int secure_session_running = 0, non_secure_running = 0;
+	is_secure = (flags & VCD_CP_SESSION) ? 1 : 0;
 	client_count = vcd_get_clients_security_info(&sec_info);
 	secure_session_running = (sec_info.secure_enc > 0) ||
 			(sec_info.secure_dec > 0);
-	if (!decoding && is_secure) {
-		if ((sec_info.secure_dec == 1))
-			VCD_MSG_LOW("SE-SD: SUCCESS\n");
-		else {
-			VCD_MSG_LOW("SE is permitted only with SD: FAILURE\n");
-			return -EACCES;
-		}
-	} else if (!decoding && !is_secure) {
+	non_secure_running = sec_info.non_secure_dec + sec_info.non_secure_enc;
+	if (!is_secure) {
 		if (secure_session_running) {
-			VCD_MSG_LOW("SD-NSE: FAILURE\n");
-			VCD_MSG_LOW("SE-NSE: FAILURE\n");
-			return -EACCES;
-		}
-	} else if (decoding && is_secure) {
-		if (client_count > 0) {
-			VCD_MSG_LOW("S/NS-SD: FAILURE\n");
-			if (sec_info.secure_enc > 0 ||
-				sec_info.non_secure_enc > 0) {
-				return -EAGAIN;
-			}
+			pr_err("non secure session failed secure running\n");
 			return -EACCES;
 		}
 	} else {
-		if (sec_info.secure_dec > 0) {
-			VCD_MSG_LOW("SD-NSD: FAILURE\n");
+		if (non_secure_running) {
+			pr_err("Secure session failed non secure running\n");
 			return -EACCES;
 		}
 	}
@@ -155,15 +142,26 @@ u32 vcd_open(s32 driver_handle, u32 decoding,
 		       void *handle, void *const client_data),
 	void *client_data, int flags)
 {
-	u32 rc = 0;
+	u32 rc = 0, num_of_instances = 0;
 	struct vcd_drv_ctxt *drv_ctxt;
 	struct vcd_clnt_ctxt *cctxt;
-	int is_secure = (flags & VCD_CP_SESSION) ? 1:0;
+	int is_secure = (flags & VCD_CP_SESSION) ? 1 : 0;
 	VCD_MSG_MED("vcd_open:");
 
 	if (!callback) {
 		VCD_MSG_ERROR("Bad parameters");
 		return -EINVAL;
+	}
+
+	drv_ctxt = vcd_get_drv_context();
+	cctxt = drv_ctxt->dev_ctxt.cctxt_list_head;
+	while (cctxt) {
+		num_of_instances++;
+		cctxt = cctxt->next;
+	}
+	if (num_of_instances == VIDC_MAX_NUM_CLIENTS) {
+		pr_err(" %s(): Max number of clients reached\n", __func__);
+		return -ENODEV;
 	}
 	rc = is_session_invalid(decoding, flags);
 	if (rc) {
@@ -173,7 +171,6 @@ u32 vcd_open(s32 driver_handle, u32 decoding,
 	}
 	if (is_secure)
 		res_trk_secure_set();
-	drv_ctxt = vcd_get_drv_context();
 	mutex_lock(&drv_ctxt->dev_mutex);
 
 	if (drv_ctxt->dev_state.state_table->ev_hdlr.open) {
@@ -967,7 +964,6 @@ u8 vcd_get_num_of_clients(void)
 }
 EXPORT_SYMBOL(vcd_get_num_of_clients);
 
-
 u32 vcd_get_ion_status(void)
 {
 	return res_trk_get_enable_ion();
@@ -980,7 +976,6 @@ struct ion_client *vcd_get_ion_client(void)
 }
 EXPORT_SYMBOL(vcd_get_ion_client);
 
-void vcd_set_is_encoding(bool encoding)
-{
-	res_trk_set_is_encoding(encoding);
-}
+
+
+

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -125,8 +125,9 @@ void ddl_pmem_alloc(struct ddl_buf_addr *buff_addr, size_t sz, u32 align)
 					alloc_size,
 					SZ_4K,
 					buff_addr->mem_type, 0);
-		if (IS_ERR_OR_NULL(buff_addr->alloc_handle)) {
-			ERR("\n%s(): DDL ION alloc failed\n", __func__);
+		if (!buff_addr->alloc_handle) {
+			ERR("\n%s(): DDL ION alloc failed\n",
+					__func__);
 			goto bailout;
 		}
 		ret = ion_phys(ddl_context->video_ion_client,
@@ -155,7 +156,6 @@ void ddl_pmem_alloc(struct ddl_buf_addr *buff_addr, size_t sz, u32 align)
 			(u32)buff_addr->virtual_base_addr,
 			alloc_size, align, len);
 	} else {
-		ddl_context->memtype = res_trk_get_mem_type();
 		physical_addr = (u32)
 			allocate_contiguous_memory_nomap(alloc_size,
 						ddl_context->memtype, SZ_4K);
@@ -305,4 +305,13 @@ void ddl_reset_core_time_variables(u32 index)
 	proc_time[index].ddl_t1 = 0;
 	proc_time[index].ddl_ttotal = 0;
 	proc_time[index].ddl_count = 0;
+}
+int ddl_get_core_decode_proc_time(u32 *ddl_handle)
+{
+	return 0;
+}
+
+void ddl_reset_avg_dec_time(u32 *ddl_handle)
+{
+	return;
 }
