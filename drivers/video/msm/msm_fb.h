@@ -251,4 +251,27 @@ void fill_black_screen(bool on, uint8 pipe_num, uint8 mixer_num);
 int msm_fb_check_frame_rate(struct msm_fb_data_type *mfd,
 				struct fb_info *info);
 
+#define PR_DISP_DEBUG(fmt, args...)  printk(KERN_DEBUG "[DISP] "fmt, ##args);
+#define PR_DISP_ERR(fmt, args...)  printk(KERN_ERR "[DISP] "fmt, ##args);
+
+/*
+ * This is used to communicate event between msm_fb, mddi, mddi_client,
+ * and board.
+ * It's mainly used to reset the display system.
+ * Also, it is used for battery power policy.
+ *
+ */
+#define NOTIFY_MDDI     0x00000000
+#define NOTIFY_POWER    0x00000001
+#define NOTIFY_MSM_FB   0x00000010
+
+extern int register_display_notifier(struct notifier_block *nb);
+extern int display_notifier_call_chain(unsigned long val, void *data);
+
+#define display_notifier(fn, pri) {                     \
+	static struct notifier_block fn##_nb =          \
+	{ .notifier_call = fn, .priority = pri };       \
+	register_display_notifier(&fn##_nb);		\
+}
+
 #endif /* MSM_FB_H */

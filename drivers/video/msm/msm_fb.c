@@ -101,6 +101,30 @@ u32 mddi_msg_level = 5;
 extern int32 mdp_block_power_cnt[MDP_MAX_BLOCK];
 extern unsigned long mdp_timer_duration;
 
+static BLOCKING_NOTIFIER_HEAD(display_chain_head);
+int register_display_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&display_chain_head, nb);
+}
+
+static int display_notifier_callback(struct notifier_block *nfb,
+		unsigned long action, void *ignored)
+{
+	switch (action) {
+	case NOTIFY_MSM_FB:
+		PR_DISP_DEBUG("NOTIFY_MSM_FB\n");
+		break;
+	case NOTIFY_POWER:
+		/* nothing to do */
+		break;
+	default:
+		PR_DISP_ERR("%s: unknown action in 0x%lx\n",
+				__func__, action);
+		return NOTIFY_BAD;
+	}
+	return NOTIFY_OK;
+}
+
 static int msm_fb_register(struct msm_fb_data_type *mfd);
 static int msm_fb_open(struct fb_info *info, int user);
 static int msm_fb_release(struct fb_info *info, int user);
@@ -1638,6 +1662,9 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	MSM_FB_INFO
 	    ("FrameBuffer[%d] %dx%d size=%d bytes is registered successfully!\n",
 	     mfd->index, fbi->var.xres, fbi->var.yres, fbi->fix.smem_len);
+
+	/* Jay, 29/12/08' */
+	display_notifier(display_notifier_callback, NOTIFY_MSM_FB);
 
 	ret = 0;
 
