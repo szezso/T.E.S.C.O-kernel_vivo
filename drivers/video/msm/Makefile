@@ -23,6 +23,13 @@ obj-y += mdp_ppp_v20.o
 endif
 endif
 
+ifeq ($(CONFIG_FB_MSM_VIVO_PANEL),y)
+obj-y += mddi_client_novb9f6_5580.o
+obj-y += mddi_client_novb9f6_5560.o
+obj-y += mddi_client_renesas_R61408.o
+obj-y += mddi_client_hx8356.o mddi_himax_cabc.o
+endif
+
 ifeq ($(CONFIG_FB_MSM_OVERLAY),y)
 obj-y += mdp4_overlay.o
 obj-$(CONFIG_FB_MSM_LCDC) += mdp4_overlay_lcdc.o

@@ -1,9 +1,5 @@
-/* drivers/video/msm_fb/mddi_client_nt35399.c
- *
- * Support for Novatek NT35399 MDDI client of Sapphire
- *
- * Copyright (C) 2008 HTC Incorporated
- * Author: Solomon Chiu (solomon_chiu@htc.com)
+/*
+ * Copyright (C) 2008 HTC Corporation.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -18,59 +14,74 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
+#include <linux/delay.h>
 #include <linux/interrupt.h>
-#include <linux/sched.h>
 #include <linux/gpio.h>
+#include <linux/wakelock.h>
 #include <linux/slab.h>
-#include <mach/msm_fb.h>
+#include <linux/wait.h>
+#include <linux/sched.h>
+#include <mach/msm_fb-7x30.h>
+#include <mach/debug_display.h>
 
-static DECLARE_WAIT_QUEUE_HEAD(nt35399_vsync_wait);
+static DECLARE_WAIT_QUEUE_HEAD(renesas_vsync_wait);
 
 struct panel_info {
 	struct msm_mddi_client_data *client_data;
 	struct platform_device pdev;
 	struct msm_panel_data panel_data;
-	struct msmfb_callback *fb_callback;
-	struct work_struct panel_work;
-	struct workqueue_struct *fb_wq;
-	int nt35399_got_int;
+	struct msmfb_callback *renesas_callback;
+	struct wake_lock idle_lock;
+	int renesas_got_int;
+	int vsync_gpio;
 };
 
-static void
-nt35399_request_vsync(struct msm_panel_data *panel_data,
-		      struct msmfb_callback *callback)
+static struct platform_device mddi_renesas_backlight = {
+	.name = "renesas_backlight",
+	.id = 0,
+};
+
+static void renesas_request_vsync(struct msm_panel_data *panel_data,
+				  struct msmfb_callback *callback)
 {
 	struct panel_info *panel = container_of(panel_data, struct panel_info,
 						panel_data);
 	struct msm_mddi_client_data *client_data = panel->client_data;
 
-	panel->fb_callback = callback;
-	if (panel->nt35399_got_int) {
-		panel->nt35399_got_int = 0;
-		client_data->activate_link(client_data); /* clears interrupt */
+	panel->renesas_callback = callback;
+	if (panel->renesas_got_int) {
+		panel->renesas_got_int = 0;
+		client_data->activate_link(client_data);
 	}
 }
 
-static void nt35399_wait_vsync(struct msm_panel_data *panel_data)
+static void renesas_clear_vsync(struct msm_panel_data *panel_data)
 {
 	struct panel_info *panel = container_of(panel_data, struct panel_info,
 						panel_data);
 	struct msm_mddi_client_data *client_data = panel->client_data;
 
-	if (panel->nt35399_got_int) {
-		panel->nt35399_got_int = 0;
+	client_data->activate_link(client_data);
+}
+
+static void renesas_wait_vsync(struct msm_panel_data *panel_data)
+{
+	struct panel_info *panel = container_of(panel_data, struct panel_info,
+						panel_data);
+	struct msm_mddi_client_data *client_data = panel->client_data;
+
+	if (panel->renesas_got_int) {
+		panel->renesas_got_int = 0;
 		client_data->activate_link(client_data); /* clears interrupt */
 	}
-
-	if (wait_event_timeout(nt35399_vsync_wait, panel->nt35399_got_int,
+	if (wait_event_timeout(renesas_vsync_wait, panel->renesas_got_int,
 				HZ/2) == 0)
-		printk(KERN_ERR "timeout waiting for VSYNC\n");
-
-	panel->nt35399_got_int = 0;
+		PR_DISP_ERR("timeout waiting for VSYNC\n");
+	panel->renesas_got_int = 0;
 	/* interrupt clears when screen dma starts */
 }
 
-static int nt35399_suspend(struct msm_panel_data *panel_data)
+static int renesas_suspend(struct msm_panel_data *panel_data)
 {
 	struct panel_info *panel = container_of(panel_data, struct panel_info,
 						panel_data);
@@ -80,9 +91,11 @@ static int nt35399_suspend(struct msm_panel_data *panel_data)
 		client_data->private_client_data;
 	int ret;
 
+	wake_lock(&panel->idle_lock);
 	ret = bridge_data->uninit(bridge_data, client_data);
+	wake_unlock(&panel->idle_lock);
 	if (ret) {
-		printk(KERN_INFO "mddi nt35399 client: non zero return from "
+		PR_DISP_INFO("mddi renesas client: non zero return from "
 			"uninit\n");
 		return ret;
 	}
@@ -90,7 +103,7 @@ static int nt35399_suspend(struct msm_panel_data *panel_data)
 	return 0;
 }
 
-static int nt35399_resume(struct msm_panel_data *panel_data)
+static int renesas_resume(struct msm_panel_data *panel_data)
 {
 	struct panel_info *panel = container_of(panel_data, struct panel_info,
 						panel_data);
@@ -100,14 +113,16 @@ static int nt35399_resume(struct msm_panel_data *panel_data)
 		client_data->private_client_data;
 	int ret;
 
+	wake_lock(&panel->idle_lock);
 	client_data->resume(client_data);
+	wake_unlock(&panel->idle_lock);
 	ret = bridge_data->init(bridge_data, client_data);
 	if (ret)
 		return ret;
 	return 0;
 }
 
-static int nt35399_blank(struct msm_panel_data *panel_data)
+static int renesas_blank(struct msm_panel_data *panel_data)
 {
 	struct panel_info *panel = container_of(panel_data, struct panel_info,
 						panel_data);
@@ -118,7 +133,7 @@ static int nt35399_blank(struct msm_panel_data *panel_data)
 	return bridge_data->blank(bridge_data, client_data);
 }
 
-static int nt35399_unblank(struct msm_panel_data *panel_data)
+static int renesas_unblank(struct msm_panel_data *panel_data)
 {
 	struct panel_info *panel = container_of(panel_data, struct panel_info,
 						panel_data);
@@ -129,26 +144,24 @@ static int nt35399_unblank(struct msm_panel_data *panel_data)
 	return bridge_data->unblank(bridge_data, client_data);
 }
 
-irqreturn_t nt35399_vsync_interrupt(int irq, void *data)
+static irqreturn_t renesas_vsync_interrupt(int irq, void *data)
 {
 	struct panel_info *panel = data;
 
-	panel->nt35399_got_int = 1;
-
-	if (panel->fb_callback) {
-		panel->fb_callback->func(panel->fb_callback);
-		panel->fb_callback = NULL;
+	panel->renesas_got_int = 1;
+	if (panel->renesas_callback) {
+		panel->renesas_callback->func(panel->renesas_callback);
+		panel->renesas_callback = 0;
 	}
-
-	wake_up(&nt35399_vsync_wait);
-
+	wake_up(&renesas_vsync_wait);
 	return IRQ_HANDLED;
 }
 
-static int setup_vsync(struct panel_info *panel, int init)
+static int setup_vsync(struct panel_info *panel,
+		       int init)
 {
 	int ret;
-	int gpio = 97;
+	int gpio = panel->vsync_gpio;
 	unsigned int irq;
 
 	if (!init) {
@@ -163,17 +176,18 @@ static int setup_vsync(struct panel_info *panel, int init)
 	if (ret < 0)
 		goto err_get_irq_num_failed;
 
-	ret = request_irq(irq, nt35399_vsync_interrupt, IRQF_TRIGGER_RISING,
+	register_gpio_int_mask(gpio, 1);
+
+	ret = request_irq(irq, renesas_vsync_interrupt, IRQF_TRIGGER_RISING,
 			  "vsync", panel);
 	if (ret)
 		goto err_request_irq_failed;
-
-	printk(KERN_INFO "vsync on gpio %d now %d\n",
+	PR_DISP_INFO("vsync on gpio %d now %d\n",
 	       gpio, gpio_get_value(gpio));
 	return 0;
 
 uninit:
-	free_irq(gpio_to_irq(gpio), panel->client_data);
+	free_irq(gpio_to_irq(gpio), panel);
 err_request_irq_failed:
 err_get_irq_num_failed:
 	gpio_free(gpio);
@@ -181,55 +195,62 @@ err_request_gpio_failed:
 	return ret;
 }
 
-static int mddi_nt35399_probe(struct platform_device *pdev)
+static int mddi_renesas_probe(struct platform_device *pdev)
 {
+	int ret;
 	struct msm_mddi_client_data *client_data = pdev->dev.platform_data;
 	struct msm_mddi_bridge_platform_data *bridge_data =
 		client_data->private_client_data;
-
-	int ret;
-
+	struct panel_data *panel_data = &bridge_data->panel_conf;
 	struct panel_info *panel = devm_kzalloc(&pdev->dev,
 						sizeof(struct panel_info),
 						GFP_KERNEL);
-
-	printk(KERN_DEBUG "%s: enter.\n", __func__);
 
 	if (!panel)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, panel);
 
+	PR_DISP_DEBUG("%s\n", __func__);
+
+	mddi_renesas_backlight.dev.platform_data = client_data;
+	platform_device_register(&mddi_renesas_backlight);
+
+	if (panel_data->vsync_gpio == 0)
+#if defined(CONFIG_ARCH_MSM7X30)
+		panel->vsync_gpio = 30;
+#else
+		panel->vsync_gpio = 98;
+#endif
+	else
+		panel->vsync_gpio = panel_data->vsync_gpio;
+
 	ret = setup_vsync(panel, 1);
 	if (ret) {
-		dev_err(&pdev->dev, "mddi_nt35399_setup_vsync failed\n");
+		dev_err(&pdev->dev, "mddi_bridge_setup_vsync failed\n");
 		return ret;
 	}
-
 	panel->client_data = client_data;
-	panel->panel_data.suspend = nt35399_suspend;
-	panel->panel_data.resume = nt35399_resume;
-	panel->panel_data.wait_vsync = nt35399_wait_vsync;
-	panel->panel_data.request_vsync = nt35399_request_vsync;
-	panel->panel_data.blank = nt35399_blank;
-	panel->panel_data.unblank = nt35399_unblank;
-	panel->panel_data.fb_data = &bridge_data->fb_data;
-	panel->panel_data.caps = 0;
-
+	panel->panel_data.suspend = renesas_suspend;
+	panel->panel_data.resume = renesas_resume;
+	panel->panel_data.wait_vsync = renesas_wait_vsync;
+	panel->panel_data.request_vsync = renesas_request_vsync;
+	panel->panel_data.clear_vsync = renesas_clear_vsync;
+	panel->panel_data.blank = renesas_blank;
+	panel->panel_data.unblank = renesas_unblank;
+	panel->panel_data.fb_data =  &bridge_data->fb_data;
+	panel->panel_data.caps = MSMFB_CAP_PARTIAL_UPDATES;
 	panel->pdev.name = "msm_panel";
 	panel->pdev.id = pdev->id;
 	panel->pdev.resource = client_data->fb_resource;
 	panel->pdev.num_resources = 1;
 	panel->pdev.dev.platform_data = &panel->panel_data;
-
-	if (bridge_data->init)
-		bridge_data->init(bridge_data, client_data);
-
 	platform_device_register(&panel->pdev);
+	wake_lock_init(&panel->idle_lock, WAKE_LOCK_IDLE, "renesas_idle_lock");
 
 	return 0;
 }
 
-static int mddi_nt35399_remove(struct platform_device *pdev)
+static int mddi_renesas_remove(struct platform_device *pdev)
 {
 	struct panel_info *panel = platform_get_drvdata(pdev);
 
@@ -237,16 +258,17 @@ static int mddi_nt35399_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver mddi_client_0bda_8a47 = {
-	.probe = mddi_nt35399_probe,
-	.remove = mddi_nt35399_remove,
-	.driver = { .name = "mddi_c_0bda_8a47" },
+static struct platform_driver mddi_client_b9f6_61408 = {
+	.probe = mddi_renesas_probe,
+	.remove = mddi_renesas_remove,
+	.driver = { .name = "mddi_renesas_b9f6_61408" },
 };
 
-static int __init mddi_client_nt35399_init(void)
+static int __init mddi_client_renesas_init(void)
 {
-	return platform_driver_register(&mddi_client_0bda_8a47);
+	platform_driver_register(&mddi_client_b9f6_61408);
+	return 0;
 }
 
-module_init(mddi_client_nt35399_init);
+module_init(mddi_client_renesas_init);
 
