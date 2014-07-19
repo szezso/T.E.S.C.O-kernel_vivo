@@ -35,7 +35,6 @@ struct res_trk_context {
 	struct regulator *regulator;
 	struct msm_vidc_platform_data *vidc_platform_data;
 	u32 core_type;
-	u32 enable_sec_metadata;
 	int memtype;
 	u32 secure_session;
 	struct ion_client *res_ion_client;

@@ -128,15 +128,11 @@ static u32 res_trk_disable_videocore(void)
 	clk_put(resource_context.hclk);
 	clk_put(resource_context.pclk);
 
-/* HTC_START - Check regulator pointer */
- 	if (!IS_ERR(resource_context.regulator)) {
- 		rc = regulator_disable(resource_context.regulator);
- 		if (rc) {
- 			VCDRES_MSG_ERROR("\n regulator disable failed %d\n", rc);
- 			mutex_unlock(&resource_context.lock);
- 			return false;
- 		}
- /* HTC_END */
+	rc = regulator_disable(resource_context.regulator);
+	if (rc) {
+		VCDRES_MSG_ERROR("\n regulator disable failed %d\n", rc);
+		mutex_unlock(&resource_context.lock);
+		return false;
 	}
 
 	resource_context.hclk_div2 = NULL;
@@ -271,18 +267,14 @@ static u32 res_trk_enable_videocore(void)
 	if (!resource_context.rail_enabled) {
 		int rc = -1;
 
-/* HTC_START - Check regulator pointer */
- 		if (!IS_ERR(resource_context.regulator)) {
- 			rc = regulator_enable(resource_context.regulator);
- 			if (rc) {
- 				VCDRES_MSG_ERROR("%s(): regulator_enable failed %d\n",
- 								 __func__, rc);
- 				goto bail_out;
- 			}
- 			VCDRES_MSG_LOW("%s(): regulator enable Success %d\n",
- 								__func__, rc);
+		rc = regulator_enable(resource_context.regulator);
+		if (rc) {
+			VCDRES_MSG_ERROR("%s(): regulator_enable failed %d\n",
+							 __func__, rc);
+			goto bail_out;
 		}
-/* HTC_END */
+		VCDRES_MSG_LOW("%s(): regulator enable Success %d\n",
+							__func__, rc);
 
 		resource_context.pclk = clk_get(resource_context.device,
 			"iface_clk");
@@ -689,6 +681,10 @@ static struct ion_client *res_trk_create_ion_client(void){
 	struct ion_client *video_client;
 	VCDRES_MSG_LOW("%s", __func__);
 	video_client = msm_ion_client_create(-1, "video_client");
+	if (IS_ERR_OR_NULL(video_client)) {
+		VCDRES_MSG_ERROR("%s: Unable to create ION client\n", __func__);
+		video_client = NULL;
+	}
 	return video_client;
 }
 
@@ -767,9 +763,10 @@ u32 res_trk_get_disable_fullhd(void)
 {
 	return 0;
 }
+
 u32 res_trk_get_enable_sec_metadata(void)
 {
-	return resource_context.enable_sec_metadata;
+	return 0;
 }
 
 u32 res_trk_get_ion_flags(void)
