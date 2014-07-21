@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -391,10 +391,8 @@ static u32 ddl_handle_core_recoverable_errors(struct ddl_context \
 		ddl->decoding &&
 		!ddl->codec_data.decoder.header_in_start &&
 		!ddl->codec_data.decoder.dec_disp_info.img_size_x &&
-		!ddl->codec_data.decoder.dec_disp_info.img_size_y &&
-		!eos) {
-		DBG("Treat header in start error %u as success",
-			vcd_status);
+		!ddl->codec_data.decoder.dec_disp_info.img_size_y
+		) {
 		/* this is first frame seq. header only case */
 		vcd_status = VCD_S_SUCCESS;
 		ddl->input_frame.vcd_frm.flags |=
@@ -428,10 +426,9 @@ static u32 ddl_handle_core_recoverable_errors(struct ddl_context \
 	}
 
 	/* if it is decoder EOS case */
-	if (ddl->decoding && eos) {
-		DBG("DEC-EOS_RUN");
+	if (ddl->decoding && eos)
 		ddl_decode_eos_run(ddl);
-	} else
+	else
 		DDL_IDLE(ddl_context);
 
 	return true;

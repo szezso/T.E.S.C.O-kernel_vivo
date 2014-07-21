@@ -87,7 +87,7 @@ struct iommu_ops {
 
 extern int bus_set_iommu(struct bus_type *bus, struct iommu_ops *ops);
 extern bool iommu_present(struct bus_type *bus);
-extern struct iommu_domain *iommu_domain_alloc(struct bus_type *bus, int flags);
+extern struct iommu_domain *iommu_domain_alloc(int flags);
 extern void iommu_domain_free(struct iommu_domain *domain);
 extern int iommu_attach_device(struct iommu_domain *domain,
 			       struct device *dev);
@@ -158,7 +158,7 @@ static inline bool iommu_present(struct bus_type *bus)
 	return false;
 }
 
-static inline struct iommu_domain *iommu_domain_alloc(struct bus_type *bus, int flags)
+static inline struct iommu_domain *iommu_domain_alloc(int flags)
 {
 	return NULL;
 }
