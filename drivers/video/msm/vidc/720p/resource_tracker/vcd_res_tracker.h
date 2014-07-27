@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,7 +13,7 @@
 #ifndef _VIDEO_720P_RESOURCE_TRACKER_H_
 #define _VIDEO_720P_RESOURCE_TRACKER_H_
 #include <mach/board.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include "vcd_res_tracker_api.h"
 
 #define VCD_RESTRK_MIN_PERF_LEVEL 37900

@@ -115,7 +115,10 @@ u32 vcd_sched_add_client(struct vcd_clnt_ctxt *cctxt)
 				cctxt->reqd_perf_lvl = cctxt->frm_p_units *
 					cctxt->frm_rate.fps_numerator /
 					cctxt->frm_rate.fps_denominator;
-
+			VCD_MSG_HIGH("%s: client perf level = %u, "\
+				"perf_set_by_client = %u", __func__,
+				cctxt->reqd_perf_lvl,
+				cctxt->perf_set_by_client);
 			cctxt->sched_clnt_hdl = sched_cctxt;
 			memset(sched_cctxt, 0,
 				sizeof(struct vcd_sched_clnt_ctx));
@@ -224,8 +227,13 @@ u32 vcd_sched_mark_client_eof(struct vcd_sched_clnt_ctx *sched_cctxt)
 		buffer = list_entry(sched_cctxt->ip_frm_list.prev,
 			struct vcd_buffer_entry, sched_list);
 		buffer->frame.flags |= VCD_FRAME_FLAG_EOS;
-	} else
+		VCD_MSG_LOW("%s: added EOS flag to last buffer entry",
+			__func__);
+	} else {
 		rc = VCD_ERR_QEMPTY;
+		VCD_MSG_HIGH("%s: EOS need to be processed as last buffer",
+			__func__);
+	}
 	return rc;
 }
 
