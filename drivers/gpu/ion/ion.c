@@ -799,28 +799,6 @@ void ion_unmap_kernel(struct ion_client *client, struct ion_handle *handle)
 }
 EXPORT_SYMBOL(ion_unmap_kernel);
 
-struct ion_handle *ion_import(struct ion_client *client,
-			      struct ion_buffer *buffer)
-{
-	struct ion_handle *handle = NULL;
-
-	mutex_lock(&client->lock);
-	/* if a handle exists for this buffer just take a reference to it */
-	handle = ion_handle_lookup(client, buffer);
-	if (!IS_ERR_OR_NULL(handle)) {
-		ion_handle_get(handle);
-		goto end;
-	}
-	handle = ion_handle_create(client, buffer);
-	if (IS_ERR_OR_NULL(handle))
-		goto end;
-	ion_handle_add(client, handle);
-end:
-	mutex_unlock(&client->lock);
-	return handle;
-}
-EXPORT_SYMBOL(ion_import);
-
 int ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 			void *uaddr, unsigned long offset, unsigned long len,
 			unsigned int cmd)
@@ -861,30 +839,6 @@ out:
 
 }
 EXPORT_SYMBOL(ion_do_cache_op);
-
-static const struct file_operations ion_share_fops;
-
-struct ion_handle *ion_import_fd(struct ion_client *client, int fd)
-{
-	struct file *file = fget(fd);
-	struct ion_handle *handle;
-
-	if (!file) {
-		pr_err("%s: imported fd not found in file table.\n", __func__);
-		return ERR_PTR(-EINVAL);
-	}
-	if (file->f_op != &ion_share_fops) {
-		pr_err("%s: imported file %s is not a shared ion"
-			" file.", __func__, file->f_dentry->d_name.name);
-		handle = ERR_PTR(-EINVAL);
-		goto end;
-	}
-	handle = ion_import(client, file->private_data);
-end:
-	fput(file);
-	return handle;
-}
-EXPORT_SYMBOL(ion_import_fd);
 
 static int ion_debug_client_show(struct seq_file *s, void *unused)
 {

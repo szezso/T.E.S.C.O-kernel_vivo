@@ -32,9 +32,6 @@
 #include <asm/cacheflush.h>
 #include <linux/msm_ion.h>
 
-#undef request_region
-#undef release_region
-
 struct ion_carveout_heap {
 	struct ion_heap heap;
 	struct gen_pool *pool;

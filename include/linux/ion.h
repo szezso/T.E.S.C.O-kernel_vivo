@@ -43,7 +43,7 @@ enum ion_heap_type {
 	ION_HEAP_TYPE_DMA,
 	ION_HEAP_TYPE_CUSTOM, /* must be last so device specific heaps always
 				 are at the end of this enum */
-	ION_NUM_HEAPS = 16,
+	ION_NUM_HEAPS,
 };
 
 #define ION_HEAP_SYSTEM_MASK		(1 << ION_HEAP_TYPE_SYSTEM)
@@ -259,19 +259,6 @@ int ion_share_dma_buf(struct ion_client *client, struct ion_handle *handle);
  * another exporter is passed in this function will return ERR_PTR(-EINVAL)
  */
 struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd);
-
-/**
- * ion_import_fd() - given an fd obtained via ION_IOC_SHARE ioctl, import it
- * @client:	this blocks client
- * @fd:		the fd
- *
- * A helper function for drivers that will be recieving ion buffers shared
- * with them from userspace.  These buffers are represented by a file
- * descriptor obtained as the return from the ION_IOC_SHARE ioctl.
- * This function coverts that fd into the underlying buffer, and returns
- * the handle to use to refer to it further.
- */
-struct ion_handle *ion_import_fd(struct ion_client *client, int fd);
 
 /**
  * ion_handle_get_flags - get the flags for a given handle
