@@ -13,6 +13,7 @@
 
 #include <linux/module.h>
 #include <linux/debugfs.h>
+#include <linux/seq_file.h>
 
 #include "kgsl.h"
 #include "kgsl_device.h"
