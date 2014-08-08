@@ -5710,7 +5710,7 @@ static void __init vivo_init(void)
 		pm8058_leds_data.num_leds = ARRAY_SIZE(pm_led_config);
 	}
 }
-
+/*
 static unsigned pmem_sf_size = MSM_PMEM_SF_SIZE;
 static int __init pmem_sf_size_setup(char *p)
 {
@@ -5719,7 +5719,7 @@ static int __init pmem_sf_size_setup(char *p)
 }
 
 early_param("pmem_sf_size", pmem_sf_size_setup);
-
+*/
 static unsigned fb_size = MSM_FB_SIZE;
 static int __init fb_size_setup(char *p)
 {
@@ -5739,8 +5739,8 @@ early_param("pmem_adsp_size", pmem_adsp_size_setup);
 #ifdef CONFIG_ION_MSM
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 static struct ion_co_heap_pdata co_ion_pdata = {
-  	.adjacent_mem_id = INVALID_HEAP_ID,
-  	.align = PAGE_SIZE,
+  .adjacent_mem_id = INVALID_HEAP_ID,
+  .align = PAGE_SIZE,
 };
 #endif
 
@@ -5782,9 +5782,9 @@ static struct ion_platform_data ion_pdata = {
 };
 
 static struct platform_device ion_dev = {
-  	.name = "ion-msm",
-  	.id = 1,
-  	.dev = { .platform_data = &ion_pdata },
+  .name = "ion-msm",
+  .id = 1,
+  .dev = { .platform_data = &ion_pdata },
 };
 #endif
 
@@ -5803,22 +5803,14 @@ unsigned long msm_ion_camera_size;
 static void fix_sizes(void)
 {
 #ifdef CONFIG_ION_MSM
-  	msm_ion_camera_size = pmem_adsp_size;
+  msm_ion_camera_size = pmem_adsp_size;
 #endif
-}
-
-static void __init size_pmem_device(struct android_pmem_platform_data *pdata, unsigned long start, unsigned long size)
-{
-	pdata->start = start;
-	pdata->size = size;
-	pr_info("%s: allocating %lu bytes at 0x%p (0x%lx physical) for %s\n",
-		__func__, size, __va(start), start, pdata->name);
 }
 
 static void __init size_pmem_devices(void)
 {
 #ifdef CONFIG_ANDROID_PMEM
-        size_pmem_device(&android_pmem_adsp_pdata, MSM_PMEM_ADSP_BASE, pmem_adsp_size);
+        android_pmem_adsp_pdata.size = pmem_adsp_size;
 #ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
         android_pmem_pdata.size = pmem_sf_size;
 #endif
@@ -5836,6 +5828,7 @@ static void __init reserve_memory_for(struct android_pmem_platform_data *p)
 static void __init reserve_pmem_memory(void)
 {
 #ifdef CONFIG_ANDROID_PMEM
+	reserve_memory_for(&android_pmem_adsp_pdata);
         msm7x30_reserve_table[MEMTYPE_EBI0].size += PMEM_KERNEL_EBI0_SIZE;
 #ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
 	reserve_memory_for(&android_pmem_pdata);
@@ -5846,10 +5839,16 @@ static void __init reserve_pmem_memory(void)
 static void __init size_ion_devices(void)
 {
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-	ion_pdata.heaps[1].base = MSM_PMEM_ADSP_BASE;
- 	ion_pdata.heaps[1].size = MSM_ION_CAMERA_SIZE;
-	ion_pdata.heaps[2].base = MSM_ION_SF_BASE;
- 	ion_pdata.heaps[2].size = MSM_ION_SF_SIZE;
+  ion_pdata.heaps[1].size = MSM_ION_CAMERA_SIZE;
+  ion_pdata.heaps[2].size = MSM_ION_SF_SIZE;
+#endif
+}
+
+static void __init reserve_ion_memory(void)
+{
+#if defined(CONFIG_ION_MSM) && defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
+  msm7x30_reserve_table[MEMTYPE_EBI0].size += MSM_ION_CAMERA_SIZE;
+  msm7x30_reserve_table[MEMTYPE_EBI0].size += MSM_ION_SF_SIZE;
 #endif
 }
 
@@ -5859,6 +5858,7 @@ static void __init msm7x30_calculate_reserve_sizes(void)
 	size_pmem_devices();
 	reserve_pmem_memory();
   	size_ion_devices();
+  	reserve_ion_memory();
 }
 
 static int msm7x30_paddr_to_memtype(unsigned int paddr)
