@@ -63,13 +63,6 @@ config EARLYSUSPEND
 	  Call early suspend handlers when the user requested sleep state
 	  changes.
 
-config NO_SUSPEND
-	bool "No suspend"
-	depends on EARLYSUSPEND
-	default n
-	---help---
-	Prevent device suspend after early suspend
-
 choice
 	prompt "User-space screen access"
 	default FB_EARLYSUSPEND if !FRAMEBUFFER_CONSOLE

@@ -5811,11 +5811,13 @@ static void __init size_pmem_devices(void)
 }
 
 #ifdef CONFIG_ANDROID_PMEM
+#if 0
 static void __init reserve_memory_for(struct android_pmem_platform_data *p)
 {
 	pr_info("%s: reserve %lu bytes from memory %d for %s.\n", __func__, p->size, p->memory_type, p->name);
 	msm7x30_reserve_table[p->memory_type].size += p->size;
 }
+#endif
 #endif
 
 static void __init reserve_pmem_memory(void)

@@ -100,14 +100,14 @@ static struct user_wake_lock *lookup_wake_lock_name(
 	/* Allocate and add new wakelock to rbtree */
 	if (!allocate) {
 		if (debug_mask & DEBUG_ERROR)
-			pr_info("[K] lookup_wake_lock_name: %.*s not found\n",
+			pr_info("lookup_wake_lock_name: %.*s not found\n",
 				name_len, buf);
 		return ERR_PTR(-EINVAL);
 	}
 	l = kzalloc(sizeof(*l) + name_len + 1, GFP_KERNEL);
 	if (l == NULL) {
 		if (debug_mask & DEBUG_FAILURE)
-			pr_err("[K] lookup_wake_lock_name: failed to allocate "
+			pr_err("lookup_wake_lock_name: failed to allocate "
 				"memory for %.*s\n", name_len, buf);
 		return ERR_PTR(-ENOMEM);
 	}
