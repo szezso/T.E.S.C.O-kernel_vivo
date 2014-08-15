@@ -3571,11 +3571,9 @@ static struct platform_device msm_migrate_pages_device = {
 
 static struct android_pmem_platform_data android_pmem_adsp_pdata = {
        .name = "pmem_adsp",
-#ifndef CONFIG_ANDROID_PMEM_ION_WRAPPER
        .allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
        .cached = 0,
        .memory_type = MEMTYPE_EBI0,
-#endif
 };
 
 static struct platform_device android_pmem_adsp_device = {
