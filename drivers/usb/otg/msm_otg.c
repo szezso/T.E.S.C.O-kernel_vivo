@@ -1283,6 +1283,20 @@ out:
 	return NOTIFY_OK;
 }
 
+static void msm_hsusb_vbus_power(struct msm_otg *motg, bool on)
+{
+	if (motg->pdata->vbus_power)
+		motg->pdata->vbus_power(on);
+
+	if (on) {
+		motg->connect_type = CONNECT_TYPE_INTERNAL;
+		queue_work(motg->usb_wq, &motg->notifier_work);
+	} else {
+		motg->connect_type = CONNECT_TYPE_CLEAR;
+		queue_work(motg->usb_wq, &motg->notifier_work);
+	}
+}
+
 static int msm_otg_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 {
 	struct msm_otg *motg = container_of(otg, struct msm_otg, otg);
@@ -1303,8 +1317,7 @@ static int msm_otg_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 			pm_runtime_get_sync(otg->dev);
 			usb_unregister_notify(&motg->usbdev_nb);
 			msm_otg_start_host(otg, 0);
-			if (motg->pdata->vbus_power)
-				motg->pdata->vbus_power(0);
+			msm_hsusb_vbus_power(motg, 0);
 			otg->host = NULL;
 			otg->state = OTG_STATE_UNDEFINED;
 			schedule_work(&motg->sm_work);
@@ -2051,8 +2064,8 @@ static void msm_otg_sm_work(struct work_struct *w)
 			else if (test_bit(ID_A, &motg->inputs))
 				msm_otg_notify_charger(motg,
 						IDEV_ACA_CHG_MAX - IUNIT);
-			else if (motg->pdata->vbus_power)
-				motg->pdata->vbus_power(1);
+			else
+				msm_hsusb_vbus_power(motg, 1);
 			msm_otg_start_host(otg, 1);
 			/*
 			 * Link can not generate PHY_ALT interrupt
@@ -2189,10 +2202,8 @@ static void msm_otg_sm_work(struct work_struct *w)
 				!test_bit(ID_A, &motg->inputs)) {
 			USBH_INFO("id && !id_a\n");
 			msm_otg_start_host(otg, 0);
-			if (motg->pdata->vbus_power) {
-				motg->pdata->vbus_power(0);
-				msleep(100); /* TA_WAIT_VFALL */
-			}
+			msm_hsusb_vbus_power(motg, 0);
+			msleep(100); /* TA_WAIT_VFALL */
 			/*
 			 * Exit point of host mode.
 			 *
@@ -2215,15 +2226,13 @@ static void msm_otg_sm_work(struct work_struct *w)
 			schedule_work(w);
 		} else if (test_bit(ID_A, &motg->inputs)) {
 			USBH_INFO("id_a\n");
-			if (motg->pdata->vbus_power)
-				motg->pdata->vbus_power(0);
+			msm_hsusb_vbus_power(motg, 0);
 			msm_otg_notify_charger(motg,
 					IDEV_ACA_CHG_MAX - motg->mA_port);
 		} else if (!test_bit(ID, &motg->inputs)) {
 			USBH_INFO("!id\n");
 			msm_otg_notify_charger(motg, 0);
-			if (motg->pdata->vbus_power)
-				motg->pdata->vbus_power(1);
+			msm_hsusb_vbus_power(motg, 1);
 		}
 		break;
 	default:
