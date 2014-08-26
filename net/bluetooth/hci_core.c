@@ -1,6 +1,6 @@
 /*
    BlueZ - Bluetooth protocol stack for Linux
-   Copyright (c) 2000-2001, 2010-2012 Code Aurora Forum.  All rights reserved.
+   Copyright (c) 2000-2001, 2010-2012 The Linux Foundation.  All rights reserved.
 
    Written 2000,2001 by Maxim Krasnyansky <maxk@qualcomm.com>
 
@@ -60,7 +60,7 @@ static void hci_tx_task(unsigned long arg);
 
 static DEFINE_RWLOCK(hci_task_lock);
 
-static bool enable_smp = 1;
+static int enable_smp = 1;
 
 /* HCI device list */
 LIST_HEAD(hci_dev_list);
@@ -305,6 +305,12 @@ static void hci_le_init_req(struct hci_dev *hdev, unsigned long opt)
 
 	/* Read LE buffer size */
 	hci_send_cmd(hdev, HCI_OP_LE_READ_BUFFER_SIZE, 0, NULL);
+
+	/* Read LE clear white list */
+	hci_send_cmd(hdev, HCI_OP_LE_CLEAR_WHITE_LIST, 0, NULL);
+
+	/* Read LE white list size */
+	hci_send_cmd(hdev, HCI_OP_LE_READ_WHITE_LIST_SIZE, 0, NULL);
 }
 
 static void hci_scan_req(struct hci_dev *hdev, unsigned long opt)
@@ -1570,12 +1576,10 @@ int hci_unregister_dev(struct hci_dev *hdev)
 	list_del(&hdev->list);
 	write_unlock_bh(&hci_dev_list_lock);
 
-	hci_dev_do_close(hdev, hdev->bus == HCI_SMD);
+	hci_dev_do_close(hdev, 0);
 
 	for (i = 0; i < NUM_REASSEMBLY; i++)
 		kfree_skb(hdev->reassembly[i]);
-
-	cancel_work_sync(&hdev->power_on);
 
 	if (!test_bit(HCI_INIT, &hdev->flags) &&
 				!test_bit(HCI_SETUP, &hdev->flags) &&

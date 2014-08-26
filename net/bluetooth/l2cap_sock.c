@@ -1,6 +1,6 @@
 /*
    BlueZ - Bluetooth protocol stack for Linux
-   Copyright (c) 2000-2001, 2011-2012 Code Aurora Forum.  All rights reserved.
+   Copyright (c) 2000-2001, 2011-2012 The Linux Foundation.  All rights reserved.
    Copyright (C) 2009-2010 Gustavo F. Padovan <gustavo@padovan.org>
    Copyright (C) 2010 Google Inc.
 
@@ -25,9 +25,6 @@
 */
 
 /* Bluetooth L2CAP sockets. */
-
-#include <linux/interrupt.h>
-#include <linux/module.h>
 
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
@@ -87,6 +84,20 @@ int l2cap_sock_le_params_valid(struct bt_le_params *le_params)
 			le_params->scan_window > BT_LE_SCAN_WINDOW_MAX ||
 			le_params->scan_interval < BT_LE_SCAN_INTERVAL_MIN ||
 			le_params->scan_window > le_params->scan_interval ||
+			le_params->interval_min < BT_LE_CONN_INTERVAL_MIN ||
+			le_params->interval_max > BT_LE_CONN_INTERVAL_MAX ||
+			le_params->interval_min > le_params->interval_max ||
+			le_params->supervision_timeout < BT_LE_SUP_TO_MIN ||
+			le_params->supervision_timeout > BT_LE_SUP_TO_MAX) {
+		return 0;
+	}
+
+	return 1;
+}
+
+int l2cap_sock_le_conn_update_params_valid(struct bt_le_params *le_params)
+{
+	if (!le_params || le_params->latency > BT_LE_LATENCY_MAX ||
 			le_params->interval_min < BT_LE_CONN_INTERVAL_MIN ||
 			le_params->interval_max > BT_LE_CONN_INTERVAL_MAX ||
 			le_params->interval_min > le_params->interval_max ||
@@ -390,7 +401,6 @@ static int l2cap_sock_getname(struct socket *sock, struct sockaddr *addr, int *l
 
 	BT_DBG("sock %p, sk %p", sock, sk);
 
-	memset(la, 0, sizeof(struct sockaddr_l2));
 	addr->sa_family = AF_BLUETOOTH;
 	*len = sizeof(struct sockaddr_l2);
 
@@ -526,10 +536,8 @@ static int l2cap_sock_getsockopt(struct socket *sock, int level, int optname, ch
 		memset(&sec, 0, sizeof(sec));
 		sec.level = l2cap_pi(sk)->sec_level;
 
-		if (sk->sk_state == BT_CONNECTED) {
+		if (sk->sk_state == BT_CONNECTED)
 			sec.key_size = l2cap_pi(sk)->conn->hcon->enc_key_size;
-			sec.level = l2cap_pi(sk)->conn->hcon->sec_level;
-		}
 
 		len = min_t(unsigned int, len, sizeof(sec));
 		if (copy_to_user(optval, (char *) &sec, len))
@@ -840,7 +848,8 @@ static int l2cap_sock_setsockopt(struct socket *sock, int level, int optname, ch
 		}
 
 		if (!conn->hcon->out ||
-				!l2cap_sock_le_params_valid(&le_params)) {
+				!l2cap_sock_le_conn_update_params_valid(
+					&le_params)) {
 			err = -EINVAL;
 			break;
 		}
@@ -1175,7 +1184,7 @@ static int l2cap_sock_shutdown(struct socket *sock, int how)
 static int l2cap_sock_release(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
-	struct sock *sk2 = NULL;
+	struct sock *srv_sk = NULL;
 	int err;
 
 	BT_DBG("sock %p, sk %p", sock, sk);
@@ -1183,16 +1192,15 @@ static int l2cap_sock_release(struct socket *sock)
 	if (!sk)
 		return 0;
 
-	/* If this is an ATT socket, find it's matching server/client */
-	if (l2cap_pi(sk)->scid == L2CAP_CID_LE_DATA)
-		sk2 = l2cap_find_sock_by_fixed_cid_and_dir(L2CAP_CID_LE_DATA,
-					&bt_sk(sk)->src, &bt_sk(sk)->dst,
-					l2cap_pi(sk)->incoming ? 0 : 1);
+	/* If this is an ATT Client socket, find the matching Server */
+	if (l2cap_pi(sk)->scid == L2CAP_CID_LE_DATA && !l2cap_pi(sk)->incoming)
+		srv_sk = l2cap_find_sock_by_fixed_cid_and_dir(L2CAP_CID_LE_DATA,
+					&bt_sk(sk)->src, &bt_sk(sk)->dst, 1);
 
-	/* If matching socket found, request tear down */
-	BT_DBG("sock:%p companion:%p", sk, sk2);
-	if (sk2)
-		l2cap_sock_set_timer(sk2, 1);
+	/* If server socket found, request tear down */
+	BT_DBG("client:%p server:%p", sk, srv_sk);
+	if (srv_sk)
+		l2cap_sock_set_timer(srv_sk, 1);
 
 	err = l2cap_sock_shutdown(sock, 2);
 
@@ -1272,7 +1280,6 @@ void l2cap_sock_init(struct sock *sk, struct sock *parent)
 	pi->scid = 0;
 	pi->dcid = 0;
 	pi->tx_win_max = L2CAP_TX_WIN_MAX_ENHANCED;
-	pi->ack_win = pi->tx_win;
 	pi->extended_control = 0;
 
 	pi->local_conf.fcs = pi->fcs;

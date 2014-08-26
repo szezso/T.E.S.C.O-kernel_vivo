@@ -26,7 +26,6 @@
  */
 
 #include <linux/module.h>
-#include <linux/interrupt.h>
 
 #include <linux/tty.h>
 #include <linux/tty_driver.h>
@@ -472,7 +471,7 @@ static int rfcomm_get_dev_list(void __user *arg)
 
 	size = sizeof(*dl) + dev_num * sizeof(*di);
 
-	dl = kzalloc(size, GFP_KERNEL);
+	dl = kmalloc(size, GFP_KERNEL);
 	if (!dl)
 		return -ENOMEM;
 

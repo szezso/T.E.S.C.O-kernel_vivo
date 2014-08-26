@@ -20,9 +20,6 @@
    SOFTWARE IS DISCLAIMED.
 */
 
-#include <linux/interrupt.h>
-#include <linux/module.h>
-
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
 #include <net/bluetooth/l2cap.h>
@@ -711,16 +708,11 @@ static u8 smp_cmd_security_req(struct l2cap_conn *conn, struct sk_buff *skb)
 invalid_key:
 	hcon->sec_req = FALSE;
 
-	/* Switch to Pairing Connection Parameters */
-	hci_le_conn_update(hcon, SMP_MIN_CONN_INTERVAL, SMP_MAX_CONN_INTERVAL,
-			SMP_MAX_CONN_LATENCY, SMP_SUPERVISION_TIMEOUT);
-
 	skb_pull(skb, sizeof(*rp));
 
 	memset(&cp, 0, sizeof(cp));
 	build_pairing_cmd(conn, &cp, NULL, rp->auth_req);
 
-	hcon->pending_sec_level = authreq_to_seclevel(rp->auth_req);
 	hcon->preq[0] = SMP_CMD_PAIRING_REQ;
 	memcpy(&hcon->preq[1], &cp, sizeof(cp));
 
@@ -775,11 +767,6 @@ int smp_conn_security(struct l2cap_conn *conn, __u8 sec_level)
 
 	if (hcon->link_mode & HCI_LM_MASTER) {
 		struct smp_cmd_pairing cp;
-
-		/* Switch to Pairing Connection Parameters */
-		hci_le_conn_update(hcon, SMP_MIN_CONN_INTERVAL,
-				SMP_MAX_CONN_INTERVAL, SMP_MAX_CONN_LATENCY,
-				SMP_SUPERVISION_TIMEOUT);
 
 		build_pairing_cmd(conn, &cp, NULL, authreq);
 		hcon->preq[0] = SMP_CMD_PAIRING_REQ;

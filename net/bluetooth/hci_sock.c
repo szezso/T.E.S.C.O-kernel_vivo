@@ -1,6 +1,6 @@
 /*
    BlueZ - Bluetooth protocol stack for Linux
-   Copyright (c) 2000-2001, 2011, Code Aurora Forum. All rights reserved.
+   Copyright (c) 2000-2001, 2011, The Linux Foundation. All rights reserved.
 
    Written 2000,2001 by Maxim Krasnyansky <maxk@qualcomm.com>
 
@@ -49,7 +49,7 @@
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
 
-static bool enable_mgmt = 1;
+static int enable_mgmt = 1;
 
 /* ----- HCI socket interface ----- */
 
@@ -440,7 +440,6 @@ static int hci_sock_getname(struct socket *sock, struct sockaddr *addr, int *add
 	*addr_len = sizeof(*haddr);
 	haddr->hci_family = AF_BLUETOOTH;
 	haddr->hci_dev    = hdev->id;
-	haddr->hci_channel= 0;
 
 	release_sock(sk);
 	return 0;
@@ -662,7 +661,6 @@ static int hci_sock_setsockopt(struct socket *sock, int level, int optname, char
 		{
 			struct hci_filter *f = &hci_pi(sk)->filter;
 
-			memset(&uf, 0, sizeof(uf));
 			uf.type_mask = f->type_mask;
 			uf.opcode    = f->opcode;
 			uf.event_mask[0] = *((u32 *) f->event_mask + 0);
