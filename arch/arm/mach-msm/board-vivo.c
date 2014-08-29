@@ -123,12 +123,6 @@
 #include <mach/bcm_bt_lpm.h>
 #endif
 
-#ifdef CONFIG_SZEZSO_CAN_FIX_EVERYTHING
-#define DDR2_BANK_BASE 0X40000000
-unsigned long ebi1_phys_offset = DDR2_BANK_BASE;
-EXPORT_SYMBOL(ebi1_phys_offset);
-#endif
-
 int htc_get_usb_accessory_adc_level(uint32_t *buffer);
 
 #define GPS_EN_GPIO -1
@@ -5750,6 +5744,14 @@ struct ion_platform_heap msm7x30_heaps[] = {
       .name  = ION_VMALLOC_HEAP_NAME,
     },
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+    /* CAMERA */
+    {
+      	.id    = ION_CAMERA_HEAP_ID,
+      	.type  = ION_HEAP_TYPE_CARVEOUT,
+      	.name  = ION_CAMERA_HEAP_NAME,
+      	.memory_type = ION_EBI_TYPE,
+      	.extra_data = (void *)&co_ion_pdata,
+    },
     /* PMEM_MDP = SF */
     {
       	.id  = ION_SF_HEAP_ID,
@@ -5829,8 +5831,10 @@ static void __init reserve_pmem_memory(void)
 static void __init size_ion_devices(void)
 {
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-	ion_pdata.heaps[1].base = MSM_ION_SF_BASE;
-  	ion_pdata.heaps[1].size = MSM_ION_SF_SIZE;
+	ion_pdata.heaps[1].base = MSM_PMEM_ADSP_BASE;
+  	ion_pdata.heaps[1].size = MSM_PMEM_ADSP_SIZE;
+	ion_pdata.heaps[2].base = MSM_ION_SF_BASE;
+  	ion_pdata.heaps[2].size = MSM_ION_SF_SIZE;
 #endif
 }
 

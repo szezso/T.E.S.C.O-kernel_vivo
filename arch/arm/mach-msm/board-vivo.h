@@ -42,7 +42,7 @@
 #ifdef CONFIG_ION_MSM
 #define MSM_ION_SF_BASE			MSM_PMEM_SF_BASE
 #define MSM_ION_SF_SIZE			MSM_PMEM_SF_SIZE
-#define MSM_ION_HEAP_NUM		2
+#define MSM_ION_HEAP_NUM		3
 #endif
 
 
