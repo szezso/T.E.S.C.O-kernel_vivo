@@ -48,6 +48,7 @@ struct flashlight_struct {
 	enum flashlight_mode_flags mode_status;
 	unsigned long spinlock_flags;
 	uint8_t led_count;
+	bool soft_flash;
 };
 static struct flashlight_struct *this_fl_str;
 
@@ -125,6 +126,13 @@ int aat1271_flashlight_control(int mode)
 		hrtimer_cancel(&this_fl_str->timer);
 		flashlight_turn_off();
 	}
+
+	if (this_fl_str->soft_flash && mode == FL_MODE_FLASH) {
+		mode = FL_MODE_PRE_FLASH;
+		FLT_INFO_LOG("%s: Soft flash is on. Forcing mode to FL_MODE_PRE_FLASH\n",
+				FLASHLIGHT_NAME);
+	}
+
 	switch (mode) {
 	case FL_MODE_OFF:
 		flashlight_turn_off();
@@ -268,12 +276,13 @@ static void flashlight_early_suspend(struct early_suspend *handler)
 	struct flashlight_struct *fl_str = container_of(handler,
 			struct flashlight_struct, early_suspend_flashlight);
 	if (fl_str != NULL && fl_str->mode_status) {
-		if (fl_str->mode_status == FL_MODE_FLASH)
+		if (fl_str->mode_status == FL_MODE_FLASH) {
 			hrtimer_cancel(&fl_str->timer);
-		spin_lock_irqsave(&fl_str->spin_lock, fl_str->spinlock_flags);
-		flashlight_turn_off();
-		spin_unlock_irqrestore(&fl_str->spin_lock,
+			spin_lock_irqsave(&fl_str->spin_lock, fl_str->spinlock_flags);
+			flashlight_turn_off();
+			spin_unlock_irqrestore(&fl_str->spin_lock,
 						fl_str->spinlock_flags);
+		}
 	}
 }
 
@@ -328,6 +337,33 @@ static int flashlight_free_gpio(struct flashlight_platform_data *flashlight,
 	return ret;
 }
 
+static ssize_t soft_flash_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	ssize_t length;
+	length = sprintf(buf, "%d\n", this_fl_str->soft_flash);
+	return length;
+}
+
+static ssize_t soft_flash_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	unsigned long value;
+	int ret = 0;
+	ret = strict_strtoul(buf, 10, &value);
+
+	if (ret == 0 && (value == 0 || value == 1)) {
+		this_fl_str->soft_flash = (bool)value;
+		FLT_INFO_LOG("%s: soft_flash = %d\n", __func__, this_fl_str->soft_flash);
+		return count;
+	}
+
+	FLT_ERR_LOG("%s: failed. use 0 or 1\n", __func__);
+	return count;
+}
+
+static DEVICE_ATTR(soft_flash, (S_IWUSR|S_IRUGO), soft_flash_show, soft_flash_store);
+
 static int flashlight_probe(struct platform_device *pdev)
 {
 	struct flashlight_platform_data *flashlight = pdev->dev.platform_data;
@@ -357,6 +393,9 @@ static int flashlight_probe(struct platform_device *pdev)
 		FLT_ERR_LOG("%s: failed on led_classdev_register\n", __func__);
 		goto fail_free_gpio;
 	}
+	fl_str->soft_flash = false;
+	err = device_create_file(fl_str->fl_lcdev.dev, &dev_attr_soft_flash);
+	if (err != 0) FLT_ERR_LOG("%s: dev_attr_soft_flash failed\n", __func__);
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	fl_str->early_suspend_flashlight.suspend = flashlight_early_suspend;
 	fl_str->early_suspend_flashlight.resume = flashlight_late_resume;
@@ -385,6 +424,7 @@ static int flashlight_remove(struct platform_device *pdev)
 	flashlight_turn_off();
 	hrtimer_cancel(&this_fl_str->timer);
 	unregister_early_suspend(&this_fl_str->early_suspend_flashlight);
+	device_remove_file(this_fl_str->fl_lcdev.dev, &dev_attr_soft_flash);
 	led_classdev_unregister(&this_fl_str->fl_lcdev);
 	flashlight_free_gpio(flashlight, this_fl_str);
 
