@@ -509,8 +509,8 @@ void ddl_process_encoder_metadata(struct ddl_client_context *ddl)
 	struct ddl_encoder_data *encoder = &(ddl->codec_data.encoder);
 	struct vcd_frame_data *out_frame =
 	    &(ddl->output_frame.vcd_frm);
-	out_frame->metadata_offset = 0;
-	out_frame->metadata_len = 0;
+	u32 *qfiller_hdr, *qfiller, start_addr;
+	u32 qfiller_size;
 
 	if (!encoder->meta_data_enable_flag) {
 		out_frame->flags &= ~(VCD_FRAME_FLAG_EXTRADATA);
@@ -521,9 +521,23 @@ void ddl_process_encoder_metadata(struct ddl_client_context *ddl)
 		out_frame->flags &= ~(VCD_FRAME_FLAG_EXTRADATA);
 		return;
 	}
-	out_frame->metadata_offset = encoder->meta_data_offset;
-	out_frame->metadata_len = encoder->suffix;
 	out_frame->flags |= VCD_FRAME_FLAG_EXTRADATA;
+
+	start_addr = (u32) ((u8 *) out_frame->virtual +
+			      out_frame->offset);
+	qfiller = (u32 *) ((out_frame->data_len + start_addr + 3) & ~3);
+
+	qfiller_size = (u32) ((encoder->meta_data_offset +
+				 (u8 *) out_frame->virtual) -
+				(u8 *) qfiller);
+
+	qfiller_hdr = ddl_metadata_hdr_entry(ddl, VCD_METADATA_QCOMFILLER);
+
+	*qfiller++ = qfiller_size;
+	*qfiller++ = qfiller_hdr[DDL_METADATA_HDR_VERSION_INDEX];
+	*qfiller++ = qfiller_hdr[DDL_METADATA_HDR_PORT_INDEX];
+	*qfiller++ = qfiller_hdr[DDL_METADATA_HDR_TYPE_INDEX];
+	*qfiller = (u32) (qfiller_size - DDL_METADATA_HDR_SIZE);
 }
 
 void ddl_process_decoder_metadata(struct ddl_client_context *ddl)
@@ -531,8 +545,8 @@ void ddl_process_decoder_metadata(struct ddl_client_context *ddl)
 	struct ddl_decoder_data *decoder = &(ddl->codec_data.decoder);
 	struct vcd_frame_data *output_frame =
 	    &(ddl->output_frame.vcd_frm);
-	output_frame->metadata_offset = 0;
-	output_frame->metadata_len = 0;
+	u32 *qfiller_hdr, *qfiller;
+	u32 qfiller_size;
 
 	if (!decoder->meta_data_enable_flag) {
 		output_frame->flags &= ~(VCD_FRAME_FLAG_EXTRADATA);
@@ -543,7 +557,24 @@ void ddl_process_decoder_metadata(struct ddl_client_context *ddl)
 		output_frame->flags &= ~(VCD_FRAME_FLAG_EXTRADATA);
 		return;
 	}
-	output_frame->metadata_offset = decoder->meta_data_offset;
-	output_frame->metadata_len = decoder->suffix;
 	output_frame->flags |= VCD_FRAME_FLAG_EXTRADATA;
+
+	if (output_frame->data_len != decoder->meta_data_offset) {
+		qfiller = (u32 *) ((u32) ((output_frame->data_len +
+					     output_frame->offset +
+					     (u8 *) output_frame->virtual) +
+					    3) & ~3);
+
+		qfiller_size = (u32) ((decoder->meta_data_offset +
+					 (u8 *) output_frame->virtual) -
+					(u8 *) qfiller);
+
+		qfiller_hdr =
+		    ddl_metadata_hdr_entry(ddl, VCD_METADATA_QCOMFILLER);
+		*qfiller++ = qfiller_size;
+		*qfiller++ = qfiller_hdr[DDL_METADATA_HDR_VERSION_INDEX];
+		*qfiller++ = qfiller_hdr[DDL_METADATA_HDR_PORT_INDEX];
+		*qfiller++ = qfiller_hdr[DDL_METADATA_HDR_TYPE_INDEX];
+		*qfiller = (u32) (qfiller_size - DDL_METADATA_HDR_SIZE);
+	}
 }
