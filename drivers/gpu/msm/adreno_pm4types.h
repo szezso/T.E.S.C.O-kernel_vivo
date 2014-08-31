@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -164,10 +164,6 @@
 
 #define CP_SET_PROTECTED_MODE  0x5f /* sets the register protection mode */
 
-/*
- * for a3xx
- */
-
 #define CP_LOAD_STATE 0x30 /* load high level sequencer command */
 
 /* Conditionally load a IB based on a flag */
@@ -176,8 +172,6 @@
 
 /* Load a buffer with pre-fetch enabled */
 #define CP_INDIRECT_BUFFER_PFE 0x3F
-
-#define CP_EXEC_CL 0x31
 
 #define CP_LOADSTATE_DSTOFFSET_SHIFT 0x00000000
 #define CP_LOADSTATE_STATESRC_SHIFT 0x00000010

@@ -23,8 +23,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/mm.h>
 
-#include <mach/kgsl.h>
-
 #define KGSL_NAME "kgsl"
 
 /* The number of memstore arrays limits the number of contexts allowed.
@@ -224,14 +222,6 @@ static inline void kgsl_drm_exit(void)
 static inline int kgsl_gpuaddr_in_memdesc(const struct kgsl_memdesc *memdesc,
 				unsigned int gpuaddr, unsigned int size)
 {
-	/* set a minimum size to search for */
-	if (!size)
-		size = 1;
-
-	/* don't overflow */
-	if (size > UINT_MAX - gpuaddr)
-		return 0;
-
 	if (gpuaddr >= memdesc->gpuaddr &&
 	    ((gpuaddr + size) <= (memdesc->gpuaddr + memdesc->size))) {
 		return 1;

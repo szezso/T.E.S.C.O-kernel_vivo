@@ -13,8 +13,6 @@
 #ifndef __KGSL_IOMMU_H
 #define __KGSL_IOMMU_H
 
-#include <mach/iommu.h>
-
 #define KGSL_IOMMU_CTX_OFFSET_V1	0
 #define KGSL_IOMMU_CTX_OFFSET_V2	0x8000
 #define KGSL_IOMMU_CTX_SHIFT		12

@@ -20,6 +20,7 @@
 #include <mach/socinfo.h>
 #include <mach/msm_iomap.h>
 #include <mach/board.h>
+#include <mach/iommu.h>
 #include <stddef.h>
 
 #include "kgsl.h"
@@ -153,27 +154,18 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	kgsl_sharedmem_readl(&device->memstore, &curr_context_id,
 		KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL, current_context));
 	context = idr_find(&device->context_idr, curr_context_id);
+	if (context != NULL)
+			curr_context = context->devctxt;
 
-	if ((context != NULL) && (context->devctxt != NULL)) {
+	kgsl_sharedmem_readl(&device->memstore, &curr_global_ts,
+		KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL, eoptimestamp));
 
-		curr_context = context->devctxt;
-
-		ret = kgsl_sharedmem_readl(&device->memstore, &curr_global_ts,
-				KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL, eoptimestamp));
-
-		if (ret < 0) {
-			KGSL_CORE_ERR("Invalid curr_global_ts = %d\n", curr_global_ts);
-			goto done;
-		}
-
-		/*
-		 * Store pagefault's timestamp and ib1 addr in context,
-		 * this information is used in GFT
-		 */
-		curr_context->pagefault = 1;
-		curr_context->pagefault_ts = curr_global_ts;
-
-	}
+	/*
+	 * Store pagefault's timestamp and ib1 addr in context,
+	 * this information is used in GFT
+	 */
+	curr_context->pagefault = 1;
+	curr_context->pagefault_ts = curr_global_ts;
 
 	trace_kgsl_mmu_pagefault(iommu_dev->kgsldev, addr,
 			kgsl_mmu_get_ptname_from_ptbase(mmu, ptbase), 0);
@@ -423,11 +415,9 @@ void *kgsl_iommu_create_pagetable(void)
 	}
 	/* L2 redirect is not stable on IOMMU v2 */
 	if (msm_soc_version_supports_iommu_v1())
-		iommu_pt->domain = iommu_domain_alloc(&platform_bus_type,
-					MSM_IOMMU_DOMAIN_PT_CACHEABLE);
+		iommu_pt->domain = iommu_domain_alloc(MSM_IOMMU_DOMAIN_PT_CACHEABLE);
 	else
-		iommu_pt->domain = iommu_domain_alloc(&platform_bus_type,
-					0);
+		iommu_pt->domain = iommu_domain_alloc(0);
 	if (!iommu_pt->domain) {
 		KGSL_CORE_ERR("Failed to create iommu domain\n");
 		kfree(iommu_pt);

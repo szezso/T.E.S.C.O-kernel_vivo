@@ -25,7 +25,12 @@
 #include <linux/rbtree.h>
 #include <linux/ashmem.h>
 #include <linux/major.h>
+#include <linux/highmem.h>
+#ifdef CONFIG_KGSL_COMPAT
+#include <linux/ion.h>
+#else
 #include <linux/msm_ion.h>
+#endif
 #include <linux/io.h>
 #include <mach/socinfo.h>
 
@@ -116,6 +121,9 @@ kgsl_mem_entry_destroy(struct kref *kref)
 	 */
 
 	if (entry->memtype == KGSL_MEM_ENTRY_ION) {
+#ifdef CONFIG_KGSL_COMPAT
+		ion_unmap_dma(kgsl_ion_client, entry->priv_data);
+#endif
 		entry->memdesc.sg = NULL;
 	}
 
@@ -449,6 +457,8 @@ end:
 
 static int kgsl_resume_device(struct kgsl_device *device)
 {
+	int status = -EINVAL;
+
 	if (!device)
 		return -EINVAL;
 
@@ -456,26 +466,14 @@ static int kgsl_resume_device(struct kgsl_device *device)
 	mutex_lock(&device->mutex);
 	if (device->state == KGSL_STATE_SUSPEND) {
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_SLUMBER);
+		status = 0;
 		complete_all(&device->hwaccess_gate);
-	} else if (device->state != KGSL_STATE_INIT) {
-		/*
-		 * This is an error situation,so wait for the device
-		 * to idle and then put the device to SLUMBER state.
-		 * This will put the device to the right state when
-		 * we resume.
-		 */
-		if (device->state == KGSL_STATE_ACTIVE)
-			device->ftbl->idle(device);
-		kgsl_pwrctrl_request_state(device, KGSL_STATE_SLUMBER);
-		kgsl_pwrctrl_sleep(device);
-		KGSL_PWR_ERR(device,
-			"resume invoked without a suspend\n");
 	}
 	kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 
 	mutex_unlock(&device->mutex);
 	KGSL_PWR_WARN(device, "resume end\n");
-	return 0;
+	return status;
 }
 
 static int kgsl_suspend(struct device *dev)
@@ -681,9 +679,6 @@ kgsl_get_process_private(struct kgsl_device *device,
 	struct kgsl_process_private *private;
 
 	private = kgsl_find_process_private(cur_dev_priv);
-
-	if (!private)
-		return NULL;
 
 	mutex_lock(&private->process_private_mutex);
 	if (!private->mem_rb.rb_node)
@@ -1606,12 +1601,20 @@ static int kgsl_setup_ion(struct kgsl_mem_entry *entry,
 {
 	struct ion_handle *handle;
 	struct scatterlist *s;
+#ifdef CONFIG_KGSL_COMPAT
+	unsigned long flags;
+#else
 	struct sg_table *sg_table;
+#endif
 
 	if (IS_ERR_OR_NULL(kgsl_ion_client))
 		return -ENODEV;
 
+#ifdef CONFIG_KGSL_COMPAT
+	handle = ion_import_fd(kgsl_ion_client, fd);
+#else
 	handle = ion_import_dma_buf(kgsl_ion_client, fd);
+#endif
 	if (IS_ERR(handle))
 		return PTR_ERR(handle);
 	else if (!handle)
@@ -1622,12 +1625,21 @@ static int kgsl_setup_ion(struct kgsl_mem_entry *entry,
 	entry->memdesc.pagetable = pagetable;
 	entry->memdesc.size = 0;
 
+#ifdef CONFIG_KGSL_COMPAT
+	if (ion_handle_get_flags(kgsl_ion_client, handle, &flags))
+		goto err;
+
+	entry->memdesc.sg = ion_map_dma(kgsl_ion_client, handle, flags);
+	if (IS_ERR_OR_NULL(entry->memdesc.sg))
+		goto err;
+#else
 	sg_table = ion_sg_table(kgsl_ion_client, handle);
 
 	if (IS_ERR_OR_NULL(sg_table))
 		goto err;
 
 	entry->memdesc.sg = sg_table->sgl;
+#endif
 
 	/* Calculate the size of the memdesc from the sglist */
 
@@ -1758,6 +1770,9 @@ error_put_file_ptr:
 			fput(entry->priv_data);
 		break;
 	case KGSL_MEM_ENTRY_ION:
+#ifdef CONFIG_KGSL_COMPAT
+		ion_unmap_dma(kgsl_ion_client, entry->priv_data);
+#endif
 		ion_free(kgsl_ion_client, entry->priv_data);
 		break;
 	default:

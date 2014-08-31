@@ -34,7 +34,6 @@
 #define KGSL_CMD_FLAGS_NONE             0x00000000
 #define KGSL_CMD_FLAGS_PMODE		0x00000001
 #define KGSL_CMD_FLAGS_INTERNAL_ISSUE	0x00000002
-#define KGSL_CMD_FLAGS_PWRON_FIXUP      0x00000008
 #define KGSL_CMD_FLAGS_EOF	        0x00000100
 
 /* Command identifiers */
@@ -44,7 +43,6 @@
 #define KGSL_END_OF_IB_IDENTIFIER	0x2ABEDEAD
 #define KGSL_END_OF_FRAME_IDENTIFIER	0x2E0F2E0F
 #define KGSL_NOP_IB_IDENTIFIER	        0x20F20F20
-#define KGSL_PWRON_FIXUP_IDENTIFIER	0x2AFAFAFA
 
 #ifdef CONFIG_MSM_SCM
 #define ADRENO_DEFAULT_PWRSCALE_POLICY  (&kgsl_pwrscale_policy_tz)
@@ -53,8 +51,6 @@
 #else
 #define ADRENO_DEFAULT_PWRSCALE_POLICY  NULL
 #endif
-
-void adreno_debugfs_init(struct kgsl_device *device);
 
 #define ADRENO_ISTORE_START 0x5000 /* Istore offset */
 
@@ -73,16 +69,12 @@ enum adreno_gpurev {
 	ADRENO_REV_A205 = 205,
 	ADRENO_REV_A220 = 220,
 	ADRENO_REV_A225 = 225,
-	ADRENO_REV_A305 = 305,
-	ADRENO_REV_A320 = 320,
-	ADRENO_REV_A330 = 330,
 };
 
 struct adreno_gpudev;
 
 struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
-	unsigned long priv;
 	unsigned int chip_id;
 	enum adreno_gpurev gpurev;
 	unsigned long gmem_base;
@@ -114,29 +106,9 @@ struct adreno_device {
 	unsigned int gpulist_index;
 	struct ocmem_buf *ocmem_hdl;
 	unsigned int ocmem_base;
-	struct kgsl_memdesc on_resume_cmd;
-	unsigned int on_resume_ib[3];
-	bool on_resume_issueib;
-	struct kgsl_memdesc pwron_fixup;
-	unsigned int pwron_fixup_dwords;
-};
-
-/**
- * enum adreno_device_flags - Private flags for the adreno_device
- * @ADRENO_DEVICE_PWRON - Set during init after a power collapse
- * @ADRENO_DEVICE_PWRON_FIXUP - Set if the target requires the shader fixup
- * after power collapse
- */
-enum adreno_device_flags {
-	ADRENO_DEVICE_PWRON = 0,
-	ADRENO_DEVICE_PWRON_FIXUP = 1,
 };
 
 struct adreno_gpudev {
-	/*
-	 * These registers are in a different location on A3XX,  so define
-	 * them in the structure and use them as variables.
-	 */
 	unsigned int reg_rbbm_status;
 	unsigned int reg_cp_pfp_ucode_data;
 	unsigned int reg_cp_pfp_ucode_addr;
@@ -207,15 +179,14 @@ struct adreno_ft_data {
 #define  KGSL_FT_DEFAULT_POLICY           (KGSL_FT_REPLAY + KGSL_FT_SKIPIB)
 
 /* Pagefault policy flags */
-#define KGSL_FT_PAGEFAULT_INT_ENABLE         BIT(0)
-#define KGSL_FT_PAGEFAULT_GPUHALT_ENABLE     BIT(1)
-#define KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE   BIT(2)
-#define KGSL_FT_PAGEFAULT_LOG_ONE_PER_INT    BIT(3)
+#define KGSL_FT_PAGEFAULT_INT_ENABLE         0x00000001
+#define KGSL_FT_PAGEFAULT_GPUHALT_ENABLE     0x00000002
+#define KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE   0x00000004
+#define KGSL_FT_PAGEFAULT_LOG_ONE_PER_INT    0x00000008
 #define KGSL_FT_PAGEFAULT_DEFAULT_POLICY     (KGSL_FT_PAGEFAULT_INT_ENABLE + \
 					KGSL_FT_PAGEFAULT_GPUHALT_ENABLE)
 
 extern struct adreno_gpudev adreno_a2xx_gpudev;
-extern struct adreno_gpudev adreno_a3xx_gpudev;
 
 /* A2XX register sets defined in adreno_a2xx.c */
 extern const unsigned int a200_registers[];
@@ -224,16 +195,6 @@ extern const unsigned int a225_registers[];
 extern const unsigned int a200_registers_count;
 extern const unsigned int a220_registers_count;
 extern const unsigned int a225_registers_count;
-
-/* A3XX register set defined in adreno_a3xx.c */
-extern const unsigned int a3xx_registers[];
-extern const unsigned int a3xx_registers_count;
-
-extern const unsigned int a3xx_hlsq_registers[];
-extern const unsigned int a3xx_hlsq_registers_count;
-
-extern const unsigned int a330_registers[];
-extern const unsigned int a330_registers_count;
 
 extern unsigned int ft_detect_regs[];
 extern const unsigned int ft_detect_regs_count;
@@ -268,11 +229,6 @@ void adreno_dump_rb(struct kgsl_device *device, const void *buf,
 
 unsigned int adreno_ft_detect(struct kgsl_device *device,
 						unsigned int *prev_reg_val);
-
-int adreno_ft_init_sysfs(struct kgsl_device *device);
-void adreno_ft_uninit_sysfs(struct kgsl_device *device);
-
-int adreno_a3xx_pwron_fixup_init(struct adreno_device *adreno_dev);
 
 static inline int adreno_is_a200(struct adreno_device *adreno_dev)
 {
@@ -313,26 +269,6 @@ static inline int adreno_is_a22x(struct adreno_device *adreno_dev)
 static inline int adreno_is_a2xx(struct adreno_device *adreno_dev)
 {
 	return (adreno_dev->gpurev <= 299);
-}
-
-static inline int adreno_is_a3xx(struct adreno_device *adreno_dev)
-{
-	return (adreno_dev->gpurev >= 300);
-}
-
-static inline int adreno_is_a305(struct adreno_device *adreno_dev)
-{
-	return (adreno_dev->gpurev == ADRENO_REV_A305);
-}
-
-static inline int adreno_is_a320(struct adreno_device *adreno_dev)
-{
-	return (adreno_dev->gpurev == ADRENO_REV_A320);
-}
-
-static inline int adreno_is_a330(struct adreno_device *adreno_dev)
-{
-	return (adreno_dev->gpurev == ADRENO_REV_A330);
 }
 
 static inline int adreno_rb_ctxtswitch(unsigned int *cmd)
@@ -442,13 +378,13 @@ static inline int adreno_add_idle_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
 	*cmds++ = 0x00000000;
 
-	if ((adreno_dev->gpurev == ADRENO_REV_A305) ||
-		(adreno_dev->gpurev == ADRENO_REV_A320)) {
-		*cmds++ = cp_type3_packet(CP_WAIT_FOR_ME, 1);
-		*cmds++ = 0x00000000;
-	}
-
 	return cmds - start;
 }
+
+#ifdef CONFIG_DEBUG_FS
+void adreno_debugfs_init(struct kgsl_device *device);
+#else
+static inline void adreno_debugfs_init(struct kgsl_device *device) { }
+#endif
 
 #endif /*__ADRENO_H */
