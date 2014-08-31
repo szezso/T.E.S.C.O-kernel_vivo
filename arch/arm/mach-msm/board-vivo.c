@@ -5211,28 +5211,6 @@ static void __init msm7x30_init_mmc(void)
 #endif
 
 }
-#if 0
-static void __init msm7x30_init_nand(void)
-{
-	char *build_id;
-	struct flash_platform_data *plat_data;
-
-	build_id = socinfo_get_build_id();
-	if (build_id == NULL) {
-		pr_err("%s: Build ID not available from socinfo\n", __func__);
-		return;
-	}
-
-	if (build_id[8] == 'C' &&
-			!msm_gpios_request_enable(msm_nand_ebi2_cfg_data,
-			ARRAY_SIZE(msm_nand_ebi2_cfg_data))) {
-		plat_data = msm_device_nand.dev.platform_data;
-		plat_data->interleave = 1;
-		printk(KERN_INFO "%s: Interleave mode Build ID found\n",
-			__func__);
-	}
-}
-#endif
 
 /* TSIF begin */
 #if defined(CONFIG_TSIF) || defined(CONFIG_TSIF_MODULE)
@@ -5303,137 +5281,6 @@ static unsigned vivo_perf_acpu_table[] = {
 static struct perflock_platform_data vivo_perflock_data = {
 	.perf_acpu_table = vivo_perf_acpu_table,
 	.table_size = ARRAY_SIZE(vivo_perf_acpu_table),
-};
-#endif
-
-#if 0
-static const char *vregs_isa1200_name[] = {
-	/*"gp7",*/
-	"gp10",
-};
-
-static const int vregs_isa1200_val[] = {
-	1800,
-	2600,
-};
-static struct vreg *vregs_isa1200[ARRAY_SIZE(vregs_isa1200_name)];
-
-static int isa1200_power(int vreg_on)
-{
-	int i, rc = 0;
-
-	for (i = 0; i < ARRAY_SIZE(vregs_isa1200_name); i++) {
-		if (!vregs_isa1200[i]) {
-			pr_err("%s: vreg_get %s failed (%d)\n",
-				__func__, vregs_isa1200_name[i], rc);
-			goto vreg_fail;
-		}
-
-		rc = vreg_on ? vreg_enable(vregs_isa1200[i]) :
-			  vreg_disable(vregs_isa1200[i]);
-		if (rc < 0) {
-			pr_err("%s: vreg %s %s failed (%d)\n",
-				__func__, vregs_isa1200_name[i],
-			       vreg_on ? "enable" : "disable", rc);
-			goto vreg_fail;
-		}
-	}
-
-	/* vote for DO buffer */
-	rc = pmapp_clock_vote("VIBR", PMAPP_CLOCK_ID_DO,
-		vreg_on ? PMAPP_CLOCK_VOTE_ON : PMAPP_CLOCK_VOTE_OFF);
-	if (rc)	{
-		pr_err("%s: unable to %svote for d0 clk\n",
-			__func__, vreg_on ? "" : "de-");
-		goto vreg_fail;
-	}
-
-	return 0;
-
-vreg_fail:
-	while (i)
-		vreg_disable(vregs_isa1200[--i]);
-	return rc;
-}
-
-static int isa1200_dev_setup(bool enable)
-{
-	int i, rc;
-
-	if (enable == true) {
-		for (i = 0; i < ARRAY_SIZE(vregs_isa1200_name); i++) {
-			vregs_isa1200[i] = vreg_get(NULL,
-						vregs_isa1200_name[i]);
-			if (IS_ERR(vregs_isa1200[i])) {
-				pr_err("%s: vreg get %s failed (%ld)\n",
-					__func__, vregs_isa1200_name[i],
-					PTR_ERR(vregs_isa1200[i]));
-				rc = PTR_ERR(vregs_isa1200[i]);
-				goto vreg_get_fail;
-			}
-			rc = vreg_set_level(vregs_isa1200[i],
-					vregs_isa1200_val[i]);
-			if (rc) {
-				pr_err("%s: vreg_set_level() = %d\n",
-					__func__, rc);
-				goto vreg_get_fail;
-			}
-		}
-
-		rc = gpio_tlmm_config(GPIO_CFG(HAP_LVL_SHFT_MSM_GPIO, 0,
-				GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
-				GPIO_CFG_2MA), GPIO_CFG_ENABLE);
-		if (rc) {
-			pr_err("%s: Could not configure gpio %d\n",
-					__func__, HAP_LVL_SHFT_MSM_GPIO);
-			goto vreg_get_fail;
-		}
-
-		rc = gpio_request(HAP_LVL_SHFT_MSM_GPIO, "haptics_shft_lvl_oe");
-		if (rc) {
-			pr_err("%s: unable to request gpio %d (%d)\n",
-					__func__, HAP_LVL_SHFT_MSM_GPIO, rc);
-			goto vreg_get_fail;
-		}
-
-		gpio_set_value(HAP_LVL_SHFT_MSM_GPIO, 1);
-	} else {
-		for (i = 0; i < ARRAY_SIZE(vregs_isa1200_name); i++)
-			vreg_put(vregs_isa1200[i]);
-
-		gpio_free(HAP_LVL_SHFT_MSM_GPIO);
-	}
-
-	return 0;
-vreg_get_fail:
-	while (i)
-		vreg_put(vregs_isa1200[--i]);
-	return rc;
-}
-
-static struct isa1200_platform_data isa1200_1_pdata = {
-	.name = "vibrator",
-	.power_on = isa1200_power,
-	.dev_setup = isa1200_dev_setup,
-	.pwm_ch_id = 1, /*channel id*/
-	/*gpio to enable haptic*/
-	.hap_en_gpio = PM8058_GPIO_PM_TO_SYS(PMIC_GPIO_HAP_ENABLE),
-	.max_timeout = 15000,
-	.mode_ctrl = PWM_GEN_MODE,
-	.pwm_fd = {
-		.pwm_div = 256,
-	},
-	.is_erm = false,
-	.smart_en = true,
-	.ext_clk_en = true,
-	.chip_en = 1,
-};
-
-static struct i2c_board_info msm_isa1200_board_info[] = {
-	{
-		I2C_BOARD_INFO("isa1200_1", 0x90>>1),
-		.platform_data = &isa1200_1_pdata,
-	},
 };
 #endif
 
@@ -5641,9 +5488,6 @@ static void __init vivo_init(void)
 	i2c_register_board_info(0, tpa2051_devices,
 			ARRAY_SIZE(tpa2051_devices));
 
-/*	i2c_register_board_info(2, msm_i2c_gsbi7_timpani_info,
-			ARRAY_SIZE(msm_i2c_gsbi7_timpani_info));*/
-
 	i2c_register_board_info(4 /* QUP ID */, msm_camera_boardinfo,
 					ARRAY_SIZE(msm_camera_boardinfo));
 
@@ -5651,11 +5495,6 @@ static void __init vivo_init(void)
 #ifdef CONFIG_I2C_SSBI
 	/*msm_device_ssbi6.dev.platform_data = &msm_i2c_ssbi6_pdata;*/
 	msm_device_ssbi7.dev.platform_data = &msm_i2c_ssbi7_pdata;
-#endif
-#if 0
-	if (machine_is_msm7x30_fluid())
-		i2c_register_board_info(0, msm_isa1200_board_info,
-			ARRAY_SIZE(msm_isa1200_board_info));
 #endif
 
 	if (machine_is_msm7x30_surf())
@@ -5739,19 +5578,11 @@ static struct ion_co_heap_pdata co_ion_pdata = {
  */
 struct ion_platform_heap msm7x30_heaps[] = {
     {
-      .id    = ION_SYSTEM_HEAP_ID,
-      .type  = ION_HEAP_TYPE_SYSTEM,
-      .name  = ION_VMALLOC_HEAP_NAME,
+      	.id    = ION_SYSTEM_HEAP_ID,
+      	.type  = ION_HEAP_TYPE_SYSTEM,
+      	.name  = ION_VMALLOC_HEAP_NAME,
     },
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-    /* CAMERA */
-    {
-      	.id    = ION_CAMERA_HEAP_ID,
-      	.type  = ION_HEAP_TYPE_CARVEOUT,
-      	.name  = ION_CAMERA_HEAP_NAME,
-      	.memory_type = ION_EBI_TYPE,
-      	.extra_data = (void *)&co_ion_pdata,
-    },
     /* PMEM_MDP = SF */
     {
       	.id  = ION_SF_HEAP_ID,
@@ -5831,10 +5662,8 @@ static void __init reserve_pmem_memory(void)
 static void __init size_ion_devices(void)
 {
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-	ion_pdata.heaps[1].base = MSM_PMEM_ADSP_BASE;
-  	ion_pdata.heaps[1].size = MSM_PMEM_ADSP_SIZE;
-	ion_pdata.heaps[2].base = MSM_ION_SF_BASE;
-  	ion_pdata.heaps[2].size = MSM_ION_SF_SIZE;
+	ion_pdata.heaps[1].base = MSM_ION_SF_BASE;
+  	ion_pdata.heaps[1].size = MSM_ION_SF_SIZE;
 #endif
 }
 
