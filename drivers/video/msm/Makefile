@@ -32,6 +32,8 @@ obj-y += mddi_client_novb9f6_5580.o
 obj-y += mddi_client_novb9f6_5560.o
 obj-y += mddi_client_renesas_R61408.o
 obj-y += mddi_client_hx8356.o mddi_himax_cabc.o
+obj-y += mddi_client_dummy.o
+obj-y += mddi_client_toshiba.o
 endif
 
 # MDP LCD controller driver
