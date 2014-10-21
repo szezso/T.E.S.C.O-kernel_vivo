@@ -43,6 +43,9 @@
 extern void md_autodetect_dev(dev_t dev);
 #endif
 
+/* HTC */
+extern const char *get_partition_name_by_num(int partnum);
+
 int warn_no_part = 1; /*This is ugly: should make genhd removable media aware*/
 
 static int (*check_part[])(struct parsed_partitions *) = {
@@ -479,6 +482,13 @@ struct hd_struct *add_partition(struct gendisk *disk, int partno,
 		dev_set_name(pdev, "%sp%d", dname, partno);
 	else
 		dev_set_name(pdev, "%s%d", dname, partno);
+
+	/* HTC */
+	if (!strncmp(dev_name(pdev), "mmcblk0p", 8)) {
+		const char *pname = get_partition_name_by_num(p->partno);
+		if (pname)
+			snprintf(p->info->volname, PARTITION_META_INFO_VOLNAMELTH, pname);
+	}
 
 	device_initialize(pdev);
 	pdev->class = &block_class;
