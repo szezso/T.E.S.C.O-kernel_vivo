@@ -129,6 +129,8 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
 						 * valid RTT sample has been acquired,
 						 * most likely due to retrans in 3WHS.
 						 */
+/* Number of full MSS to receive before Acking RFC2581 */
+#define TCP_DELACK_SEG          1
 
 #define TCP_RESOURCE_PROBE_INTERVAL ((unsigned)(HZ/2U)) /* Maximal interval between probes
 					                 * for local resources.
@@ -253,6 +255,10 @@ extern int sysctl_tcp_cookie_size;
 extern int sysctl_tcp_thin_linear_timeouts;
 extern int sysctl_tcp_thin_dupack;
 extern int sysctl_tcp_challenge_ack_limit;
+
+/* sysctl variables for controlling various tcp parameters */
+extern int sysctl_tcp_delack_seg;
+extern int sysctl_tcp_use_userconfig;
 
 extern atomic_long_t tcp_memory_allocated;
 extern struct percpu_counter tcp_sockets_allocated;

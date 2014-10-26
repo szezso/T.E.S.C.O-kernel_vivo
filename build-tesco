@@ -3,4 +3,4 @@
 export ARCH=arm
 export CROSS_COMPILE=/home/szezso/cm11/prebuilts/gcc/linux-x86/arm/arm-eabi-4.7/bin/arm-eabi-
 make cyanogen_vivo_defconfig
-make -j64 ARCH=arm
+make -j6 ARCH=arm
