@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -116,6 +116,7 @@ static const struct file_operations genlock_fops = {
 struct genlock *genlock_create_lock(struct genlock_handle *handle)
 {
 	struct genlock *lock;
+	void *ret;
 
 	if (IS_ERR_OR_NULL(handle)) {
 		GENLOCK_LOG_ERR("Invalid handle\n");
@@ -145,8 +146,13 @@ struct genlock *genlock_create_lock(struct genlock_handle *handle)
 	 * other processes
 	 */
 
-	lock->file = anon_inode_getfile("genlock", &genlock_fops,
-		lock, O_RDWR);
+	ret = anon_inode_getfile("genlock", &genlock_fops, lock, O_RDWR);
+	if (IS_ERR_OR_NULL(ret)) {
+		GENLOCK_LOG_ERR("Unable to create lock inode\n");
+		kfree(lock);
+		return ret;
+	}
+	lock->file = ret;
 
 	/* Attach the new lock to the handle */
 	handle->lock = lock;
@@ -660,12 +666,19 @@ static struct genlock_handle *_genlock_get_handle(void)
 
 struct genlock_handle *genlock_get_handle(void)
 {
+	void *ret;
 	struct genlock_handle *handle = _genlock_get_handle();
 	if (IS_ERR(handle))
 		return handle;
 
-	handle->file = anon_inode_getfile("genlock-handle",
+	ret = anon_inode_getfile("genlock-handle",
 		&genlock_handle_fops, handle, O_RDWR);
+	if (IS_ERR_OR_NULL(ret)) {
+		GENLOCK_LOG_ERR("Unable to create handle inode\n");
+		kfree(handle);
+		return ret;
+	}
+	handle->file = ret;
 
 	return handle;
 }
@@ -731,6 +744,8 @@ static long genlock_dev_ioctl(struct file *filep, unsigned int cmd,
 		if (ret < 0)
 			return ret;
 
+		memset(&param, 0, sizeof(param));
+
 		param.fd = ret;
 
 		if (copy_to_user((void __user *) arg, &param,
@@ -779,7 +794,7 @@ static long genlock_dev_ioctl(struct file *filep, unsigned int cmd,
 		 * Locks should only be released when the handle is
 		 * destroyed
 		 */
-		//GENLOCK_LOG_ERR("Deprecated RELEASE ioctl called\n");
+		GENLOCK_LOG_ERR("Deprecated RELEASE ioctl called\n");
 		return -EINVAL;
 	}
 	default:
