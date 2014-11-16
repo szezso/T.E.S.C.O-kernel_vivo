@@ -1,9 +1,9 @@
 /*
  * Console support for hndrte.
  *
- * Copyright (C) 1999-2011, Broadcom Corporation
+ * Copyright (C) 1999-2013, Broadcom Corporation
  * 
- *         Unless you and Broadcom execute a separate written software license
+ *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -21,9 +21,8 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: hndrte_cons.h 275703 2011-08-04 20:20:27Z $
+ * $Id: hndrte_cons.h 383834 2013-02-07 23:21:51Z $
  */
-
 #ifndef	_HNDRTE_CONS_H
 #define	_HNDRTE_CONS_H
 
@@ -64,5 +63,7 @@ typedef struct {
 	uint		cbuf_idx;
 	char		cbuf[CBUF_LEN];
 } hndrte_cons_t;
+
+hndrte_cons_t *hndrte_get_active_cons_state(void);
 
 #endif /* _HNDRTE_CONS_H */

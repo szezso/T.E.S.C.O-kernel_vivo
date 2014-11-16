@@ -3,9 +3,9 @@
  *     export functions to client drivers
  *     abstract OS and BUS specific details of SDIO
  *
- * Copyright (C) 1999-2011, Broadcom Corporation
+ * Copyright (C) 1999-2013, Broadcom Corporation
  * 
- *         Unless you and Broadcom execute a separate written software license
+ *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -23,7 +23,11 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmsdh.h 275703 2011-08-04 20:20:27Z $
+ * $Id: bcmsdh.h 414953 2013-07-26 17:36:27Z $
+ */
+
+/**
+ * @file bcmsdh.h
  */
 
 #ifndef	_bcmsdh_h_
@@ -36,9 +40,15 @@ extern const uint bcmsdh_msglevel;
 #define BCMSDH_ERROR(x)
 #define BCMSDH_INFO(x)
 
+#if (defined(BCMSDIOH_STD) || defined(BCMSDIOH_BCM) || defined(BCMSDIOH_SPI))
+#define BCMSDH_ADAPTER
+#endif /* BCMSDIO && (BCMSDIOH_STD || BCMSDIOH_BCM || BCMSDIOH_SPI) */
+
 /* forward declarations */
 typedef struct bcmsdh_info bcmsdh_info_t;
 typedef void (*bcmsdh_cb_fn_t)(void *);
+
+extern struct device *pm_dev;
 
 /* Attach and build an interface to the underlying SD host driver.
  *  - Allocates resources (structs, arrays, mem, OS handles, etc) needed by bcmsdh.
@@ -62,16 +72,13 @@ extern int bcmsdh_intr_disable(void *sdh);
 /* Register/deregister device interrupt handler. */
 extern int bcmsdh_intr_reg(void *sdh, bcmsdh_cb_fn_t fn, void *argh);
 extern int bcmsdh_intr_dereg(void *sdh);
+/* Enable/disable SD card interrupt forward */
+extern void bcmsdh_intr_forward(void *sdh, bool pass);
 
 #if defined(DHD_DEBUG)
 /* Query pending interrupt status from the host controller */
 extern bool bcmsdh_intr_pending(void *sdh);
 #endif
-
-#ifdef BCMLXSDMMC
-extern int bcmsdh_claim_host_and_lock(void *sdh);
-extern int bcmsdh_release_host_and_unlock(void *sdh);
-#endif /* BCMLXSDMMC */
 
 /* Register a callback to be called if and when bcmsdh detects
  * device removal. No-op in the case of non-removable/hardwired devices.
@@ -108,6 +115,9 @@ extern int bcmsdh_cis_read(void *sdh, uint func, uint8 *cis, uint length);
 extern uint32 bcmsdh_reg_read(void *sdh, uint32 addr, uint size);
 extern uint32 bcmsdh_reg_write(void *sdh, uint32 addr, uint size, uint32 data);
 
+/* set sb address window */
+extern int bcmsdhsdio_set_sbaddr_window(void *sdh, uint32 address, bool force_set);
+
 /* Indicate if last reg read/write failed */
 extern bool bcmsdh_regfail(void *sdh);
 
@@ -126,15 +136,20 @@ extern bool bcmsdh_regfail(void *sdh);
 typedef void (*bcmsdh_cmplt_fn_t)(void *handle, int status, bool sync_waiting);
 extern int bcmsdh_send_buf(void *sdh, uint32 addr, uint fn, uint flags,
                            uint8 *buf, uint nbytes, void *pkt,
-                           bcmsdh_cmplt_fn_t complete, void *handle);
+                           bcmsdh_cmplt_fn_t complete_fn, void *handle);
 extern int bcmsdh_recv_buf(void *sdh, uint32 addr, uint fn, uint flags,
                            uint8 *buf, uint nbytes, void *pkt,
-                           bcmsdh_cmplt_fn_t complete, void *handle);
+                           bcmsdh_cmplt_fn_t complete_fn, void *handle);
 
+extern void bcmsdh_glom_post(void *sdh, uint8 *frame, void *pkt, uint len);
+extern void bcmsdh_glom_clear(void *sdh);
+extern uint bcmsdh_set_mode(void *sdh, uint mode);
+extern bool bcmsdh_glom_enabled(void);
 /* Flags bits */
 #define SDIO_REQ_4BYTE	0x1	/* Four-byte target (backplane) width (vs. two-byte) */
 #define SDIO_REQ_FIXED	0x2	/* Fixed address (FIFO) (vs. incrementing address) */
 #define SDIO_REQ_ASYNC	0x4	/* Async request (vs. sync request) */
+#define SDIO_BYTE_MODE	0x8	/* Byte mode request(non-block mode) */
 
 /* Pending (non-error) return code */
 #define BCME_PENDING	1
@@ -193,11 +208,16 @@ extern void bcmsdh_unregister(void);
 extern bool bcmsdh_chipmatch(uint16 vendor, uint16 device);
 extern void bcmsdh_device_remove(void * sdh);
 
+extern int bcmsdh_reg_sdio_notify(void* semaphore);
+extern void bcmsdh_unreg_sdio_notify(void);
+
 #if defined(OOB_INTR_ONLY)
 extern int bcmsdh_register_oob_intr(void * dhdp);
 extern void bcmsdh_unregister_oob_intr(void);
 extern void bcmsdh_oob_intr_set(bool enable);
-#endif /* defined(OOB_INTR_ONLY) */
+extern bool bcmsdh_is_oob_intr_registered(void);
+#endif 
+
 /* Function to pass device-status bits to DHD. */
 extern uint32 bcmsdh_get_dstatus(void *sdh);
 

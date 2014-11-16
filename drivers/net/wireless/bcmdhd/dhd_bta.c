@@ -1,9 +1,9 @@
 /*
  * BT-AMP support routines
  *
- * Copyright (C) 1999-2011, Broadcom Corporation
+ * Copyright (C) 1999-2013, Broadcom Corporation
  * 
- *         Unless you and Broadcom execute a separate written software license
+ *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -21,8 +21,9 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_bta.c 285377 2011-09-21 17:57:59Z $
+ * $Id: dhd_bta.c 379512 2013-01-17 22:49:08Z $
  */
+#error "WLBTAMP is not defined"
 
 #include <typedefs.h>
 #include <osl.h>
@@ -99,7 +100,7 @@ dhd_bta_flush_hcidata(dhd_pub_t *pub, uint16 llh)
 			int ifidx;
 
 			PKTPULL(pub->osh, pkt, dhd_bus_hdrlen(pub->bus));
-			dhd_prot_hdrpull(pub, &ifidx, pkt);
+			dhd_prot_hdrpull(pub, &ifidx, pkt, NULL, NULL);
 
 			if (PKTLEN(pub->osh, pkt) >= RFC1042_HDR_LEN) {
 				struct ether_header *eh =
@@ -309,6 +310,9 @@ void
 dhd_bta_doevt(dhd_pub_t *dhdp, void *data_buf, uint data_len)
 {
 	amp_hci_event_t *evt = (amp_hci_event_t *)data_buf;
+
+	ASSERT(dhdp);
+	ASSERT(evt);
 
 	switch (evt->ecode) {
 	case HCI_Command_Complete: {

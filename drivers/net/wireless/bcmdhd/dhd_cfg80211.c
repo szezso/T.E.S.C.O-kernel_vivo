@@ -1,9 +1,9 @@
 /*
  * Linux cfg80211 driver - Dongle Host Driver (DHD) related
  *
- * Copyright (C) 1999-2011, Broadcom Corporation
+ * Copyright (C) 1999-2013, Broadcom Corporation
  * 
- *         Unless you and Broadcom execute a separate written software license
+ *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -31,17 +31,28 @@
 #include <wl_cfg80211.h>
 #include <dhd_cfg80211.h>
 
+#ifdef PKT_FILTER_SUPPORT
+#include <dngl_stats.h>
+#include <dhd.h>
+#endif
+
 extern struct wl_priv *wlcfg_drv_priv;
+
+#ifdef PKT_FILTER_SUPPORT
+extern uint dhd_pkt_filter_enable;
+extern uint dhd_master_mode;
+extern void dhd_pktfilter_offload_enable(dhd_pub_t * dhd, char *arg, int enable, int master_mode);
+#endif
+
 static int dhd_dongle_up = FALSE;
 
+#include <dngl_stats.h>
+#include <dhd.h>
+#include <dhdioctl.h>
+#include <wlioctl.h>
+#include <dhd_cfg80211.h>
+
 static s32 wl_dongle_up(struct net_device *ndev, u32 up);
-static s32 wl_dongle_power(struct net_device *ndev, u32 power_mode);
-static s32 wl_dongle_glom(struct net_device *ndev, u32 glom, u32 dongle_align);
-static s32 wl_dongle_roam(struct net_device *ndev, u32 roamvar,	u32 bcn_timeout);
-static s32 wl_dongle_scantime(struct net_device *ndev, s32 scan_assoc_time, s32 scan_unassoc_time);
-static s32 wl_dongle_offload(struct net_device *ndev, s32 arpoe, s32 arp_ol);
-static s32 wl_pattern_atoh(s8 *src, s8 *dst);
-static s32 wl_dongle_filter(struct net_device *ndev, u32 filter_mode);
 
 /**
  * Function implementations
@@ -65,6 +76,39 @@ s32 dhd_cfg80211_down(struct wl_priv *wl)
 	return 0;
 }
 
+s32 dhd_cfg80211_set_p2p_info(struct wl_priv *wl, int val)
+{
+	dhd_pub_t *dhd =  (dhd_pub_t *)(wl->pub);
+	dhd->op_mode |= val;
+	WL_ERR(("Set : op_mode=0x%04x\n", dhd->op_mode));
+#ifdef ARP_OFFLOAD_SUPPORT
+	if (dhd->arp_version == 1) {
+		/* IF P2P is enabled, disable arpoe */
+		dhd_arp_offload_set(dhd, 0);
+		dhd_arp_offload_enable(dhd, false);
+	}
+#endif /* ARP_OFFLOAD_SUPPORT */
+
+	return 0;
+}
+
+s32 dhd_cfg80211_clean_p2p_info(struct wl_priv *wl)
+{
+	dhd_pub_t *dhd =  (dhd_pub_t *)(wl->pub);
+	dhd->op_mode &= ~(DHD_FLAG_P2P_GC_MODE | DHD_FLAG_P2P_GO_MODE);
+	WL_ERR(("Clean : op_mode=0x%04x\n", dhd->op_mode));
+
+#ifdef ARP_OFFLOAD_SUPPORT
+	if (dhd->arp_version == 1) {
+		/* IF P2P is disabled, enable arpoe back for STA mode. */
+		dhd_arp_offload_set(dhd, dhd_arp_mode);
+		dhd_arp_offload_enable(dhd, true);
+	}
+#endif /* ARP_OFFLOAD_SUPPORT */
+
+	return 0;
+}
+
 static s32 wl_dongle_up(struct net_device *ndev, u32 up)
 {
 	s32 err = 0;
@@ -75,250 +119,6 @@ static s32 wl_dongle_up(struct net_device *ndev, u32 up)
 	}
 	return err;
 }
-
-static s32 wl_dongle_power(struct net_device *ndev, u32 power_mode)
-{
-	s32 err = 0;
-
-	WL_TRACE(("In\n"));
-	err = wldev_ioctl(ndev, WLC_SET_PM, &power_mode, sizeof(power_mode), true);
-	if (unlikely(err)) {
-		WL_ERR(("WLC_SET_PM error (%d)\n", err));
-	}
-	return err;
-}
-
-static s32
-wl_dongle_glom(struct net_device *ndev, u32 glom, u32 dongle_align)
-{
-	s8 iovbuf[WL_EVENTING_MASK_LEN + 12];
-
-	s32 err = 0;
-
-	/* Match Host and Dongle rx alignment */
-	bcm_mkiovar("bus:txglomalign", (char *)&dongle_align, 4, iovbuf,
-		sizeof(iovbuf));
-	err = wldev_ioctl(ndev, WLC_SET_VAR, iovbuf, sizeof(iovbuf), true);
-	if (unlikely(err)) {
-		WL_ERR(("txglomalign error (%d)\n", err));
-		goto dongle_glom_out;
-	}
-	/* disable glom option per default */
-	bcm_mkiovar("bus:txglom", (char *)&glom, 4, iovbuf, sizeof(iovbuf));
-	err = wldev_ioctl(ndev, WLC_SET_VAR, iovbuf, sizeof(iovbuf), true);
-	if (unlikely(err)) {
-		WL_ERR(("txglom error (%d)\n", err));
-		goto dongle_glom_out;
-	}
-dongle_glom_out:
-	return err;
-}
-
-static s32
-wl_dongle_roam(struct net_device *ndev, u32 roamvar, u32 bcn_timeout)
-{
-	s8 iovbuf[WL_EVENTING_MASK_LEN + 12];
-
-	s32 err = 0;
-
-	/* Setup timeout if Beacons are lost and roam is off to report link down */
-	if (roamvar) {
-		bcm_mkiovar("bcn_timeout", (char *)&bcn_timeout, 4, iovbuf,
-			sizeof(iovbuf));
-		err = wldev_ioctl(ndev, WLC_SET_VAR, iovbuf, sizeof(iovbuf), true);
-		if (unlikely(err)) {
-			WL_ERR(("bcn_timeout error (%d)\n", err));
-			goto dongle_rom_out;
-		}
-	}
-	/* Enable/Disable built-in roaming to allow supplicant to take care of roaming */
-	bcm_mkiovar("roam_off", (char *)&roamvar, 4, iovbuf, sizeof(iovbuf));
-	err = wldev_ioctl(ndev, WLC_SET_VAR, iovbuf, sizeof(iovbuf), true);
-	if (unlikely(err)) {
-		WL_ERR(("roam_off error (%d)\n", err));
-		goto dongle_rom_out;
-	}
-dongle_rom_out:
-	return err;
-}
-
-static s32
-wl_dongle_scantime(struct net_device *ndev, s32 scan_assoc_time,
-	s32 scan_unassoc_time)
-{
-	s32 err = 0;
-
-	err = wldev_ioctl(ndev, WLC_SET_SCAN_CHANNEL_TIME, &scan_assoc_time,
-		sizeof(scan_assoc_time), true);
-	if (err) {
-		if (err == -EOPNOTSUPP) {
-			WL_INFO(("Scan assoc time is not supported\n"));
-		} else {
-			WL_ERR(("Scan assoc time error (%d)\n", err));
-		}
-		goto dongle_scantime_out;
-	}
-	err = wldev_ioctl(ndev, WLC_SET_SCAN_UNASSOC_TIME, &scan_unassoc_time,
-		sizeof(scan_unassoc_time), true);
-	if (err) {
-		if (err == -EOPNOTSUPP) {
-			WL_INFO(("Scan unassoc time is not supported\n"));
-		} else {
-			WL_ERR(("Scan unassoc time error (%d)\n", err));
-		}
-		goto dongle_scantime_out;
-	}
-
-dongle_scantime_out:
-	return err;
-}
-
-static s32
-wl_dongle_offload(struct net_device *ndev, s32 arpoe, s32 arp_ol)
-{
-	/* Room for "event_msgs" + '\0' + bitvec */
-	s8 iovbuf[WL_EVENTING_MASK_LEN + 12];
-
-	s32 err = 0;
-
-	/* Set ARP offload */
-	bcm_mkiovar("arpoe", (char *)&arpoe, 4, iovbuf, sizeof(iovbuf));
-	err = wldev_ioctl(ndev, WLC_SET_VAR, iovbuf, sizeof(iovbuf), true);
-	if (err) {
-		if (err == -EOPNOTSUPP)
-			WL_INFO(("arpoe is not supported\n"));
-		else
-			WL_ERR(("arpoe error (%d)\n", err));
-
-		goto dongle_offload_out;
-	}
-	bcm_mkiovar("arp_ol", (char *)&arp_ol, 4, iovbuf, sizeof(iovbuf));
-	err = wldev_ioctl(ndev, WLC_SET_VAR, iovbuf, sizeof(iovbuf), true);
-	if (err) {
-		if (err == -EOPNOTSUPP)
-			WL_INFO(("arp_ol is not supported\n"));
-		else
-			WL_ERR(("arp_ol error (%d)\n", err));
-
-		goto dongle_offload_out;
-	}
-
-dongle_offload_out:
-	return err;
-}
-
-static s32 wl_pattern_atoh(s8 *src, s8 *dst)
-{
-	int i;
-	if (strncmp(src, "0x", 2) != 0 && strncmp(src, "0X", 2) != 0) {
-		WL_ERR(("Mask invalid format. Needs to start with 0x\n"));
-		return -1;
-	}
-	src = src + 2;		/* Skip past 0x */
-	if (strlen(src) % 2 != 0) {
-		WL_ERR(("Mask invalid format. Needs to be of even length\n"));
-		return -1;
-	}
-	for (i = 0; *src != '\0'; i++) {
-		char num[3];
-		strncpy(num, src, 2);
-		num[2] = '\0';
-		dst[i] = (u8) simple_strtoul(num, NULL, 16);
-		src += 2;
-	}
-	return i;
-}
-
-static s32 wl_dongle_filter(struct net_device *ndev, u32 filter_mode)
-{
-	/* Room for "event_msgs" + '\0' + bitvec */
-	s8 iovbuf[WL_EVENTING_MASK_LEN + 12];
-
-	const s8 *str;
-	struct wl_pkt_filter pkt_filter;
-	struct wl_pkt_filter *pkt_filterp;
-	s32 buf_len;
-	s32 str_len;
-	u32 mask_size;
-	u32 pattern_size;
-	s8 buf[256];
-	s32 err = 0;
-
-	/* add a default packet filter pattern */
-	str = "pkt_filter_add";
-	str_len = strlen(str);
-	strncpy(buf, str, str_len);
-	buf[str_len] = '\0';
-	buf_len = str_len + 1;
-
-	pkt_filterp = (struct wl_pkt_filter *)(buf + str_len + 1);
-
-	/* Parse packet filter id. */
-	pkt_filter.id = htod32(100);
-
-	/* Parse filter polarity. */
-	pkt_filter.negate_match = htod32(0);
-
-	/* Parse filter type. */
-	pkt_filter.type = htod32(0);
-
-	/* Parse pattern filter offset. */
-	pkt_filter.u.pattern.offset = htod32(0);
-
-	/* Parse pattern filter mask. */
-	mask_size = htod32(wl_pattern_atoh("0xff",
-		(char *)pkt_filterp->u.pattern.
-		    mask_and_pattern));
-
-	/* Parse pattern filter pattern. */
-	pattern_size = htod32(wl_pattern_atoh("0x00",
-		(char *)&pkt_filterp->u.pattern.mask_and_pattern[mask_size]));
-
-	if (mask_size != pattern_size) {
-		WL_ERR(("Mask and pattern not the same size\n"));
-		err = -EINVAL;
-		goto dongle_filter_out;
-	}
-
-	pkt_filter.u.pattern.size_bytes = mask_size;
-	buf_len += WL_PKT_FILTER_FIXED_LEN;
-	buf_len += (WL_PKT_FILTER_PATTERN_FIXED_LEN + 2 * mask_size);
-
-	/* Keep-alive attributes are set in local
-	 * variable (keep_alive_pkt), and
-	 * then memcpy'ed into buffer (keep_alive_pktp) since there is no
-	 * guarantee that the buffer is properly aligned.
-	 */
-	memcpy((char *)pkt_filterp, &pkt_filter,
-		WL_PKT_FILTER_FIXED_LEN + WL_PKT_FILTER_PATTERN_FIXED_LEN);
-
-	err = wldev_ioctl(ndev, WLC_SET_VAR, buf, buf_len, true);
-	if (err) {
-		if (err == -EOPNOTSUPP) {
-			WL_INFO(("filter not supported\n"));
-		} else {
-			WL_ERR(("filter (%d)\n", err));
-		}
-		goto dongle_filter_out;
-	}
-
-	/* set mode to allow pattern */
-	bcm_mkiovar("pkt_filter_mode", (char *)&filter_mode, 4, iovbuf,
-		sizeof(iovbuf));
-	err = wldev_ioctl(ndev, WLC_SET_VAR, iovbuf, sizeof(iovbuf), true);
-	if (err) {
-		if (err == -EOPNOTSUPP) {
-			WL_INFO(("filter_mode not supported\n"));
-		} else {
-			WL_ERR(("filter_mode (%d)\n", err));
-		}
-		goto dongle_filter_out;
-	}
-
-dongle_filter_out:
-	return err;
-}
-
 s32 dhd_config_dongle(struct wl_priv *wl, bool need_lock)
 {
 #ifndef DHD_SDALIGN
@@ -343,24 +143,6 @@ s32 dhd_config_dongle(struct wl_priv *wl, bool need_lock)
 		WL_ERR(("wl_dongle_up failed\n"));
 		goto default_conf_out;
 	}
-	err = wl_dongle_power(ndev, PM_FAST);
-	if (unlikely(err)) {
-		WL_ERR(("wl_dongle_power failed\n"));
-		goto default_conf_out;
-	}
-	err = wl_dongle_glom(ndev, 0, DHD_SDALIGN);
-	if (unlikely(err)) {
-		WL_ERR(("wl_dongle_glom failed\n"));
-		goto default_conf_out;
-	}
-	err = wl_dongle_roam(ndev, (wl->roam_on ? 0 : 1), 3);
-	if (unlikely(err)) {
-		WL_ERR(("wl_dongle_roam failed\n"));
-		goto default_conf_out;
-	}
-	wl_dongle_scantime(ndev, 40, 80);
-	wl_dongle_offload(ndev, 1, 0xf);
-	wl_dongle_filter(ndev, 1);
 	dhd_dongle_up = true;
 
 default_conf_out:
@@ -370,6 +152,43 @@ default_conf_out:
 
 }
 
+#ifdef CONFIG_NL80211_TESTMODE
+int dhd_cfg80211_testmode_cmd(struct wiphy *wiphy, void *data, int len)
+{
+	struct sk_buff *reply;
+	struct wl_priv *wl;
+	dhd_pub_t *dhd;
+	dhd_ioctl_t *ioc = data;
+	int err = 0;
+
+	WL_TRACE(("entry: cmd = %d\n", ioc->cmd));
+	wl = wiphy_priv(wiphy);
+	dhd = wl->pub;
+
+	DHD_OS_WAKE_LOCK(dhd);
+
+	/* send to dongle only if we are not waiting for reload already */
+	if (dhd->hang_was_sent) {
+		WL_ERR(("HANG was sent up earlier\n"));
+		DHD_OS_WAKE_LOCK_CTRL_TIMEOUT_ENABLE(dhd, DHD_EVENT_TIMEOUT_MS);
+		DHD_OS_WAKE_UNLOCK(dhd);
+		return OSL_ERROR(BCME_DONGLE_DOWN);
+	}
+
+	/* currently there is only one wiphy for ifidx 0 */
+	err = dhd_ioctl_process(dhd, 0, ioc);
+	if (err)
+		goto done;
+
+	/* response data is in ioc->buf so return ioc here */
+	reply = cfg80211_testmode_alloc_reply_skb(wiphy, sizeof(*ioc));
+	nla_put(reply, NL80211_ATTR_TESTDATA, sizeof(*ioc), ioc);
+	err = cfg80211_testmode_reply(reply);
+done:
+	DHD_OS_WAKE_UNLOCK(dhd);
+	return err;
+}
+#endif /* CONFIG_NL80211_TESTMODE */
 
 /* TODO: clean up the BT-Coex code, it still have some legacy ioctl/iovar functions */
 #define COEX_DHCP
@@ -455,11 +274,10 @@ static bool btcoex_is_sco_active(struct net_device *dev)
 
 		ioc_res = dev_wlc_intvar_get_reg(dev, "btc_params", 27, &param27);
 
-		WL_TRACE(("%s, sample[%d], btc params: 27:%x\n",
-			__FUNCTION__, i, param27));
+		WL_TRACE(("sample[%d], btc params: 27:%x\n", i, param27));
 
 		if (ioc_res < 0) {
-			WL_ERR(("%s ioc read btc params error\n", __FUNCTION__));
+			WL_ERR(("ioc read btc params error\n"));
 			break;
 		}
 
@@ -468,13 +286,13 @@ static bool btcoex_is_sco_active(struct net_device *dev)
 		}
 
 		if (sco_id_cnt > 2) {
-			WL_TRACE(("%s, sco/esco detected, pkt id_cnt:%d  samples:%d\n",
-				__FUNCTION__, sco_id_cnt, i));
+			WL_TRACE(("sco/esco detected, pkt id_cnt:%d  samples:%d\n",
+				sco_id_cnt, i));
 			res = TRUE;
 			break;
 		}
 
-		msleep(5);
+		OSL_SLEEP(5);
 	}
 
 	return res;
@@ -517,9 +335,9 @@ static int set_btc_esco_params(struct net_device *dev, bool trump_sco)
 			(!dev_wlc_intvar_get_reg(dev, "btc_params", 65, &saved_reg65)) &&
 			(!dev_wlc_intvar_get_reg(dev, "btc_params", 71, &saved_reg71))) {
 			saved_status = TRUE;
-			WL_TRACE(("%s saved bt_params[50,51,64,65,71]:"
+			WL_TRACE(("saved bt_params[50,51,64,65,71]:"
 				  "0x%x 0x%x 0x%x 0x%x 0x%x\n",
-				  __FUNCTION__, saved_reg50, saved_reg51,
+				  saved_reg50, saved_reg51,
 				  saved_reg64, saved_reg65, saved_reg71));
 		} else {
 			WL_ERR((":%s: save btc_params failed\n",
@@ -616,7 +434,7 @@ wl_cfg80211_bt_setflag(struct net_device *dev, bool set)
 static void wl_cfg80211_bt_timerfunc(ulong data)
 {
 	struct btcoex_info *bt_local = (struct btcoex_info *)data;
-	WL_TRACE(("%s\n", __FUNCTION__));
+	WL_TRACE(("Enter\n"));
 	bt_local->timer_on = 0;
 	schedule_work(&bt_local->work);
 }
@@ -637,43 +455,39 @@ static void wl_cfg80211_bt_handler(struct work_struct *work)
 			/* DHCP started
 			 * provide OPPORTUNITY window to get DHCP address
 			 */
-			WL_TRACE(("%s bt_dhcp stm: started \n",
-				__FUNCTION__));
+			WL_TRACE(("bt_dhcp stm: started \n"));
+
 			btcx_inf->bt_state = BT_DHCP_OPPR_WIN;
 			mod_timer(&btcx_inf->timer,
-				jiffies + BT_DHCP_OPPR_WIN_TIME*HZ/1000);
+				jiffies + msecs_to_jiffies(BT_DHCP_OPPR_WIN_TIME));
 			btcx_inf->timer_on = 1;
 			break;
 
 		case BT_DHCP_OPPR_WIN:
 			if (btcx_inf->dhcp_done) {
-				WL_TRACE(("%s DHCP Done before T1 expiration\n",
-					__FUNCTION__));
+				WL_TRACE(("DHCP Done before T1 expiration\n"));
 				goto btc_coex_idle;
 			}
 
 			/* DHCP is not over yet, start lowering BT priority
 			 * enforce btc_params + flags if necessary
 			 */
-			WL_TRACE(("%s DHCP T1:%d expired\n", __FUNCTION__,
-				BT_DHCP_OPPR_WIN_TIME));
+			WL_TRACE(("DHCP T1:%d expired\n", BT_DHCP_OPPR_WIN_TIME));
 			if (btcx_inf->dev)
 				wl_cfg80211_bt_setflag(btcx_inf->dev, TRUE);
 			btcx_inf->bt_state = BT_DHCP_FLAG_FORCE_TIMEOUT;
 			mod_timer(&btcx_inf->timer,
-				jiffies + BT_DHCP_FLAG_FORCE_TIME*HZ/1000);
+				jiffies + msecs_to_jiffies(BT_DHCP_FLAG_FORCE_TIME));
 			btcx_inf->timer_on = 1;
 			break;
 
 		case BT_DHCP_FLAG_FORCE_TIMEOUT:
 			if (btcx_inf->dhcp_done) {
-				WL_TRACE(("%s DHCP Done before T2 expiration\n",
-					__FUNCTION__));
+				WL_TRACE(("DHCP Done before T2 expiration\n"));
 			} else {
 				/* Noo dhcp during T1+T2, restore BT priority */
-				WL_TRACE(("%s DHCP wait interval T2:%d"
-					  "msec expired\n", __FUNCTION__,
-					  BT_DHCP_FLAG_FORCE_TIME));
+				WL_TRACE(("DHCP wait interval T2:%d msec expired\n",
+					BT_DHCP_FLAG_FORCE_TIME));
 			}
 
 			/* Restoring default bt priority */
@@ -685,8 +499,7 @@ btc_coex_idle:
 			break;
 
 		default:
-			WL_ERR(("%s error g_status=%d !!!\n", __FUNCTION__,
-				btcx_inf->bt_state));
+			WL_ERR(("error g_status=%d !!!\n",	btcx_inf->bt_state));
 			if (btcx_inf->dev)
 				wl_cfg80211_bt_setflag(btcx_inf->dev, FALSE);
 			btcx_inf->bt_state = BT_DHCP_IDLE;
@@ -727,7 +540,7 @@ void wl_cfg80211_btcoex_deinit(struct wl_priv *wl)
 	if (!wl->btcoex_info)
 		return;
 
-	if (!wl->btcoex_info->timer_on) {
+	if (wl->btcoex_info->timer_on) {
 		wl->btcoex_info->timer_on = 0;
 		del_timer_sync(&wl->btcoex_info->timer);
 	}
@@ -737,7 +550,6 @@ void wl_cfg80211_btcoex_deinit(struct wl_priv *wl)
 	kfree(wl->btcoex_info);
 	wl->btcoex_info = NULL;
 }
-#endif 
 
 int wl_cfg80211_set_btcoex_dhcp(struct net_device *dev, char *command)
 {
@@ -759,12 +571,25 @@ int wl_cfg80211_set_btcoex_dhcp(struct net_device *dev, char *command)
 	struct btcoex_info *btco_inf = wl->btcoex_info;
 #endif /* COEX_DHCP */
 
+#ifdef PKT_FILTER_SUPPORT
+	dhd_pub_t *dhd =  (dhd_pub_t *)(wl->pub);
+#endif
+
 	/* Figure out powermode 1 or o command */
 	strncpy((char *)&powermode_val, command + strlen("BTCOEXMODE") +1, 1);
 
 	if (strnicmp((char *)&powermode_val, "1", strlen("1")) == 0) {
+		WL_TRACE_HW4(("DHCP session starts\n"));
 
-		WL_TRACE(("%s: DHCP session starts\n", __FUNCTION__));
+
+#ifdef PKT_FILTER_SUPPORT
+		dhd->dhcp_in_progress = 1;
+
+		if (dhd->early_suspended) {
+			WL_TRACE_HW4(("DHCP in progressing , disable packet filter!!!\n"));
+			dhd_enable_packet_filter(0, dhd);
+		}
+#endif
 
 		/* Retrieve and saved orig regs value */
 		if ((saved_status == FALSE) &&
@@ -798,31 +623,41 @@ int wl_cfg80211_set_btcoex_dhcp(struct net_device *dev, char *command)
 					btco_inf->bt_state = BT_DHCP_START;
 					btco_inf->timer_on = 1;
 					mod_timer(&btco_inf->timer, btco_inf->timer.expires);
-					WL_TRACE(("%s enable BT DHCP Timer\n",
-					__FUNCTION__));
+					WL_TRACE(("enable BT DHCP Timer\n"));
 				}
 #endif /* COEX_DHCP */
 		}
 		else if (saved_status == TRUE) {
-			WL_ERR(("%s was called w/o DHCP OFF. Continue\n", __FUNCTION__));
+			WL_ERR(("was called w/o DHCP OFF. Continue\n"));
 		}
 	}
 	else if (strnicmp((char *)&powermode_val, "2", strlen("2")) == 0) {
 
 
+
+#ifdef PKT_FILTER_SUPPORT
+		dhd->dhcp_in_progress = 0;
+		WL_TRACE_HW4(("DHCP is complete \n"));
+
+		/* Enable packet filtering */
+		if (dhd->early_suspended) {
+			WL_TRACE_HW4(("DHCP is complete , enable packet filter!!!\n"));
+			dhd_enable_packet_filter(1, dhd);
+		}
+#endif /* PKT_FILTER_SUPPORT */
+
 		/* Restoring PM mode */
 
 #ifdef COEX_DHCP
 		/* Stop any bt timer because DHCP session is done */
-		WL_TRACE(("%s disable BT DHCP Timer\n", __FUNCTION__));
+		WL_TRACE(("disable BT DHCP Timer\n"));
 		if (btco_inf->timer_on) {
 			btco_inf->timer_on = 0;
 			del_timer_sync(&btco_inf->timer);
 
 			if (btco_inf->bt_state != BT_DHCP_IDLE) {
 			/* need to restore original btc flags & extra btc params */
-				WL_TRACE(("%s bt->bt_state:%d\n",
-					__FUNCTION__, btco_inf->bt_state));
+				WL_TRACE(("bt->bt_state:%d\n", btco_inf->bt_state));
 				/* wake up btcoex thread to restore btlags+params  */
 				schedule_work(&btco_inf->work);
 			}
@@ -853,11 +688,11 @@ int wl_cfg80211_set_btcoex_dhcp(struct net_device *dev, char *command)
 
 	}
 	else {
-		WL_ERR(("%s Unkwown yet power setting, ignored\n",
-			__FUNCTION__));
+		WL_ERR(("Unkwown yet power setting, ignored\n"));
 	}
 
 	snprintf(command, 3, "OK");
 
 	return (strlen("OK"));
 }
+#endif 
