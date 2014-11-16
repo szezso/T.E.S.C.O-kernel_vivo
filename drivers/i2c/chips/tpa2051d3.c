@@ -25,7 +25,7 @@
 #include <linux/input.h>
 #include <linux/workqueue.h>
 #include <linux/freezer.h>
-#include <mach/tpa2051d3.h>
+#include <linux/tpa2051d3.h>
 #include <linux/mutex.h>
 
 #include <linux/gpio.h>

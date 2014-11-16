@@ -102,7 +102,7 @@
 #include "smd_private.h"
 #include <linux/bma150.h>
 #include "board-vivo.h"
-#include <mach/tpa2051d3.h>
+#include <linux/tpa2051d3.h>
 #include "board-msm7x30-regulator.h"
 #include <mach/board_htc.h>
 
