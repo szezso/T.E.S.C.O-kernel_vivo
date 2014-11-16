@@ -20,7 +20,7 @@
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 #include <linux/spi/spi.h>
-#include <linux/spi/spi_aic3254.h>
+#include <linux/spi_aic3254.h>
 #include <linux/spi/spi_aic3254_reg.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
