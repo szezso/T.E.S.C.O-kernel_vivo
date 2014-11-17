@@ -419,3 +419,4 @@ header-y += msm_vidc_enc.h
 header-y += spi_aic3254.h
 header-y += tpa2051d3.h
 header-y += thread_info.h
+header-y += bitops.h
