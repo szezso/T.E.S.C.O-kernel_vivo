@@ -3,3 +3,4 @@ include include/asm-generic/Kbuild.asm
 header-y += hwcap.h
 header-y += current.h
 header-y += bitops.h
+header-y += thread_info.h
