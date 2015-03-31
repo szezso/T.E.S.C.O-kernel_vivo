@@ -94,7 +94,6 @@ extern struct panel_icm_info *panel_icm;
 extern wait_queue_head_t panel_update_wait_queue;
 #endif
 
-static int is_mdp_clock_192HZ = 0;
 static int z_order_change = 0;
 #ifdef CONFIG_FB_MSM_LCDC
 static void mdp4_reset_mdp_clk(struct work_struct *w);
