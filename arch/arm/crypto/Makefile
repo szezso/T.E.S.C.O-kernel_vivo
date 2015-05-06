@@ -6,11 +6,6 @@ obj-$(CONFIG_CRYPTO_AES_ARM) += aes-arm.o
 obj-$(CONFIG_CRYPTO_AES_ARM_BS) += aes-arm-bs.o
 obj-$(CONFIG_CRYPTO_SHA1_ARM) += sha1-arm.o
 
-<<<<<<< HEAD
-aes-arm-y  := aes-armv4.o aes_glue.o
-sha1-arm-y := sha1-armv4-large.o sha1_glue.o
-
-=======
 aes-arm-y	:= aes-armv4.o aes_glue.o
 aes-arm-bs-y	:= aesbs-core.o aesbs-glue.o
 sha1-arm-y	:= sha1-armv4-large.o sha1_glue.o
@@ -22,4 +17,3 @@ $(src)/aesbs-core.S_shipped: $(src)/bsaes-armv7.pl
 	$(call cmd,perl)
 
 .PRECIOUS: $(obj)/aesbs-core.S
->>>>>>> 9032c08... ARM: add support for bit sliced AES using NEON instructions
