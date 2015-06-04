@@ -426,9 +426,6 @@ struct station_parameters {
  * @STATION_INFO_RX_BITRATE: @rxrate fields are filled
  * @STATION_INFO_BSS_PARAM: @bss_param filled
  * @STATION_INFO_CONNECTED_TIME: @connected_time filled
- * @STATION_INFO_ASSOC_REQ_IES: @assoc_req_ies filled
- * @STATION_INFO_STA_FLAGS: @sta_flags filled
- * @STATION_INFO_BEACON_LOSS_COUNT: @beacon_loss_count filled
  */
 enum station_info_flags {
 	STATION_INFO_INACTIVE_TIME	= 1<<0,
@@ -447,10 +444,7 @@ enum station_info_flags {
 	STATION_INFO_SIGNAL_AVG		= 1<<13,
 	STATION_INFO_RX_BITRATE		= 1<<14,
 	STATION_INFO_BSS_PARAM          = 1<<15,
-	STATION_INFO_CONNECTED_TIME	= 1<<16,
-	STATION_INFO_ASSOC_REQ_IES	= 1<<17,
-	STATION_INFO_STA_FLAGS		= 1<<18,
-	STATION_INFO_BEACON_LOSS_COUNT	= 1<<19
+	STATION_INFO_CONNECTED_TIME	= 1<<16
 };
 
 /**
@@ -528,10 +522,8 @@ struct sta_bss_parameters {
  * @llid: mesh local link id
  * @plid: mesh peer link id
  * @plink_state: mesh peer link state
- * @signal: the signal strength, type depends on the wiphy's signal_type
-	NOTE: For CFG80211_SIGNAL_TYPE_MBM, value is expressed in _dBm_.
- * @signal_avg: avg signal strength, type depends on the wiphy's signal_type
-	NOTE: For CFG80211_SIGNAL_TYPE_MBM, value is expressed in _dBm_.
+ * @signal: signal strength of last received packet in dBm
+ * @signal_avg: signal strength average in dBm
  * @txrate: current unicast bitrate from this station
  * @rxrate: current unicast bitrate to this station
  * @rx_packets: packets received from this station
@@ -544,13 +536,6 @@ struct sta_bss_parameters {
  *	This number should increase every time the list of stations
  *	changes, i.e. when a station is added or removed, so that
  *	userspace can tell whether it got a consistent snapshot.
- * @assoc_req_ies: IEs from (Re)Association Request.
- *	This is used only when in AP mode with drivers that do not use
- *	user space MLME/SME implementation. The information is provided for
- *	the cfg80211_new_sta() calls to notify user space of the IEs.
- * @assoc_req_ies_len: Length of assoc_req_ies buffer in octets.
- * @sta_flags: station flags mask & values
- * @beacon_loss_count: Number of times beacon loss event has triggered.
  */
 struct station_info {
 	u32 filled;
@@ -571,17 +556,8 @@ struct station_info {
 	u32 tx_failed;
 	u32 rx_dropped_misc;
 	struct sta_bss_parameters bss_param;
-	struct nl80211_sta_flag_update sta_flags;
 
 	int generation;
-
-	const u8 *assoc_req_ies;
-	size_t assoc_req_ies_len;
-	u32 beacon_loss_count;
-	/*
-	 * Note: Add a new enum station_info_flags value for each new field and
-	 * use it to check which fields are initialized.
-	 */
 };
 
 /**

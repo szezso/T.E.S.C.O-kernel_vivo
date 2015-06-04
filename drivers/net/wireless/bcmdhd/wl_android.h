@@ -1,9 +1,9 @@
 /*
  * Linux cfg80211 driver - Android related functions
  *
- * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 1999-2011, Broadcom Corporation
  * 
- *      Unless you and Broadcom execute a separate written software license
+ *         Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -21,18 +21,12 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wl_android.h 367305 2012-11-07 13:49:55Z $
+ * $Id: wl_android.c,v 1.1.4.1.2.14 2011/02/09 01:40:07 Exp $
  */
 
 #include <linux/module.h>
 #include <linux/netdevice.h>
 #include <wldev_common.h>
-
-/* If any feature uses the Generic Netlink Interface, put it here to enable WL_GENL
- * automatically
- */
-
-
 
 /**
  * Android platform dependent functions, feel free to add Android specific functions here

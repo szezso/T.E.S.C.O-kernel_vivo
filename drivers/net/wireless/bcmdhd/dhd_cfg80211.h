@@ -1,9 +1,9 @@
 /*
  * Linux cfg80211 driver - Dongle Host Driver (DHD) related
  *
- * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 1999-2011, Broadcom Corporation
  * 
- *      Unless you and Broadcom execute a separate written software license
+ *         Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -34,18 +34,7 @@
 s32 dhd_cfg80211_init(struct wl_priv *wl);
 s32 dhd_cfg80211_deinit(struct wl_priv *wl);
 s32 dhd_cfg80211_down(struct wl_priv *wl);
-s32 dhd_cfg80211_set_p2p_info(struct wl_priv *wl, int val);
-s32 dhd_cfg80211_clean_p2p_info(struct wl_priv *wl);
 s32 dhd_config_dongle(struct wl_priv *wl, bool need_lock);
-
-#ifdef CONFIG_NL80211_TESTMODE
-int dhd_cfg80211_testmode_cmd(struct wiphy *wiphy, void *data, int len);
-#else
-static inline int dhd_cfg80211_testmode_cmd(struct wiphy *wiphy, void *data, int len)
-{
-	return 0;
-}
-#endif
 
 int wl_cfg80211_btcoex_init(struct wl_priv *wl);
 void wl_cfg80211_btcoex_deinit(struct wl_priv *wl);
